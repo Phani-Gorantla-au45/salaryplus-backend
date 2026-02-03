@@ -1,5 +1,5 @@
 import axios from "axios";
-import Kyc from "./kyc.model.js";
+import Kyc from "../../models/kyc.model.js";
 
 export const verifyPan = async (req, res) => {
   try {

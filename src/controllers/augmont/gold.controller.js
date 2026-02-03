@@ -1,7 +1,7 @@
 import axios from "axios";
 import qs from "qs";
-import Gold from "./gold.model.js";
-import RegistrationUser from "../registration/registration.model.js";
+import Gold from "../../models/gold.model.js";
+import RegistrationUser from "../../models/registration.model.js";
 
 export const createGoldAccount = async (req, res) => {
   try {
@@ -20,7 +20,7 @@ export const createGoldAccount = async (req, res) => {
 
     // 🔥 Augmont API call
     const response = await axios.post(
-      process.env.AUG_URL,
+      `${process.env.AUG_URL}/merchant/v1/users`,
       qs.stringify({
         uniqueId: user.uniqueId,
         mobileNumber: user.phone,

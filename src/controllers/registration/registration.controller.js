@@ -1,4 +1,4 @@
-import User from "./registration.model.js";
+import User from "../../models/registration.model.js";
 import axios from "axios";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";

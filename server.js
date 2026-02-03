@@ -2,10 +2,10 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./src/config/db.js";
-import registrationRoutes from "./src/modules/registration/registration.routes.js";
-import goldRoutes from "./src/modules/goldAccount/gold.routes.js";
-import masterRoutes from "./src/modules/augmontMaster/master.routes.js";
-import kycRoutes from "./src/modules/kyc/kyc.routes.js";
+import registrationRoutes from "./src/routes/registration.routes.js";
+import goldRoutes from "./src/routes/gold.routes.js";
+import masterRoutes from "./src/routes/master.routes.js";
+import kycRoutes from "./src/routes/kyc.routes.js";
 dotenv.config(); // Load env FIRST
 
 const app = express();

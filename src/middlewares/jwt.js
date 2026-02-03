@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import RegistrationUser from "../modules/registration/registration.model.js";
+import RegistrationUser from "../models/registration.model.js";
 
 export const auth = async (req, res, next) => {
   try {
