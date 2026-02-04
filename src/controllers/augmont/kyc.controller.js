@@ -1,6 +1,6 @@
 import axios from "axios";
 import Kyc from "../../models/kyc.model.js";
-
+import { v4 as uuidv4 } from "uuid";
 export const verifyPan = async (req, res) => {
   try {
     const { pan } = req.body;
@@ -62,6 +62,48 @@ export const verifyPan = async (req, res) => {
       id: process.env.CASHFREE_CLIENT_ID,
       secret: process.env.CASHFREE_SECRET_KEY,
     });
+    res.status(500).json({ message: "PAN verification failed" });
+  }
+};
+export const verifyfullPan = async (req, res) => {
+  try {
+    const { pan, name, dob } = req.body;
+
+    // 🔍 Validations
+    if (!pan || !name || !dob)
+      return res.status(400).json({ message: "pan, name, dob required" });
+
+    const verification_id = uuidv4().slice(0, 12); // <= 50 chars
+
+    const response = await axios.post(
+      "https://sandbox.cashfree.com/verification/pan-lite",
+      {
+        verification_id,
+        pan,
+        name,
+        dob,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-client-id": process.env.CASHFREE_CLIENT_ID,
+          "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
+        },
+      },
+    );
+
+    const data = response.data;
+
+    res.json({
+      message: "PAN verification result",
+      panStatus: data.pan_status,
+      nameMatch: data.name_match,
+      dobMatch: data.dob_match,
+      aadhaarLinked: data.aadhaar_seeding_status,
+      fullResponse: data,
+    });
+  } catch (err) {
+    console.error("PAN ERROR:", err.response?.data || err.message);
     res.status(500).json({ message: "PAN verification failed" });
   }
 };

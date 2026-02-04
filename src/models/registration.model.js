@@ -26,6 +26,7 @@ const registrationSchema = new mongoose.Schema(
       trim: true,
       match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
     },
+    panVerified: { type: Boolean, default: false },
 
     stateId: String,
     otp: String,
