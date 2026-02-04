@@ -1,8 +1,11 @@
 import mongoose from "mongoose";
 
 const rateSchema = new mongoose.Schema({
-  goldRate: Number,
-  silverRate: Number,
+  gBuy: Number,
+  gSell: Number,
+  sBuy: Number,
+  sSell: Number,
+  blockId: String,
   updatedAt: { type: Date, default: Date.now },
 });
 

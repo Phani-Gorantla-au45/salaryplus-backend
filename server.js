@@ -6,6 +6,7 @@ import registrationRoutes from "./src/routes/registration.routes.js";
 import goldRoutes from "./src/routes/gold.routes.js";
 import masterRoutes from "./src/routes/master.routes.js";
 import kycRoutes from "./src/routes/kyc.routes.js";
+import augmontRoutes from "./src/routes/augmont.routes.js";
 dotenv.config(); // Load env FIRST
 
 const app = express();
@@ -22,5 +23,6 @@ app.use("/api/registration", registrationRoutes);
 app.use("/api/gold", goldRoutes);
 app.use("/api/augmont/master", masterRoutes);
 app.use("/api/kyc/", kycRoutes);
+app.use(augmontRoutes);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
