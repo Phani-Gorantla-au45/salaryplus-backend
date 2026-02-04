@@ -76,7 +76,7 @@ export const verifyfullPan = async (req, res) => {
     const verification_id = uuidv4().slice(0, 12); // <= 50 chars
 
     const response = await axios.post(
-      "https://sandbox.cashfree.com/verification/pan-lite",
+      `${process.env.CASHFREE_URL}/verification/pan-lite`,
       {
         verification_id,
         pan,
@@ -86,8 +86,8 @@ export const verifyfullPan = async (req, res) => {
       {
         headers: {
           "Content-Type": "application/json",
-          "x-client-id": process.env.CASHFREE_CLIENT_ID,
-          "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
+          "x-client-id": process.env.CASHFREE_PAN_CLIENT_ID,
+          "x-client-secret": process.env.CASHFREE_PAN_CLIENT_SECRET,
         },
       },
     );
