@@ -50,7 +50,7 @@ export const buyMetal = async (req, res) => {
         Accept: "application/json",
       },
     });
-
+    console.log("RATE RESPONSE:", rateRes.data);
     const rates = rateRes.data.result?.data?.rates;
     const blockId = rateRes.data.result?.data?.blockId;
 
