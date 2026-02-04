@@ -12,13 +12,12 @@ export const createGoldAccount = async (req, res) => {
     if (!firstName || !lastName || !email || !userName)
       return res.status(400).json({ message: "Missing required fields" });
 
-    // 🔥 Trusted data from DB
+    // 🔹 Fetch verified user
     const user = await RegistrationUser.findById(req.user.id);
-
     if (!user?.uniqueId || !user?.stateId || !user?.phone)
       return res.status(400).json({ message: "Complete registration first" });
 
-    // 🔥 Augmont API call
+    // 🔹 Call :contentReference[oaicite:0]{index=0} API
     const response = await axios.post(
       `${process.env.AUG_URL}/merchant/v1/users`,
       qs.stringify({
@@ -26,7 +25,7 @@ export const createGoldAccount = async (req, res) => {
         mobileNumber: user.phone,
         emailId: email,
         userName,
-        userState: user.stateId,
+        userState: user.stateId, // must be Augmont state ID
       }),
       {
         headers: {
@@ -37,7 +36,14 @@ export const createGoldAccount = async (req, res) => {
       },
     );
 
-    // 🔥 Save locally
+    console.log("✅ AUGMONT CREATE USER RESPONSE:", response.data);
+
+    const augData = response.data?.result?.data;
+
+    if (!augData?.customerMappedId)
+      throw new Error("Augmont user ID missing in response");
+
+    // 🔹 Save locally with correct Augmont ID
     const goldUser = await Gold.create({
       uniqueId: user.uniqueId,
       firstName,
@@ -46,12 +52,18 @@ export const createGoldAccount = async (req, res) => {
       phone: user.phone,
       userState: user.stateId,
       userName,
-      augmontUserId: response.data.result?.userId,
+      augmontUserId: augData.customerMappedId, // ⭐ IMPORTANT FIX
     });
 
-    res.status(201).json({ message: "Gold account created", goldUser });
+    res.status(201).json({
+      message: "Gold account created",
+      goldUser,
+    });
   } catch (err) {
-    console.error("GOLD ERROR:", err.response?.data || err.message);
-    res.status(500).json({ message: "Gold creation failed" });
+    console.error("❌ GOLD ERROR:", err.response?.data || err.message);
+    res.status(500).json({
+      message: "Gold creation failed",
+      error: err.response?.data || err.message,
+    });
   }
 };

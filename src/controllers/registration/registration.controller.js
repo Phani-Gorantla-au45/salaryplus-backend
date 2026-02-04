@@ -1,4 +1,5 @@
 import User from "../../models/registration.model.js";
+import State from "../../models/state.model.js";
 import axios from "axios";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -91,27 +92,38 @@ export const verifyOtp = async (req, res) => {
 /* ---------------- COMPLETE REGISTRATION ---------------- */
 export const completeRegistration = async (req, res) => {
   try {
-    const { First_name, Last_name, email, stateId } = req.body;
+    const { First_name, Last_name, email, stateName } = req.body;
     const userId = req.user.id;
 
+    // 🔥 1. Fetch user FIRST
     const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
     if (!user.isVerified)
       return res.status(401).json({ message: "OTP not verified" });
 
     if (user.uniqueId)
       return res.status(400).json({ message: "Already registered" });
 
-    user.uniqueId = uuidv4(); // 🔥 GENERATED HERE
+    // 🔥 2. Map state name → Augmont stateId
+    const augState = await State.findOne({ name: stateName });
+    if (!augState)
+      return res.status(400).json({ message: "Invalid state selected" });
+
+    // 🔥 3. Assign values
+    user.uniqueId =
+      "U" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
     user.First_name = First_name;
     user.Last_name = Last_name;
     user.email = email;
-    user.stateId = stateId;
+    user.stateId = augState.stateId; // ✅ CORRECT VALUE
 
     await user.save();
 
     res.json({
       message: "Registration completed",
-      uniqueId: user.uniqueId, // frontend can store if needed
+      uniqueId: user.uniqueId,
     });
   } catch (err) {
     console.error(err.response?.data || err.message);
