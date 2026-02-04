@@ -100,8 +100,19 @@ export const buyMetal = async (req, res) => {
 
     console.log("✅ BUY RESPONSE:", JSON.stringify(response.data, null, 2));
 
-    txn.augmontOrderId = response.data?.result?.data?.transactionId;
+    const data = response.data.result.data;
+
+    txn.augmontOrderId = data.transactionId;
+    txn.rate = parseFloat(data.rate);
+    txn.totalAmount = parseFloat(data.totalAmount);
+    txn.preTaxAmount = parseFloat(data.preTaxAmount);
+    txn.taxAmount = parseFloat(data.taxes?.totalTaxAmount);
+    txn.invoiceNumber = data.invoiceNumber;
+    txn.goldBalance = parseFloat(data.goldBalance);
+    txn.silverBalance = parseFloat(data.silverBalance);
+
     txn.status = "SUCCESS";
+
     await txn.save();
 
     res.json({

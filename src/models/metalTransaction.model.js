@@ -5,11 +5,23 @@ const metalTxnSchema = new mongoose.Schema({
   userId: mongoose.Schema.Types.ObjectId,
   uniqueId: String,
   metalType: String,
+
   quantity: Number,
   amount: Number,
-  lockPrice: Number,
+  rate: Number,
+
+  totalAmount: Number,
+  preTaxAmount: Number,
+  taxAmount: Number,
+
   merchantTransactionId: String,
   augmontOrderId: String,
+  invoiceNumber: String,
+
+  goldBalance: Number,
+  silverBalance: Number,
+
+  lockPrice: Number,
   status: { type: String, default: "PENDING" },
   createdAt: { type: Date, default: Date.now },
 });
