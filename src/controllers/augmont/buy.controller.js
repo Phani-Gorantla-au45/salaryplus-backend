@@ -11,8 +11,14 @@ export const buyMetal = async (req, res) => {
     if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
 
     const user = await RegistrationUser.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    // 🔹 VALIDATIONS
+    console.log("👤 USER:", {
+      uniqueId: user.uniqueId,
+      phone: user.phone,
+    });
+
+    // ---------------- VALIDATIONS ----------------
     if (!metalType)
       return res.status(400).json({ message: "metalType required" });
 
@@ -24,24 +30,7 @@ export const buyMetal = async (req, res) => {
     if (!["gold", "silver"].includes(metalType))
       return res.status(400).json({ message: "Invalid metalType" });
 
-    if (quantity && (isNaN(quantity) || quantity <= 0))
-      return res.status(400).json({ message: "Invalid quantity" });
-
-    if (amount && (isNaN(amount) || amount <= 0))
-      return res.status(400).json({ message: "Invalid amount" });
-
-    if (metalType === "gold" && quantity > 1000)
-      return res.status(400).json({ message: "Gold max 1000g" });
-
-    if (metalType === "silver" && quantity > 20000)
-      return res.status(400).json({ message: "Silver max 20000g" });
-
-    if (amount && amount > 5000000)
-      return res.status(400).json({ message: "Amount limit exceeded" });
-
-    const merchantTransactionId = uuidv4();
-
-    // 🔥 STEP 1 — FETCH FRESH RATE FROM AUGMONT
+    // ---------------- STEP 1: GET TRADING RATES ----------------
     const rateUrl = `${process.env.AUG_URL}/merchant/v1/rates`;
 
     const rateRes = await axios.get(rateUrl, {
@@ -50,17 +39,29 @@ export const buyMetal = async (req, res) => {
         Accept: "application/json",
       },
     });
-    console.log("RATE RESPONSE:", rateRes.data);
-    const rates = rateRes.data.result?.data?.rates;
-    const blockId = rateRes.data.result?.data?.blockId;
 
-    if (!rates || !blockId)
-      return res.status(400).json({ message: "Failed to fetch live rate" });
+    console.log("📊 RATE RESPONSE:", JSON.stringify(rateRes.data, null, 2));
+
+    const rateData = rateRes.data.result?.data;
+    const rates = rateData?.rates;
+    const blockId = rateData?.blockId;
+
+    console.log("🧱 BLOCK ID:", blockId);
+    console.log("💰 RATES OBJECT:", rates);
 
     const lockPrice =
-      metalType === "gold" ? parseFloat(rates.gBuy) : parseFloat(rates.sBuy);
+      metalType === "gold" ? parseFloat(rates?.gBuy) : parseFloat(rates?.sBuy);
 
-    // 💾 STEP 2 — SAVE TRANSACTION
+    console.log("🔒 LOCK PRICE:", lockPrice);
+
+    if (!blockId || isNaN(lockPrice))
+      return res
+        .status(400)
+        .json({ message: "Failed to fetch valid rate data" });
+
+    // ---------------- STEP 2: SAVE TXN ----------------
+    const merchantTransactionId = uuidv4().replace(/-/g, "").slice(0, 30);
+
     const txn = await MetalTxn.create({
       userId: user._id,
       uniqueId: user.uniqueId,
@@ -73,7 +74,7 @@ export const buyMetal = async (req, res) => {
       status: "PENDING",
     });
 
-    // 🔥 STEP 3 — CALL BUY API
+    // ---------------- STEP 3: CALL BUY API ----------------
     const buyUrl = `${process.env.AUG_URL}/merchant/v1/buy`;
 
     const payload = {
@@ -87,6 +88,8 @@ export const buyMetal = async (req, res) => {
     if (quantity) payload.quantity = quantity;
     if (amount) payload.amount = amount;
 
+    console.log("🚀 BUY PAYLOAD:", payload);
+
     const response = await axios.post(buyUrl, qs.stringify(payload), {
       headers: {
         Authorization: `Bearer ${process.env.AUGMONT_TOKEN}`,
@@ -95,7 +98,9 @@ export const buyMetal = async (req, res) => {
       },
     });
 
-    txn.augmontOrderId = response.data?.result?.orderId;
+    console.log("✅ BUY RESPONSE:", JSON.stringify(response.data, null, 2));
+
+    txn.augmontOrderId = response.data?.result?.data?.transactionId;
     txn.status = "SUCCESS";
     await txn.save();
 
@@ -105,7 +110,7 @@ export const buyMetal = async (req, res) => {
       txn,
     });
   } catch (err) {
-    console.error("BUY ERROR:", err.response?.data || err.message);
+    console.error("❌ BUY ERROR:", err.response?.data || err.message);
     res.status(500).json({ message: "Purchase failed" });
   }
 };
