@@ -19,5 +19,5 @@ router.post("/add-address", auth, createUserAddress);
 router.get("/list", auth, getUserAddressList);
 router.delete("/delete/:addressId", auth, deleteUserAddress);
 router.post("/ordergold", auth, createOrder);
-router.get("getpassbook", auth, getPassbook);
+router.get("/getpassbook", auth, getPassbook);
 export default router;

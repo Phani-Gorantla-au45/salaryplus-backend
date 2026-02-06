@@ -7,14 +7,15 @@ cron.schedule("*/5 * * * *", async () => {
   console.log("⏳ Fetching metal rates from Augmont...");
 
   try {
-    const response = await axios({
-      method: "GET",
-      url: `${process.env.AUG_URL}/merchant/v1/rates`,
-      headers: {
-        Authorization: `Bearer ${process.env.AUGMONT_TOKEN}`,
-        Accept: "application/json",
+    const response = await axios.get(
+      `${process.env.AUG_URL}/merchant/v1/rates`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.AUGMONT_TOKEN}`,
+          Accept: "application/json",
+        },
       },
-    });
+    );
 
     const data = response.data.result?.data;
     const rates = data?.rates;
@@ -30,32 +31,36 @@ cron.schedule("*/5 * * * *", async () => {
     const sBuy = parseFloat(rates.sBuy);
     const sSell = parseFloat(rates.sSell);
 
-    await Rates.create({ gBuy, gSell, sBuy, sSell, blockId });
+    // 🔁 FIND EXISTING RATE (ONLY ONE DOC)
+    let rateDoc = await Rates.findOne();
+
+    if (!rateDoc) {
+      // Create once
+      rateDoc = new Rates();
+    }
+
+    // 🔄 UPDATE VALUES
+    rateDoc.gBuy = gBuy;
+    rateDoc.gSell = gSell;
+    rateDoc.sBuy = sBuy;
+    rateDoc.sSell = sSell;
+    rateDoc.blockId = blockId;
+    rateDoc.updatedAt = new Date();
+
+    await rateDoc.save();
 
     console.log("✅ Rates updated:", gBuy, gSell, sBuy, sSell, blockId);
   } catch (err) {
-    console.error("❌ Rate fetch failed:");
-    console.error("Status:", err.response?.status);
-    console.error("Data:", err.response?.data);
+    console.error("❌ Rate fetch failed:", err.response?.data || err.message);
   }
 });
-
-/* ---------------- GET RATES API (READ FROM DB) ---------------- */
 export const getRates = async (req, res) => {
   try {
-    const rate = await Rates.findOne().sort({ updatedAt: -1 });
+    const rate = await Rates.findOne();
 
     if (!rate) {
       return res.status(404).json({ message: "Rates not available" });
     }
-
-    console.log(
-      "✅ Rate fetched:",
-      rate.gBuy,
-      rate.gSell,
-      rate.sBuy,
-      rate.sSell,
-    );
 
     res.json({
       gBuy: rate.gBuy,

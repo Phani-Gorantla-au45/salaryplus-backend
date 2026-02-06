@@ -4,10 +4,11 @@ import { v4 as uuidv4 } from "uuid";
 import MetalTxn from "../../models/metalTransaction.model.js";
 import RegistrationUser from "../../models/registration.model.js";
 import Bank from "../../models/bank.model.js";
+import Rate from "../../models/rateModel.js";
 
 export const buyMetal = async (req, res) => {
   try {
-    const { metalType, quantity, amount } = req.body;
+    const { metalType, quantity, amount, lockPrice, blockId } = req.body;
 
     if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
 
@@ -31,34 +32,33 @@ export const buyMetal = async (req, res) => {
     if (!["gold", "silver"].includes(metalType))
       return res.status(400).json({ message: "Invalid metalType" });
 
-    // ---------------- STEP 1: GET TRADING RATES ----------------
-    const rateUrl = `${process.env.AUG_URL}/merchant/v1/rates`;
+    // ---------------- STEP 1: VALIDATE RATES FROM DB ----------------
 
-    const rateRes = await axios.get(rateUrl, {
-      headers: {
-        Authorization: `Bearer ${process.env.AUGMONT_TOKEN}`,
-        Accept: "application/json",
-      },
-    });
+    if (!lockPrice || !blockId)
+      return res.status(400).json({ message: "lockPrice & blockId required" });
+    const rate = await Rate.findOne().sort({ createdAt: -1 });
+    // const rate = await Rate.findOne({ status: "ACTIVE" }).sort({
+    //   createdAt: -1,
+    // });
 
-    console.log("📊 RATE RESPONSE:", JSON.stringify(rateRes.data, null, 2));
+    if (!rate) return res.status(400).json({ message: "Rates not available" });
 
-    const rateData = rateRes.data.result?.data;
-    const rates = rateData?.rates;
-    const blockId = rateData?.blockId;
-
-    console.log("🧱 BLOCK ID:", blockId);
-    console.log("💰 RATES OBJECT:", rates);
-
-    const lockPrice =
-      metalType === "gold" ? parseFloat(rates?.gBuy) : parseFloat(rates?.sBuy);
-
-    console.log("🔒 LOCK PRICE:", lockPrice);
-
-    if (!blockId || isNaN(lockPrice))
+    // 🔐 VALIDATE BLOCK ID
+    if (rate.blockId !== blockId)
       return res
         .status(400)
-        .json({ message: "Failed to fetch valid rate data" });
+        .json({ message: "Rate expired. Fetch new price." });
+
+    // 🔐 VALIDATE PRICE
+    const dbPrice = metalType === "gold" ? rate.gBuy : rate.sBuy;
+
+    const diff = Math.abs(Number(lockPrice) - Number(dbPrice));
+    if (diff > 0.01)
+      return res.status(400).json({
+        message: "Price mismatch. Please refresh price.",
+      });
+
+    console.log("🔒 LOCK PRICE:", lockPrice);
 
     // ---------------- STEP 2: SAVE TXN ----------------
     const merchantTransactionId = uuidv4().replace(/-/g, "").slice(0, 30);
@@ -128,6 +128,122 @@ export const buyMetal = async (req, res) => {
   }
 };
 
+// export const sellMetal = async (req, res) => {
+//   try {
+//     const { metalType, quantity, amount, userBankId } = req.body;
+
+//     if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+
+//     const user = await RegistrationUser.findById(req.user.id);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     if (!["gold", "silver"].includes(metalType))
+//       return res.status(400).json({ message: "Invalid metalType" });
+
+//     if ((quantity && amount) || (!quantity && !amount))
+//       return res.status(400).json({ message: "Pass quantity OR amount" });
+
+//     console.log("👤 SELL USER:", user.uniqueId);
+
+//     // 🔹 STEP 1: GET SELL RATE
+//     const rateRes = await axios.get(
+//       `${process.env.AUG_URL}/merchant/v1/rates`,
+//       {
+//         headers: {
+//           Authorization: `Bearer ${process.env.AUGMONT_TOKEN}`,
+//           Accept: "application/json",
+//         },
+//       },
+//     );
+
+//     const rateData = rateRes.data.result.data;
+//     const lockPrice =
+//       metalType === "gold"
+//         ? parseFloat(rateData.rates.gSell)
+//         : parseFloat(rateData.rates.sSell);
+
+//     const blockId = rateData.blockId;
+
+//     console.log("💰 SELL LOCK PRICE:", lockPrice);
+
+//     const merchantTransactionId = uuidv4().replace(/-/g, "").slice(0, 30);
+//     const bank = await Bank.findOne({
+//       userId: user._id,
+//       status: "ACTIVE",
+//     });
+
+//     if (!bank || !bank.augmontBankId)
+//       return res.status(400).json({ message: "No active bank linked" });
+
+//     console.log("🏦 BANK FROM DB:", bank.augmontBankId);
+
+//     // 🔹 SAVE PENDING TXN
+//     const txn = await MetalTxn.create({
+//       userId: user._id,
+//       uniqueId: user.uniqueId,
+//       txnType: "SELL",
+//       metalType,
+//       quantity,
+//       amount,
+//       lockPrice,
+//       blockId,
+//       payoutBankId: userBankId,
+//       merchantTransactionId,
+//       status: "PENDING",
+//     });
+
+//     // 🔥 STEP 2: CALL SELL API
+//     const payload = {
+//       uniqueId: user.uniqueId,
+//       metalType,
+//       lockPrice,
+//       blockId,
+//       merchantTransactionId,
+//     };
+
+//     if (quantity) payload.quantity = quantity;
+//     if (amount) payload.amount = amount;
+
+//     payload["userBank[userBankId]"] = bank.augmontBankId; // ✅ FROM DB
+
+//     console.log("🚀 SELL PAYLOAD:", payload);
+
+//     const response = await axios.post(
+//       `${process.env.AUG_URL}/merchant/v1/sell`,
+//       qs.stringify(payload),
+//       {
+//         headers: {
+//           Authorization: `Bearer ${process.env.AUGMONT_TOKEN}`,
+//           Accept: "application/json",
+//           "Content-Type": "application/x-www-form-urlencoded",
+//         },
+//       },
+//     );
+
+//     console.log("✅ SELL SUCCESS:", response.data);
+
+//     const data = response.data.result.data;
+
+//     txn.rate = parseFloat(data.rate);
+//     txn.totalAmount = parseFloat(data.totalAmount);
+//     txn.goldBalance = parseFloat(data.goldBalance);
+//     txn.silverBalance = parseFloat(data.silverBalance);
+//     txn.providerStatus = response.data.message; // ⭐ ADD
+//     txn.status = "SUCCESS";
+//     txn.augmontOrderId = data.transactionId;
+
+//     await txn.save();
+
+//     res.json({
+//       message: "Sell successful",
+//       payoutAmount: response.data.result.data.totalAmount,
+//       txn,
+//     });
+//   } catch (err) {
+//     console.error("❌ SELL ERROR:", err.response?.data || err.message);
+//     res.status(500).json({ message: "Sell failed", error: err.response?.data });
+//   }
+// };
 export const sellMetal = async (req, res) => {
   try {
     const { metalType, quantity, amount, userBankId } = req.body;
@@ -145,7 +261,58 @@ export const sellMetal = async (req, res) => {
 
     console.log("👤 SELL USER:", user.uniqueId);
 
-    // 🔹 STEP 1: GET SELL RATE
+    /* --------------------------------------------------
+       🔐 STEP 0: SELL ELIGIBILITY CHECK (NEW)
+    -------------------------------------------------- */
+
+    // 1️⃣ Fetch BUY txns (oldest first)
+    const buyTxns = await MetalTxn.find({
+      userId: user._id,
+      metalType,
+      txnType: "BUY",
+      status: "SUCCESS",
+    }).sort({ createdAt: 1 });
+
+    if (!buyTxns.length) {
+      return res.status(400).json({
+        message: "No metal available to sell",
+      });
+    }
+
+    // 2️⃣ Fetch SELL txns
+    const sellTxns = await MetalTxn.find({
+      userId: user._id,
+      metalType,
+      txnType: "SELL",
+      status: "SUCCESS",
+    });
+
+    const totalSoldQty = sellTxns.reduce(
+      (sum, t) => sum + (t.quantity || 0),
+      0,
+    );
+
+    // 3️⃣ Rule: only FIRST BUY lot is sellable
+    const firstBuyQty = buyTxns[0].quantity;
+
+    const eligibleQty = firstBuyQty - totalSoldQty;
+
+    if (eligibleQty <= 0) {
+      return res.status(400).json({
+        message: "No eligible quantity available for selling",
+      });
+    }
+
+    if (quantity && quantity > eligibleQty) {
+      return res.status(400).json({
+        message: `You can sell only ${eligibleQty} gram at this time`,
+      });
+    }
+
+    /* --------------------------------------------------
+       🔹 STEP 1: GET SELL RATE (UNCHANGED)
+    -------------------------------------------------- */
+
     const rateRes = await axios.get(
       `${process.env.AUG_URL}/merchant/v1/rates`,
       {
@@ -167,6 +334,7 @@ export const sellMetal = async (req, res) => {
     console.log("💰 SELL LOCK PRICE:", lockPrice);
 
     const merchantTransactionId = uuidv4().replace(/-/g, "").slice(0, 30);
+
     const bank = await Bank.findOne({
       userId: user._id,
       status: "ACTIVE",
@@ -175,9 +343,10 @@ export const sellMetal = async (req, res) => {
     if (!bank || !bank.augmontBankId)
       return res.status(400).json({ message: "No active bank linked" });
 
-    console.log("🏦 BANK FROM DB:", bank.augmontBankId);
+    /* --------------------------------------------------
+       🔹 SAVE PENDING TXN
+    -------------------------------------------------- */
 
-    // 🔹 SAVE PENDING TXN
     const txn = await MetalTxn.create({
       userId: user._id,
       uniqueId: user.uniqueId,
@@ -192,7 +361,10 @@ export const sellMetal = async (req, res) => {
       status: "PENDING",
     });
 
-    // 🔥 STEP 2: CALL SELL API
+    /* --------------------------------------------------
+       🔥 STEP 2: CALL SELL API
+    -------------------------------------------------- */
+
     const payload = {
       uniqueId: user.uniqueId,
       metalType,
@@ -204,7 +376,7 @@ export const sellMetal = async (req, res) => {
     if (quantity) payload.quantity = quantity;
     if (amount) payload.amount = amount;
 
-    payload["userBank[userBankId]"] = bank.augmontBankId; // ✅ FROM DB
+    payload["userBank[userBankId]"] = bank.augmontBankId;
 
     console.log("🚀 SELL PAYLOAD:", payload);
 
@@ -220,15 +392,13 @@ export const sellMetal = async (req, res) => {
       },
     );
 
-    console.log("✅ SELL SUCCESS:", response.data);
-
     const data = response.data.result.data;
 
     txn.rate = parseFloat(data.rate);
     txn.totalAmount = parseFloat(data.totalAmount);
     txn.goldBalance = parseFloat(data.goldBalance);
     txn.silverBalance = parseFloat(data.silverBalance);
-    txn.providerStatus = response.data.message; // ⭐ ADD
+    txn.providerStatus = response.data.message;
     txn.status = "SUCCESS";
     txn.augmontOrderId = data.transactionId;
 
@@ -236,11 +406,12 @@ export const sellMetal = async (req, res) => {
 
     res.json({
       message: "Sell successful",
-      payoutAmount: response.data.result.data.totalAmount,
+      payoutAmount: data.totalAmount,
+      eligibleQtyRemaining: eligibleQty - (quantity || 0),
       txn,
     });
   } catch (err) {
     console.error("❌ SELL ERROR:", err.response?.data || err.message);
-    res.status(500).json({ message: "Sell failed", error: err.response?.data });
+    res.status(500).json({ message: "Sell failed" });
   }
 };

@@ -3,6 +3,55 @@ import qs from "qs";
 import Bank from "../../models/bank.model.js";
 import RegistrationUser from "../../models/registration.model.js";
 
+// export const addUserBank = async (req, res) => {
+//   try {
+//     const { accountNumber, accountHolderName, ifscCode } = req.body;
+
+//     if (!accountNumber || !accountHolderName || !ifscCode)
+//       return res.status(400).json({ message: "All bank fields required" });
+
+//     const user = await RegistrationUser.findById(req.user.id);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     // 🔹 Call Augmont
+//     const response = await axios.post(
+//       `${process.env.AUG_URL}/merchant/v1/users/${user.uniqueId}/banks`,
+//       qs.stringify({
+//         accountNumber,
+//         accountName: accountHolderName,
+//         ifscCode,
+//         status: "active",
+//       }),
+//       {
+//         headers: {
+//           Authorization: `Bearer ${process.env.AUGMONT_TOKEN}`,
+//           Accept: "application/json",
+//           "Content-Type": "application/x-www-form-urlencoded",
+//         },
+//       },
+//     );
+
+//     console.log("🏦 AUGMONT BANK RESPONSE:", response.data);
+
+//     const bank = await Bank.create({
+//       userId: user._id,
+//       uniqueId: user.uniqueId,
+//       accountHolderName,
+//       accountNumber,
+//       ifscCode,
+//       augmontBankId: response.data.result?.data?.userBankId,
+//     });
+
+//     res.json({ message: "Bank added successfully", bank });
+//   } catch (err) {
+//     console.error("❌ BANK ERROR:", err.response?.data || err.message);
+//     res.status(500).json({
+//       message: "Bank linking failed",
+//       error: err.response?.data || err.message,
+//     });
+//   }
+// };
+
 export const addUserBank = async (req, res) => {
   try {
     const { accountNumber, accountHolderName, ifscCode } = req.body;
@@ -31,15 +80,28 @@ export const addUserBank = async (req, res) => {
       },
     );
 
-    console.log("🏦 AUGMONT BANK RESPONSE:", response.data);
+    const augmontBankId = response.data.result?.data?.userBankId;
 
+    if (!augmontBankId)
+      return res
+        .status(400)
+        .json({ message: "Failed to link bank with Augmont" });
+
+    // 🔒 IMPORTANT: deactivate old banks
+    await Bank.updateMany(
+      { userId: user._id, status: "ACTIVE" },
+      { status: "INACTIVE" },
+    );
+
+    // ✅ Save new ACTIVE bank
     const bank = await Bank.create({
       userId: user._id,
       uniqueId: user.uniqueId,
       accountHolderName,
       accountNumber,
       ifscCode,
-      augmontBankId: response.data.result?.data?.userBankId,
+      augmontBankId,
+      status: "ACTIVE",
     });
 
     res.json({ message: "Bank added successfully", bank });
@@ -51,6 +113,7 @@ export const addUserBank = async (req, res) => {
     });
   }
 };
+
 export const updateUserBank = async (req, res) => {
   try {
     const { userBankId } = req.params;
