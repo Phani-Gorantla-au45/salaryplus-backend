@@ -1,5 +1,5 @@
 import User from "../../models/registration.model.js";
-import State from "../../models/state.model.js";
+import { AugmontState } from "../../models/state.model.js";
 import axios from "axios";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -106,13 +106,19 @@ export const completeRegistration = async (req, res) => {
       return res.status(400).json({ message: "Already registered" });
 
     // 🔥 2. Map state name → Augmont stateId
-    const augState = await State.findOne({ name: stateName });
+    const augState = await AugmontState.findOne({ name: stateName }); // ✅ FIXED
+
     if (!augState)
       return res.status(400).json({ message: "Invalid state selected" });
+    // 🔹 Strong Unique ID Generator
+    const generateUniqueId = () => {
+      const timePart = Date.now().toString(36); // time component
+      const randomPart = crypto.randomBytes(5).toString("hex"); // strong random
+      return "U" + timePart + randomPart;
+    };
 
     // 🔥 3. Assign values
-    user.uniqueId =
-      "U" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    user.uniqueId = generateUniqueId();
 
     user.First_name = First_name;
     user.Last_name = Last_name;

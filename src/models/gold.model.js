@@ -15,6 +15,10 @@ export default mongoose.model(
 
       augmontStateId: String,
       augmontStateName: String,
+      userCityName: String,
+      userCityId: String,
+      userPincode: String,
+      dateOfBirth: Date,
 
       kycStatus: { type: String, default: "Pending" },
 

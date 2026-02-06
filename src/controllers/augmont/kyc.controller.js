@@ -117,7 +117,7 @@ export const pushAugmontKyc = async (req, res) => {
       qs.stringify({
         panNumber: "ABCDE1234F",
         dateOfBirth: "1998-01-20",
-        nameAsPerPan: "ANIL KUMAR",
+        nameAsPerPan: "phani",
         status: "approved", // 🔥 This is what enables BUY
       }),
       {
