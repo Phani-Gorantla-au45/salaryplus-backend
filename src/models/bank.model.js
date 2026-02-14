@@ -2,7 +2,6 @@
 import mongoose from "mongoose";
 
 const bankSchema = new mongoose.Schema({
-  userId: mongoose.Schema.Types.ObjectId,
   uniqueId: String, // Augmont user id mapping
   accountHolderName: String,
   accountNumber: String,

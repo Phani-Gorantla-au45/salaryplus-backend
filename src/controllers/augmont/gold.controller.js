@@ -6,10 +6,13 @@ import { AugmontCity, AugmontState } from "../../models/state.model.js";
 import UserAddress from "../../models/userAddress.model.js";
 export const createGoldAccount = async (req, res) => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
 
-    // 🔹 Fetch registered user
-    const user = await RegistrationUser.findById(req.user.id);
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
+
     if (!user || !user.uniqueId || !user.stateId)
       return res.status(400).json({ message: "Complete registration first" });
 
@@ -76,7 +79,8 @@ export const createGoldAccount = async (req, res) => {
 
 export const updateGoldUser = async (req, res) => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
 
     const { email, userName, userCity, userState, userPincode, dateOfBirth } =
       req.body;
@@ -92,7 +96,10 @@ export const updateGoldUser = async (req, res) => {
     const augmontCityId = cityDoc.cityId;
     const augmontStateId = cityDoc.stateId;
 
-    const regUser = await RegistrationUser.findById(req.user.id);
+    const regUser = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
+
     if (!regUser?.uniqueId)
       return res.status(400).json({ message: "Gold account not created" });
 
@@ -151,9 +158,12 @@ export const updateGoldUser = async (req, res) => {
 
 export const getAugmontUserProfile = async (req, res) => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
 
-    const user = await RegistrationUser.findById(req.user.id);
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
     if (!user?.uniqueId)
       return res.status(400).json({ message: "User not linked to Augmont" });
 
@@ -202,9 +212,13 @@ export const createUserAddress = async (req, res) => {
   try {
     const { address, pincode } = req.body; // 🔥 ONLY THESE FROM USER
 
-    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
 
-    const user = await RegistrationUser.findById(req.user.id);
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
+
     const goldUser = await Gold.findOne({
       uniqueId: user.uniqueId, // ✅ CORRECT
     });
@@ -245,7 +259,6 @@ export const createUserAddress = async (req, res) => {
 
     // 🔹 SAVE LOCALLY
     const savedAddress = await UserAddress.create({
-      userId: user._id,
       uniqueId: user.uniqueId,
       augmontAddressId: data.userAddressId,
       name: user.userName,
@@ -271,9 +284,13 @@ export const createUserAddress = async (req, res) => {
 };
 export const getUserAddressList = async (req, res) => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
 
-    const user = await RegistrationUser.findById(req.user.id);
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
+
     if (!user?.uniqueId)
       return res.status(400).json({ message: "User not linked" });
 
@@ -302,8 +319,8 @@ export const getUserAddressList = async (req, res) => {
       await UserAddress.updateOne(
         { augmontAddressId: addr.userAddressId },
         {
-          userId: user._id,
-          uniqueId: user.uniqueId,
+          UniqueId: user.uniqueId,
+
           augmontAddressId: addr.userAddressId,
           name: addr.name,
           email: addr.email,
@@ -332,10 +349,13 @@ export const getUserAddressList = async (req, res) => {
 export const deleteUserAddress = async (req, res) => {
   try {
     const { addressId } = req.params;
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
 
-    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
 
-    const user = await RegistrationUser.findById(req.user.id);
     if (!user?.uniqueId)
       return res.status(400).json({ message: "User not linked" });
 
@@ -360,7 +380,7 @@ export const deleteUserAddress = async (req, res) => {
     // 🔹 DELETE FROM LOCAL DB
     await UserAddress.deleteOne({
       augmontAddressId: addressId,
-      userId: user._id,
+      userUniqueId: user.uniqueId,
     });
 
     res.json({

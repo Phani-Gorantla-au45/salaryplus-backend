@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema(
   {
-    userId: mongoose.Schema.Types.ObjectId,
     uniqueId: String,
 
     merchantTransactionId: String,

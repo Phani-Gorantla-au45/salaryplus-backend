@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 const userAddressSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "RegistrationUser" },
     uniqueId: String, // Augmont user ID
     augmontAddressId: String, // userAddressId from Augmont
 

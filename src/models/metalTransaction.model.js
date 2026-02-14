@@ -30,12 +30,6 @@
 import mongoose from "mongoose";
 
 const metalTxnSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    index: true,
-  },
-
   uniqueId: String, // Augmont user id
 
   txnType: {

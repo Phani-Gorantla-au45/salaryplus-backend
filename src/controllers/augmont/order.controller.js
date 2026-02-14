@@ -10,7 +10,8 @@ export const createOrder = async (req, res) => {
   try {
     const { sku, quantity } = req.body;
 
-    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
 
     // ✅ USER SENDS ONLY SKU + QUANTITY
     if (!sku || !quantity)
@@ -20,13 +21,16 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: "Invalid quantity" });
 
     // 🔹 USER
-    const user = await RegistrationUser.findById(req.user.id);
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
+
     if (!user?.uniqueId)
       return res.status(400).json({ message: "User not linked to Augmont" });
 
     // 🔹 ADDRESS (AUTO PICK ACTIVE)
     const address = await UserAddress.findOne({
-      userId: user._id,
+      uniqueId: user.uniqueId,
       status: "ACTIVE",
     });
 
@@ -68,7 +72,6 @@ export const createOrder = async (req, res) => {
 
     // 🔹 SAVE ORDER LOCALLY
     const order = await Order.create({
-      userId: user._id,
       uniqueId: user.uniqueId,
       merchantTransactionId,
       augmontOrderId: data.orderId,

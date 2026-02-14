@@ -4,10 +4,13 @@ import Passbook from "../../models/passbook.model.js";
 
 export const getPassbook = async (req, res) => {
   try {
-    if (!req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
 
     // 🔹 FETCH USER
-    const user = await RegistrationUser.findById(req.user.id);
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
     if (!user?.uniqueId)
       return res.status(400).json({ message: "User not linked to Augmont" });
 
@@ -31,9 +34,8 @@ export const getPassbook = async (req, res) => {
 
     // 💾 SAVE / UPDATE PASSBOOK
     const passbook = await Passbook.findOneAndUpdate(
-      { userId: user._id },
+      { uniqueId: user.uniqueId },
       {
-        userId: user._id,
         uniqueId: user.uniqueId,
         goldBalance,
         silverBalance,

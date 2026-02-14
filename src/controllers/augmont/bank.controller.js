@@ -59,7 +59,13 @@ export const addUserBank = async (req, res) => {
     if (!accountNumber || !accountHolderName || !ifscCode)
       return res.status(400).json({ message: "All bank fields required" });
 
-    const user = await RegistrationUser.findById(req.user.id);
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
+
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
+
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // 🔹 Call Augmont
@@ -89,13 +95,11 @@ export const addUserBank = async (req, res) => {
 
     // 🔒 IMPORTANT: deactivate old banks
     await Bank.updateMany(
-      { userId: user._id, status: "ACTIVE" },
+      { uniqueId: user.uniqueId, status: "ACTIVE" },
       { status: "INACTIVE" },
     );
 
-    // ✅ Save new ACTIVE bank
     const bank = await Bank.create({
-      userId: user._id,
       uniqueId: user.uniqueId,
       accountHolderName,
       accountNumber,
@@ -122,7 +126,13 @@ export const updateUserBank = async (req, res) => {
     if (!accountNumber || !accountHolderName || !ifscCode)
       return res.status(400).json({ message: "All bank fields required" });
 
-    const user = await RegistrationUser.findById(req.user.id);
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
+
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
+
     if (!user) return res.status(404).json({ message: "User not found" });
 
     console.log("🏦 Updating Augmont Bank:", {
@@ -154,7 +164,7 @@ export const updateUserBank = async (req, res) => {
 
     // 🔥 STEP 2 — UPDATE LOCAL DB
     const updatedBank = await Bank.findOneAndUpdate(
-      { augmontBankId: userBankId, userId: user._id },
+      { augmontBankId: userBankId, uniqueId: user.uniqueId },
       {
         accountHolderName,
         accountNumber,
@@ -181,7 +191,13 @@ export const updateUserBank = async (req, res) => {
 
 export const getUserBanks = async (req, res) => {
   try {
-    const user = await RegistrationUser.findById(req.user.id);
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
+
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
+
     if (!user) return res.status(404).json({ message: "User not found" });
 
     console.log("🔎 Fetching banks for:", user.uniqueId);
@@ -214,7 +230,13 @@ export const deleteUserBank = async (req, res) => {
   try {
     const { userBankId } = req.params;
 
-    const user = await RegistrationUser.findById(req.user.id);
+    if (!req.user?.uniqueId)
+      return res.status(401).json({ message: "Unauthorized" });
+
+    const user = await RegistrationUser.findOne({
+      uniqueId: req.user.uniqueId,
+    });
+
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // 🔥 Call Augmont DELETE API
@@ -231,7 +253,10 @@ export const deleteUserBank = async (req, res) => {
     console.log("🗑️ AUGMONT DELETE BANK RESPONSE:", response.data);
 
     // 🔹 Remove from local DB
-    await Bank.deleteOne({ augmontBankId: userBankId, userId: user._id });
+    await Bank.deleteOne({
+      augmontBankId: userBankId,
+      uniqueId: user.uniqueId,
+    });
 
     res.json({
       message: "Bank deleted successfully",

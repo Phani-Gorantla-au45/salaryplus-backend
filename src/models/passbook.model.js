@@ -2,28 +2,20 @@ import mongoose from "mongoose";
 
 const passbookSchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "RegistrationUser",
-      required: true,
-      unique: true,
-    },
-    uniqueId: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-
-    goldBalance: {
-      type: Number,
-      default: 0,
-    },
-    silverBalance: {
-      type: Number,
-      default: 0,
+    uniqueId: String,
+    goldBalance: Number,
+    silverBalance: Number,
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      transform: function (ret) {
+        delete ret._id;
+        delete ret.__v;
+        return ret;
+      },
     },
   },
-  { timestamps: true },
 );
 
 export default mongoose.model("Passbook", passbookSchema);
