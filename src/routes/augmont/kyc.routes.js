@@ -1,12 +1,12 @@
 import express from "express";
-import { auth } from "../middlewares/jwt.js";
+import { auth } from "../../middlewares/jwt.js";
 
 import {
   verifyPan,
   verifyfullPan,
   pushAugmontKyc,
   //completeKycFlow,
-} from "../controllers/augmont/kyc.controller.js";
+} from "../../controllers/augmont/kyc.controller.js";
 
 const router = express.Router();
 

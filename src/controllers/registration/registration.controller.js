@@ -1,5 +1,5 @@
-import User from "../../models/registration.model.js";
-import { AugmontState } from "../../models/state.model.js";
+import User from "../../models/registration/registration.model.js";
+import { AugmontState } from "../../models/augmont/state.model.js";
 import axios from "axios";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";

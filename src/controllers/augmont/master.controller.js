@@ -1,5 +1,5 @@
 import axios from "axios";
-import { AugmontState, AugmontCity } from "../../models/state.model.js"; // ✅ CHANGED
+import { AugmontState, AugmontCity } from "../../models/augmont/state.model.js"; // ✅ CHANGED
 
 /* ---------------- SYNC STATES FROM AUGMONT ---------------- */
 export const syncStates = async (req, res) => {

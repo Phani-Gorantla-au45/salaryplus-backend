@@ -3,14 +3,16 @@ import mongoose from "mongoose";
 const bondSchema = new mongoose.Schema(
   {
     bondLaunchId: {
-      type: Number,
+      type: String,
       required: true,
       unique: true,
+      index: true,
     },
 
     bondName: {
       type: String,
       required: true,
+      trim: true,
     },
 
     isin: {
@@ -18,31 +20,44 @@ const bondSchema = new mongoose.Schema(
       required: true,
       unique: true,
       uppercase: true,
+      index: true,
+    },
+
+    issuerName: {
+      type: String,
+      required: true,
+      trim: true,
     },
 
     faceValue: {
       type: Number,
       required: true,
+      min: 1,
     },
 
-    unitsAvailable: {
+    availableUnits: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     ytm: {
       type: Number,
       required: true,
+      min: 0,
+      max: 100,
     },
 
     couponRate: {
       type: Number,
       required: true,
+      min: 0,
+      max: 100,
     },
 
     interestPayoutFrequency: {
       type: String,
-      enum: ["MONTHLY", "QUARTERLY", "YEARLY", "DAILY"],
+      enum: ["MONTHLY", "QUARTERLY", "YEARLY"],
       required: true,
     },
 
@@ -50,6 +65,7 @@ const bondSchema = new mongoose.Schema(
       type: String,
       enum: ["BULLET"],
       required: true,
+      default: "BULLET",
     },
 
     maturityDate: {
@@ -60,7 +76,7 @@ const bondSchema = new mongoose.Schema(
     couponBasis: {
       type: String,
       enum: ["FIXED"],
-      required: true,
+      default: "FIXED",
     },
 
     security: {
@@ -96,21 +112,20 @@ const bondSchema = new mongoose.Schema(
       required: true,
     },
 
-    issuerName: {
-      type: String,
-      required: true,
-    },
-
     debentureTrustee: {
       type: String,
     },
 
-    collectionName: {
+    status: {
       type: String,
-      default: "BondListings",
+      enum: ["DRAFT", "ACTIVE", "CLOSED"],
+      default: "DRAFT",
+      index: true,
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
-export default mongoose.model("Bond", bondSchema);
+export default mongoose.model("BondListing", bondSchema);

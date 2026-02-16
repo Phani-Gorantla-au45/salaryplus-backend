@@ -1,9 +1,9 @@
 import axios from "axios";
 import qs from "qs";
-import Gold from "../../models/gold.model.js";
-import RegistrationUser from "../../models/registration.model.js";
-import { AugmontCity, AugmontState } from "../../models/state.model.js";
-import UserAddress from "../../models/userAddress.model.js";
+import Gold from "../../models/augmont/gold.model.js";
+import RegistrationUser from "../../models/registration/registration.model.js";
+import { AugmontCity, AugmontState } from "../../models/augmont/state.model.js";
+import UserAddress from "../../models/augmont/userAddress.model.js";
 export const createGoldAccount = async (req, res) => {
   try {
     if (!req.user?.uniqueId)

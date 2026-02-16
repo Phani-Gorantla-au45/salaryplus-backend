@@ -4,8 +4,8 @@ import {
   updateUserBank,
   getUserBanks,
   deleteUserBank,
-} from "../controllers/augmont/bank.controller.js";
-import { auth } from "../middlewares/jwt.js";
+} from "../../controllers/augmont/bank.controller.js";
+import { auth } from "../../middlewares/jwt.js";
 const router = express.Router();
 
 router.post("/add-bank", auth, addUserBank);

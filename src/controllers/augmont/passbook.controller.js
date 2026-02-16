@@ -1,4 +1,4 @@
-import RegistrationUser from "../../models/registration.model.js";
+import RegistrationUser from "../../models/registration/registration.model.js";
 import { fetchPassbookFromAugmont } from "../augmont/utils/Passbookfunction.js";
 export const getPassbook = async (req, res) => {
   try {

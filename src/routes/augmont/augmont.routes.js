@@ -1,8 +1,8 @@
 // routes/augmont.routes.js
 import express from "express";
-import { buyMetal } from "../controllers/augmont/buy.controller.js";
-import { sellMetal } from "../controllers/augmont/sell.controller.js";
-import { auth } from "../middlewares/jwt.js";
+import { buyMetal } from "../../controllers/augmont/buy.controller.js";
+import { sellMetal } from "../../controllers/augmont/sell.controller.js";
+import { auth } from "../../middlewares/jwt.js";
 
 const router = express.Router();
 

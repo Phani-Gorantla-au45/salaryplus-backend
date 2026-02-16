@@ -1,12 +1,12 @@
 import express from "express";
-import { auth } from "../middlewares/jwt.js";
+import { auth } from "../../middlewares/jwt.js";
 import {
   syncStates,
   getStatesFromDB,
   syncCities, // ✅ ADDED
   getCitiesFromDB, // ✅ ADDED
-} from "../controllers/augmont/master.controller.js";
-import { getRates } from "../controllers/augmont/rate.controller.js";
+} from "../../controllers/augmont/master.controller.js";
+import { getRates } from "../../controllers/augmont/rate.controller.js";
 
 const router = express.Router();
 

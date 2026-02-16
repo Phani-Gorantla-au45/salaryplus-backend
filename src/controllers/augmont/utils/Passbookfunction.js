@@ -1,5 +1,5 @@
 import axios from "axios";
-import Passbook from "../../../models/passbook.model.js";
+import Passbook from "../../../models/augmont/passbook.model.js";
 
 /* ======================================================
    GET PASSBOOK FROM AUGMONT

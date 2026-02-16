@@ -1,7 +1,7 @@
 import axios from "axios";
 import qs from "qs";
-import Bank from "../../models/bank.model.js";
-import RegistrationUser from "../../models/registration.model.js";
+import Bank from "../../models/augmont/bank.model.js";
+import RegistrationUser from "../../models/registration/registration.model.js";
 
 export const addUserBank = async (req, res) => {
   try {

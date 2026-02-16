@@ -3,8 +3,8 @@ import {
   sendOtp,
   verifyOtp,
   completeRegistration,
-} from "../controllers/registration/registration.controller.js";
-import { auth } from "../middlewares/jwt.js";
+} from "../../controllers/registration/registration.controller.js";
+import { auth } from "../../middlewares/jwt.js";
 
 const router = express.Router();
 

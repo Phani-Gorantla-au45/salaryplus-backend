@@ -1,5 +1,5 @@
 import axios from "axios";
-import Kyc from "../../models/kyc.model.js";
+import Kyc from "../../models/augmont/kyc.model.js";
 import { v4 as uuidv4 } from "uuid";
 import qs from "qs";
 export const verifyPan = async (req, res) => {

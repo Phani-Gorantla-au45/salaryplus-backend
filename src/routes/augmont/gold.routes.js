@@ -6,10 +6,10 @@ import {
   createUserAddress,
   getUserAddressList,
   deleteUserAddress,
-} from "../controllers/augmont/gold.controller.js";
-import { auth } from "../middlewares/jwt.js";
-import { createOrder } from "../controllers/augmont/order.controller.js";
-import { getPassbook } from "../controllers/augmont/passbook.controller.js";
+} from "../../controllers/augmont/gold.controller.js";
+import { auth } from "../../middlewares/jwt.js";
+import { createOrder } from "../../controllers/augmont/order.controller.js";
+import { getPassbook } from "../../controllers/augmont/passbook.controller.js";
 const router = express.Router();
 
 router.post("/create", auth, createGoldAccount);

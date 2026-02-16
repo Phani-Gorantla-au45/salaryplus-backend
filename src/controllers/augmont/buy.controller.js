@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
-import MetalTxn from "../../models/metalTransaction.model.js";
-import RegistrationUser from "../../models/registration.model.js";
+import MetalTxn from "../../models/augmont/metalTransaction.model.js";
+import RegistrationUser from "../../models/registration/registration.model.js";
 import { buyMetalFromAugmont } from "../augmont/utils/buyfunction.js";
-import Rate from "../../models/rateModel.js";
+import Rate from "../../models/augmont/rateModel.js";
 
 export const buyMetal = async (req, res) => {
   try {
@@ -32,14 +32,6 @@ export const buyMetal = async (req, res) => {
     if (!lockPrice || !blockId)
       return res.status(400).json({ message: "lockPrice & blockId required" });
 
-    const rate = await Rate.findOne().sort({ createdAt: -1 });
-    if (!rate) return res.status(400).json({ message: "Rates not available" });
-
-    if (rate.blockId !== blockId)
-      return res
-        .status(400)
-        .json({ message: "Rate expired. Fetch new price." });
-
     /* ------------ CREATE PENDING TXN ------------ */
     const merchantTransactionId = uuidv4().replace(/-/g, "").slice(0, 30);
 
@@ -56,7 +48,7 @@ export const buyMetal = async (req, res) => {
     });
 
     /* ------------ CALL SERVICE ------------ */
-    const updatedTxn = await buyMetalFromAugmont(txn._id);
+    const updatedTxn = await buyMetalFromAugmont(merchantTransactionId);
 
     res.json({
       message: "Purchase successful",

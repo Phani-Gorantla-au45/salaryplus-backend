@@ -1,10 +1,10 @@
 import axios from "axios";
 import qs from "qs";
 import { v4 as uuidv4 } from "uuid";
-import MetalTxn from "../../models/metalTransaction.model.js";
-import RegistrationUser from "../../models/registration.model.js";
-import Bank from "../../models/bank.model.js";
-import Rate from "../../models/rateModel.js";
+import MetalTxn from "../../models/augmont/metalTransaction.model.js";
+import RegistrationUser from "../../models/registration/registration.model.js";
+import Bank from "../../models/augmont/bank.model.js";
+import Rate from "../../models/augmont/rateModel.js";
 import { sellMetalFromAugmont } from "../augmont/utils/sellfunction.js";
 
 export const sellMetal = async (req, res) => {

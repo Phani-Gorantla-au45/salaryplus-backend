@@ -1,6 +1,6 @@
 import axios from "axios";
 import qs from "qs";
-import MetalTxn from "../../../models/metalTransaction.model.js";
+import MetalTxn from "../../../models/augmont/metalTransaction.model.js";
 
 export const sellMetalFromAugmont = async (txnId, augmontBankId) => {
   const txn = await MetalTxn.findById(txnId);

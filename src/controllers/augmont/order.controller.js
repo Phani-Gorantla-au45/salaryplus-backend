@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
-import RegistrationUser from "../../models/registration.model.js";
-import UserAddress from "../../models/userAddress.model.js";
-import AugmontProduct from "../../models/product.model.js";
+import RegistrationUser from "../../models/registration/registration.model.js";
+import UserAddress from "../../models/augmont/userAddress.model.js";
+import AugmontProduct from "../../models/augmont/product.model.js";
 import { createOrderFromAugmont } from "../augmont/utils/orderfunction.js";
 export const createOrder = async (req, res) => {
   try {

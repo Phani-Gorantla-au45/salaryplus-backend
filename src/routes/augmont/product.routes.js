@@ -2,8 +2,8 @@ import express from "express";
 import {
   syncProducts,
   getProductBySku,
-} from "../controllers/augmont/product.controller.js";
-import { auth } from "../middlewares/jwt.js";
+} from "../../controllers/augmont/product.controller.js";
+import { auth } from "../../middlewares/jwt.js";
 
 const router = express.Router();
 

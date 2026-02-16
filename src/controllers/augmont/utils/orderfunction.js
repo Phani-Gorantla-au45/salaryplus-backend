@@ -1,6 +1,6 @@
 import axios from "axios";
 import qs from "qs";
-import Order from "../../../models/order.model.js";
+import Order from "../../../models/augmont/order.model.js";
 
 export const createOrderFromAugmont = async ({
   uniqueId,
