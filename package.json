@@ -14,12 +14,14 @@
     "axios": "^1.13.4",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
-    "dotenv": "^17.2.3",
+    "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "jose": "^6.1.3",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.5",
     "node-cron": "^4.2.1",
     "qs": "^6.14.1",
+    "rsa-key": "^0.0.6",
     "uuid": "^13.0.0"
   }
 }

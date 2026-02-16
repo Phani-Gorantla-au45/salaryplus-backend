@@ -1,26 +1,24 @@
-import axios from "axios";
-import qs from "qs";
 import { v4 as uuidv4 } from "uuid";
-
 import RegistrationUser from "../../models/registration.model.js";
 import UserAddress from "../../models/userAddress.model.js";
 import AugmontProduct from "../../models/product.model.js";
-import Order from "../../models/order.model.js";
+import { createOrderFromAugmont } from "../augmont/utils/orderfunction.js";
 export const createOrder = async (req, res) => {
   try {
     const { sku, quantity } = req.body;
 
+    /* ------------ AUTH ------------ */
     if (!req.user?.uniqueId)
       return res.status(401).json({ message: "Unauthorized" });
 
-    // ✅ USER SENDS ONLY SKU + QUANTITY
+    /* ------------ VALIDATION ------------ */
     if (!sku || !quantity)
       return res.status(400).json({ message: "sku & quantity required" });
 
     if (!Number.isInteger(quantity) || quantity <= 0)
       return res.status(400).json({ message: "Invalid quantity" });
 
-    // 🔹 USER
+    /* ------------ USER ------------ */
     const user = await RegistrationUser.findOne({
       uniqueId: req.user.uniqueId,
     });
@@ -28,7 +26,7 @@ export const createOrder = async (req, res) => {
     if (!user?.uniqueId)
       return res.status(400).json({ message: "User not linked to Augmont" });
 
-    // 🔹 ADDRESS (AUTO PICK ACTIVE)
+    /* ------------ ADDRESS ------------ */
     const address = await UserAddress.findOne({
       uniqueId: user.uniqueId,
       status: "ACTIVE",
@@ -37,61 +35,40 @@ export const createOrder = async (req, res) => {
     if (!address?.augmontAddressId)
       return res.status(400).json({ message: "No active address found" });
 
-    // 🔹 PRODUCT VALIDATION
+    /* ------------ PRODUCT ------------ */
     const product = await AugmontProduct.findOne({ sku });
     if (!product)
       return res.status(400).json({ message: "Invalid product SKU" });
 
-    // 🔹 TRANSACTION ID
+    /* ------------ CREATE ORDER ------------ */
     const merchantTransactionId = uuidv4();
 
-    // 🔥 AUGMONT ORDER PAYLOAD
-    const payload = {
+    const order = await createOrderFromAugmont({
       uniqueId: user.uniqueId,
       merchantTransactionId,
-      "user[shipping][addressId]": address.augmontAddressId,
-      "product[0][sku]": sku,
-      "product[0][quantity]": quantity,
-    };
-
-    if (user.phone) payload.mobileNumber = user.phone;
-
-    const response = await axios.post(
-      `${process.env.AUG_URL}/merchant/v1/order`,
-      qs.stringify(payload),
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.AUGMONT_TOKEN}`,
-          Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      },
-    );
-
-    const data = response.data.result.data;
-
-    // 🔹 SAVE ORDER LOCALLY
-    const order = await Order.create({
-      uniqueId: user.uniqueId,
-      merchantTransactionId,
-      augmontOrderId: data.orderId,
-      addressId: address.augmontAddressId,
-      products: [{ sku, quantity }],
-      shippingCharges: Number(data.shippingCharges),
-      goldBalance: Number(data.goldBalance),
-      silverBalance: Number(data.silverBalance),
-      status: "SUCCESS",
+      augmontAddressId: address.augmontAddressId,
+      sku,
+      quantity,
+      mobileNumber: user.phone,
     });
 
+    /* ------------ FRONTEND RESPONSE ------------ */
     res.json({
+      success: true,
       message: "Order placed successfully",
-      order,
+      data: {
+        merchantTransactionId,
+        orderId: order.augmontOrderId,
+        shippingCharges: order.shippingCharges,
+        goldBalance: order.goldBalance,
+        silverBalance: order.silverBalance,
+      },
     });
   } catch (err) {
-    console.error("❌ ORDER ERROR:", err.response?.data || err.message);
+    console.error("❌ ORDER ERROR:", err.message);
     res.status(500).json({
+      success: false,
       message: "Order failed",
-      error: err.response?.data || err.message,
     });
   }
 };

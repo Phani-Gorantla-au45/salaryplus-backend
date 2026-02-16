@@ -68,7 +68,7 @@ const metalTxnSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ["PENDING", "SUCCESS", "FAILED"],
+    enum: ["CREATED", "PAYMENT_INITIATED", "PENDING", "SUCCESS", "FAILED"],
     default: "PENDING",
   },
 

@@ -10,6 +10,7 @@ import augmontRoutes from "./src/routes/augmont.routes.js";
 import bankRoutes from "./src/routes/bank.routes.js";
 import productRoutes from "./src/routes/product.routes.js";
 import bondRoutes from "./src/routes/bond.routes.js";
+import juspayRoutes from "./src/juspay/juspay.routes.js";
 
 dotenv.config(); // Load env FIRST
 
@@ -29,7 +30,7 @@ app.use("/api/augmont/master", masterRoutes);
 app.use("/api/kyc/", kycRoutes);
 app.use("/api/bank/", bankRoutes);
 app.use("/api/products", productRoutes);
-
+app.use("/api/juspay", juspayRoutes);
 app.use("/api/bounds", bondRoutes);
 app.use(augmontRoutes);
 const PORT = process.env.PORT || 3000;
