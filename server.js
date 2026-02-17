@@ -33,7 +33,7 @@ app.use("/api/bank/", bankRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/juspay", juspayRoutes);
 app.use("/api/bonds", bondRoutes);
-app.use("/api/bonds", bonddetailsRoutes);
+app.use("/api/bond", bonddetailsRoutes);
 app.use(augmontRoutes);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

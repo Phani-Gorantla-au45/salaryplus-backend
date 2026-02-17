@@ -25,7 +25,7 @@ const bondSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    collection: "bond_listings",
+    collection: "isindata",
   },
 );
 

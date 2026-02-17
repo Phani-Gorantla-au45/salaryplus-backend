@@ -118,3 +118,35 @@ export const uploadBondExcel = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+/* ---------------- GET BOND BY ISIN ---------------- */
+export const getBondByIsin = async (req, res) => {
+  try {
+    const { isin } = req.body;
+
+    if (!isin) {
+      return res.status(400).json({
+        success: false,
+        message: "ISIN is required in request body",
+      });
+    }
+
+    const bond = await isindata.findOne({ isin }).lean();
+
+    if (!bond) {
+      return res.status(404).json({
+        success: false,
+        message: "Bond not found for this ISIN",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: bond,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
