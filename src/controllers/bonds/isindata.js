@@ -81,6 +81,12 @@ export const uploadBondExcel = async (req, res) => {
         break;
       }
     }
+    const isValidExcelDateString = (value) => {
+      if (!value || typeof value !== "string") return false;
+
+      // Accept only: 21-Feb-2026
+      return /^\d{1,2}-[A-Za-z]{3}-\d{4}$/.test(value);
+    };
 
     if (headerRowIndex === -1) {
       return res
@@ -92,8 +98,8 @@ export const uploadBondExcel = async (req, res) => {
       const dateVal = getVal(r, 0);
       const amountVal = getVal(r, 1);
 
-      // Skip row if both date and amount are effectively empty
-      if (!dateVal || dateVal === "0") continue;
+      // 🚫 Skip invalid cashflow rows
+      if (!isValidExcelDateString(dateVal)) continue;
 
       cashflows.push({
         cashflowDate: dateVal,
@@ -121,16 +127,18 @@ export const uploadBondExcel = async (req, res) => {
 /* ---------------- GET BOND BY ISIN ---------------- */
 export const getBondByIsin = async (req, res) => {
   try {
-    const { isin } = req.body;
+    const { isin } = req.params;
 
     if (!isin) {
       return res.status(400).json({
         success: false,
-        message: "ISIN is required in request body",
+        message: "ISIN is required in URL",
       });
     }
 
-    const bond = await isindata.findOne({ isin }).lean();
+    const bond = await isindata
+      .findOne({ isin: isin.trim().toUpperCase() })
+      .lean();
 
     if (!bond) {
       return res.status(404).json({

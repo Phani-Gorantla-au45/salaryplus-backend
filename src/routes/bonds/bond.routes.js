@@ -9,17 +9,23 @@ import {
   getBondByIsin,
 } from "../../controllers/bonds/isindata.js";
 import { uploadBondTradesExcel } from "../../controllers/bonds/BondTrades.controller.js";
-
+import { updateBondTransactionStatus } from "../../controllers/bonds/updateBondStatus.controller.js";
 const router = express.Router();
 
 /* -------- Admin Bond Listing -------- */
 router.post("/admin/BondListing", createBond);
-router.post("/admin/get-by-isin", getBondByIsin);
+router.get("/admin/get-by-isin/:isin", getBondByIsin);
 router.get("/admin/getallbonds", getBondListings);
 router.post("/admin/upload-excel", upload.single("file"), uploadBondExcel);
 router.post(
   "/admin/upload-trades-excel",
   upload.single("file"),
   uploadBondTradesExcel,
+);
+router.put(
+  "/transaction/:transactionId/status",
+
+  // verifyAdmin,
+  updateBondTransactionStatus,
 );
 export default router;

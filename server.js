@@ -11,7 +11,9 @@ import bankRoutes from "./src/routes/augmont/bank.routes.js";
 import productRoutes from "./src/routes/augmont/product.routes.js";
 import bondRoutes from "./src/routes/bonds/bond.routes.js";
 import bonddetailsRoutes from "./src/routes/bonds/bondDetails.routes.js";
+import bookbondsRoutes from "./src/routes/bonds/bookbond.routes.js";
 import juspayRoutes from "./src/juspay/juspay.routes.js";
+import { bookBond } from "./src/controllers/bonds/bookBond.controller.js";
 
 dotenv.config(); // Load env FIRST
 
@@ -34,6 +36,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/juspay", juspayRoutes);
 app.use("/api/bonds", bondRoutes);
 app.use("/api/bond", bonddetailsRoutes);
+app.use("/api/book", bookbondsRoutes);
 app.use(augmontRoutes);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
