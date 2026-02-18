@@ -2,6 +2,7 @@ import express from "express";
 import {
   createBond,
   getBondListings,
+  getBondByBondLaunchId,
 } from "../../controllers/bonds/bond.controller.js";
 import upload from "../../middlewares/upload.middleware.js";
 import {
@@ -14,6 +15,7 @@ const router = express.Router();
 
 /* -------- Admin Bond Listing -------- */
 router.post("/admin/BondListing", createBond);
+router.get("/admin/:bondLaunchId", getBondByBondLaunchId);
 router.get("/admin/get-by-isin/:isin", getBondByIsin);
 router.get("/admin/getallbonds", getBondListings);
 router.post("/admin/upload-excel", upload.single("file"), uploadBondExcel);

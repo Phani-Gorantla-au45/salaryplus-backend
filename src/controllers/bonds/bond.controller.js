@@ -101,3 +101,40 @@ export const getBondListings = async (req, res) => {
     });
   }
 };
+export const getBondByBondLaunchId = async (req, res) => {
+  try {
+    const { bondLaunchId } = req.params;
+
+    if (!bondLaunchId) {
+      return res.status(400).json({
+        success: false,
+        message: "bondLaunchId is required",
+      });
+    }
+
+    const bond = await Bond.findOne(
+      { bondLaunchId },
+      {
+        _id: 0,
+        __v: 0,
+      },
+    ).lean();
+
+    if (!bond) {
+      return res.status(404).json({
+        success: false,
+        message: "Bond not found for this bondLaunchId",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: bond,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
