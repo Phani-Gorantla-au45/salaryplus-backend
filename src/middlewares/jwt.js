@@ -1,16 +1,14 @@
 import jwt from "jsonwebtoken";
-import RegistrationUser from "../models/registration/registration.model.js";
+import SBregister from "../models/bonds/SBregister.model.js";
 
 export const auth = async (req, res, next) => {
-  let decoded;
-
   try {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) return res.status(401).json({ message: "No token" });
 
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await RegistrationUser.findOne({
+    const user = await SBregister.findOne({
       uniqueId: decoded.uniqueId,
     });
 
