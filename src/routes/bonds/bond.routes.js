@@ -15,9 +15,10 @@ const router = express.Router();
 
 /* -------- Admin Bond Listing -------- */
 router.post("/admin/BondListing", createBond);
+router.get("/admin/getallbonds", getBondListings);
 router.get("/admin/:bondLaunchId", getBondByBondLaunchId);
 router.get("/admin/get-by-isin/:isin", getBondByIsin);
-router.get("/admin/getallbonds", getBondListings);
+
 router.post("/admin/upload-excel", upload.single("file"), uploadBondExcel);
 router.post(
   "/admin/upload-trades-excel",
