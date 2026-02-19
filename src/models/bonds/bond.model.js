@@ -14,6 +14,10 @@ const bondSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    bondLogoUrl: {
+      type: String,
+      trim: true,
+    },
 
     isin: {
       type: String,
@@ -132,10 +136,6 @@ const bondSchema = new mongoose.Schema(
 
     debentureTrustee: {
       type: String,
-    },
-    bondLogoUrl: {
-      type: String,
-      trim: true,
     },
 
     status: {
