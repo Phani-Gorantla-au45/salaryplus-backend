@@ -37,7 +37,7 @@ app.use("/api/bank/", bankRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/juspay", juspayRoutes);
 app.use("/api/bonds", bondRoutes);
-app.use("/api/bond", bonddetailsRoutes);
+app.use("/api/bonddetails", bonddetailsRoutes);
 app.use("/api/book", bookbondsRoutes);
 app.use("/api/sbOnboarding", sbonboardingRoutes);
 app.use("/api/kyc", sbkycRoutes);

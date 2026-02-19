@@ -3,6 +3,7 @@ import {
   createBond,
   getBondListings,
   getBondByBondLaunchId,
+  updateBondByBondLaunchId,
 } from "../../controllers/bonds/bond.controller.js";
 import upload from "../../middlewares/upload.middleware.js";
 import {
@@ -16,6 +17,8 @@ const router = express.Router();
 /* -------- Admin Bond Listing -------- */
 router.post("/admin/BondListing", createBond);
 router.get("/admin/getallbonds", getBondListings);
+router.put("/admin/:bondLaunchId", updateBondByBondLaunchId);
+
 router.get("/admin/:bondLaunchId", getBondByBondLaunchId);
 router.get("/admin/get-by-isin/:isin", getBondByIsin);
 

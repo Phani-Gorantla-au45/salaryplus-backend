@@ -40,6 +40,11 @@ const bondSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    totalUnits: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
 
     ytm: {
       type: Number,
@@ -84,6 +89,10 @@ const bondSchema = new mongoose.Schema(
       enum: ["SECURED", "UNSECURED"],
       required: true,
     },
+    securityCover: {
+      type: Number,
+      min: 0,
+    },
 
     guaranteeType: {
       type: String,
@@ -111,6 +120,15 @@ const bondSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    collateral: {
+      type: String,
+      trim: true,
+    },
+
+    investmentAmount: {
+      type: Number,
+      min: 0,
+    },
 
     debentureTrustee: {
       type: String,
@@ -118,8 +136,8 @@ const bondSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["DRAFT", "ACTIVE", "CLOSED"],
-      default: "DRAFT",
+      enum: ["ACTIVE", "FULLYSUBSCRIBED", "REPAID"],
+      default: "ACTIVE",
       index: true,
     },
   },

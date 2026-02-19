@@ -22,6 +22,7 @@ export const createBond = async (req, res) => {
       issuerName,
       faceValue,
       availableUnits,
+      totalUnits,
       ytm,
       couponRate,
       interestPayoutFrequency,
@@ -29,12 +30,16 @@ export const createBond = async (req, res) => {
       maturityDate,
       couponBasis,
       security,
+      securityCover,
       guaranteeType,
+      collateral,
+      investmentAmount,
       repaymentPriority,
       rating,
       ratingAgency,
       ratingDate,
       debentureTrustee,
+      status,
     } = req.body;
 
     const bond = await Bond.create({
@@ -44,6 +49,7 @@ export const createBond = async (req, res) => {
       issuerName,
       faceValue,
       availableUnits,
+      totalUnits,
       ytm,
       couponRate,
       interestPayoutFrequency,
@@ -51,12 +57,16 @@ export const createBond = async (req, res) => {
       maturityDate,
       couponBasis,
       security,
+      securityCover,
       guaranteeType,
+      collateral,
+      investmentAmount,
       repaymentPriority,
       rating,
       ratingAgency,
       ratingDate,
       debentureTrustee,
+      status,
     });
 
     return res.status(201).json({
@@ -132,6 +142,105 @@ export const getBondByBondLaunchId = async (req, res) => {
       data: bond,
     });
   } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/* ---------------- UPDATE BOND LISTING BY bondLaunchId (ADMIN) ---------------- */
+export const updateBondByBondLaunchId = async (req, res) => {
+  try {
+    const { bondLaunchId } = req.params;
+
+    if (!bondLaunchId) {
+      return res.status(400).json({
+        success: false,
+        message: "bondLaunchId is required",
+      });
+    }
+
+    const {
+      bondName,
+      isin,
+      issuerName,
+      faceValue,
+      availableUnits,
+      totalUnits,
+      ytm,
+      couponRate,
+      interestPayoutFrequency,
+      principalPayoutFrequency,
+      maturityDate,
+      couponBasis,
+      security,
+      securityCover,
+      guaranteeType,
+      collateral,
+      investmentAmount,
+      repaymentPriority,
+      rating,
+      ratingAgency,
+      ratingDate,
+      debentureTrustee,
+      status,
+    } = req.body;
+
+    const updatedBond = await Bond.findOneAndUpdate(
+      { bondLaunchId },
+      {
+        bondName,
+        isin,
+        issuerName,
+        faceValue,
+        availableUnits,
+        totalUnits,
+        ytm,
+        couponRate,
+        interestPayoutFrequency,
+        principalPayoutFrequency,
+        maturityDate,
+        couponBasis,
+        security,
+        securityCover,
+        guaranteeType,
+        collateral,
+        investmentAmount,
+        repaymentPriority,
+        rating,
+        ratingAgency,
+        ratingDate,
+        debentureTrustee,
+        status,
+      },
+      {
+        new: true,
+        runValidators: true,
+        projection: { _id: 0, __v: 0 },
+      },
+    );
+
+    if (!updatedBond) {
+      return res.status(404).json({
+        success: false,
+        message: "Bond not found for this bondLaunchId",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Bond listing updated successfully",
+      data: updatedBond,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Bond with same ISIN already exists",
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: error.message,
