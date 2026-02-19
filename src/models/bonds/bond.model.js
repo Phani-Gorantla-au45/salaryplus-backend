@@ -72,7 +72,6 @@ const bondSchema = new mongoose.Schema(
 
     principalPayoutFrequency: {
       type: String,
-      enum: ["BULLET"],
       required: true,
       default: "BULLET",
     },
