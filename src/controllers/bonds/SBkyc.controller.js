@@ -62,3 +62,30 @@ export const submitKyc = async (req, res) => {
     });
   }
 };
+export const fetchKycStatus = async (req, res) => {
+  try {
+    const { uniqueId } = req.user;
+
+    const user = await SBregister.findOne(
+      { uniqueId },
+      { _id: 0, kycStatus: 1 },
+    ).lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      kycStatus: user.kycStatus,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch KYC status",
+    });
+  }
+};
