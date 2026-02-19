@@ -34,7 +34,10 @@ const SBregisterSchema = new mongoose.Schema(
       enum: ["PENDING", "SUBMITTED", "COMPLETED", "REJECTED"],
       default: "PENDING",
     },
-
+    isNewUser: {
+      type: Boolean,
+      default: true,
+    },
     isVerified: {
       type: Boolean,
       default: false,
