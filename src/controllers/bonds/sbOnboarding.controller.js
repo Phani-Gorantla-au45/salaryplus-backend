@@ -305,9 +305,12 @@ export const sendOtp = async (req, res) => {
 
 export const verifyOtp = async (req, res) => {
   try {
+    console.log("🔐 VERIFY OTP API HIT");
+
     const { phone, otp } = req.body;
 
     if (!phone || !otp) {
+      console.warn("⚠️ VERIFY OTP: Missing phone or OTP");
       return res.status(400).json({
         success: false,
         message: "Phone and OTP are required",
@@ -320,6 +323,7 @@ export const verifyOtp = async (req, res) => {
     });
 
     if (!user) {
+      console.warn(`❌ VERIFY OTP: Invalid OTP | phone=${phone}`);
       return res.status(400).json({
         success: false,
         message: "Invalid OTP",
@@ -327,6 +331,7 @@ export const verifyOtp = async (req, res) => {
     }
 
     if (user.otpExpiry < Date.now()) {
+      console.warn(`⏰ VERIFY OTP: OTP expired | phone=${phone}`);
       return res.status(400).json({
         success: false,
         message: "OTP expired",
@@ -334,20 +339,20 @@ export const verifyOtp = async (req, res) => {
     }
 
     user.isVerified = true;
-
-    // ✅ EMAIL-BASED NEW / OLD USER LOGIC
-    // email present  → old user
-    // email missing → new user
     user.isNewUser = !user.email;
-
     user.otp = null;
     user.otpExpiry = null;
 
     if (!user.uniqueId) {
       user.uniqueId = generateUniqueId();
+      console.log(`🆔 VERIFY OTP: uniqueId generated | ${user.uniqueId}`);
     }
 
     await user.save();
+
+    console.log(
+      `✅ VERIFY OTP SUCCESS | phone=${phone} | isNewUser=${user.isNewUser}`,
+    );
 
     const token = jwt.sign(
       { uniqueId: user.uniqueId },
@@ -362,6 +367,8 @@ export const verifyOtp = async (req, res) => {
       isNewUser: user.isNewUser,
     });
   } catch (error) {
+    console.error("🔥 VERIFY OTP ERROR:", error.message);
+
     return res.status(500).json({
       success: false,
       message: "OTP verification failed",
