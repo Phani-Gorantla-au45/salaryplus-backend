@@ -8,6 +8,9 @@ const SBregisterSchema = new mongoose.Schema(
       sparse: true,
       index: true,
     },
+    otpLastSentAt: {
+      type: Date,
+    },
 
     phone: {
       type: String,

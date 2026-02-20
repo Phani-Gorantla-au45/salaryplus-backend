@@ -238,12 +238,8 @@ const sendOTP = async (phone, otp) => {
 };
 
 /* ================= 1️⃣ SEND OTP ================= */
-
 export const sendOtp = async (req, res) => {
   try {
-    console.log("📩 SEND OTP API HIT");
-    console.log("➡️ Request Body:", req.body);
-
     const { phone } = req.body;
 
     if (!phone) {
@@ -255,41 +251,35 @@ export const sendOtp = async (req, res) => {
 
     let user = await SBregister.findOne({ phone });
 
-    console.log("➡️ Existing User:", !!user);
+    const now = Date.now();
 
-    // ⛔ Rate limit (30 seconds)
-    if (user?.otpExpiry && user.otpExpiry > Date.now() - 30000) {
-      console.log("⛔ OTP RATE LIMITED");
+    // ✅ Proper rate limit: 30 seconds
+    if (user?.otpLastSentAt && now - user.otpLastSentAt.getTime() < 30 * 1000) {
       return res.status(429).json({
         success: false,
-        message: "Please wait before requesting OTP again",
+        message: "Please wait 30 seconds before requesting OTP again",
       });
     }
 
     const otp = generateOTP();
-    console.log("🔢 Generated OTP:", otp);
 
     if (!user) {
       user = new SBregister({ phone });
-      console.log("🆕 New user created");
     }
 
     user.otp = hashOTP(otp);
-    user.otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+    user.otpExpiry = new Date(now + 5 * 60 * 1000); // 5 mins
+    user.otpLastSentAt = new Date(now);
     user.isVerified = false;
 
     await user.save();
-    console.log("💾 OTP saved to DB");
-
     await sendOTP(phone, otp);
 
     return res.status(200).json({
       success: true,
       message: "OTP sent successfully",
     });
-  } catch (error) {
-    console.error("❌ SEND OTP ERROR:", error.message);
-
+  } catch (err) {
     return res.status(500).json({
       success: false,
       message: "Failed to send OTP",
