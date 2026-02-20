@@ -75,7 +75,9 @@ const bondSchema = new mongoose.Schema(
       required: true,
       default: "BULLET",
     },
-
+    tradeDate: {
+      type: Date,
+    },
     maturityDate: {
       type: Date,
       required: true,

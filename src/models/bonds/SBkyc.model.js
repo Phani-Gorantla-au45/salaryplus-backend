@@ -13,6 +13,10 @@ const kycSchema = new mongoose.Schema(
       required: true,
       uppercase: true,
     },
+    kycRejectionReason: {
+      type: String,
+      trim: true,
+    },
 
     panFileUrl: {
       type: String,
