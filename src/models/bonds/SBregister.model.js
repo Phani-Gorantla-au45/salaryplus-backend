@@ -33,6 +33,12 @@ const SBregisterSchema = new mongoose.Schema(
     otp: String,
     otpExpiry: Date,
 
+    panNumber: {
+      type: String,
+      uppercase: true,
+      trim: true,
+      index: true,
+    },
     kycStatus: {
       type: String,
       enum: ["PENDING", "SUBMITTED", "APPROVED", "REJECTED"],

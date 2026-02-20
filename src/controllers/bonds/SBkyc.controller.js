@@ -47,9 +47,13 @@ export const submitKyc = async (req, res) => {
     // 🔥 IMPORTANT: update registration collection
     await SBregister.updateOne(
       { uniqueId },
-      { $set: { kycStatus: "SUBMITTED" } },
+      {
+        $set: {
+          panNumber, // ✅ ADD THIS
+          kycStatus: "SUBMITTED",
+        },
+      },
     );
-
     return res.status(200).json({
       success: true,
       message: "KYC submitted successfully",
