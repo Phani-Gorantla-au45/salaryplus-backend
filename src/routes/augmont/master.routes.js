@@ -19,6 +19,6 @@ router.get("/states", getStatesFromDB); // existing
 router.get("/cities", getCitiesFromDB); // ✅ ADDED
 
 /* ---------- RATES ---------- */
-router.get("/merchant/v1/rates", auth, getRates);
+router.get("/rates", auth, getRates);
 
 export default router;

@@ -1,7 +1,9 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import http from "http";
 import connectDB from "./src/config/db.js";
+import { initSocket } from "./src/controllers/augmont/utils/socket.js";
 import registrationRoutes from "./src/routes/registration/registration.routes.js";
 import goldRoutes from "./src/routes/augmont/gold.routes.js";
 import masterRoutes from "./src/routes/augmont/master.routes.js";
@@ -42,5 +44,9 @@ app.use("/api/book", bookbondsRoutes);
 app.use("/api/sbOnboarding", sbonboardingRoutes);
 app.use("/api/kyc", sbkycRoutes);
 app.use(augmontRoutes);
+
+/* ---------------- SOCKET SETUP (🔥 THIS IS THE KEY) ---------------- */
+const server = http.createServer(app);
+initSocket(server);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
