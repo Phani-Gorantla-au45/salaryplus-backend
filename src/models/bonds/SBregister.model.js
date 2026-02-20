@@ -31,7 +31,7 @@ const SBregisterSchema = new mongoose.Schema(
 
     kycStatus: {
       type: String,
-      enum: ["PENDING", "SUBMITTED", "COMPLETED", "REJECTED"],
+      enum: ["PENDING", "SUBMITTED", "APPROVED", "REJECTED"],
       default: "PENDING",
     },
     isNewUser: {

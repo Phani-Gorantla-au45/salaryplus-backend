@@ -95,54 +95,55 @@ export const fetchKycStatus = async (req, res) => {
 export const updateKycStatus = async (req, res) => {
   try {
     const { uniqueId } = req.params;
-    const { kycStatus, rejectionReason } = req.body;
+    const { status, kycRejectionReason } = req.body;
 
-    // ✅ validation
-    if (!uniqueId || !kycStatus) {
+    if (!uniqueId || !status) {
       return res.status(400).json({
         success: false,
-        message: "uniqueId and kycStatus are required",
+        message: "uniqueId and status are required",
       });
     }
 
-    const allowedStatuses = ["COMPLETED", "REJECTED"];
-
-    if (!allowedStatuses.includes(kycStatus)) {
+    if (!["APPROVED", "REJECTED"].includes(status)) {
       return res.status(400).json({
         success: false,
         message: "Invalid KYC status",
       });
     }
 
-    const updateData = { kycStatus };
-
-    // optional: save rejection reason
-    if (kycStatus === "REJECTED" && rejectionReason) {
-      updateData.kycRejectionReason = rejectionReason;
-    }
-
-    const user = await SBregister.findOneAndUpdate(
-      { uniqueId },
-      { $set: updateData },
+    // 1️⃣ UPDATE KYC COLLECTION
+    const updatedKyc = await KYC.findOneAndUpdate(
+      { userUniqueId: uniqueId },
+      {
+        $set: {
+          status,
+          ...(status === "REJECTED" && { kycRejectionReason }),
+        },
+      },
       { new: true },
     );
 
-    if (!user) {
+    if (!updatedKyc) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "KYC record not found",
       });
     }
 
+    // 2️⃣ SYNC USER MASTER
+    await SBregister.updateOne({ uniqueId }, { $set: { kycStatus: status } });
+
     return res.status(200).json({
       success: true,
-      message: `KYC status updated to ${kycStatus}`,
-      kycStatus: user.kycStatus,
+      message: `KYC ${status} successfully`,
+      kycStatus: status,
     });
   } catch (error) {
+    console.error("UPDATE KYC STATUS ERROR 👉", error);
+
     return res.status(500).json({
       success: false,
-      message: "Failed to update KYC status",
+      message: error.message,
     });
   }
 };
