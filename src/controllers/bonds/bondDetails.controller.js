@@ -1,4 +1,4 @@
-// import SBregister from "../../models/bonds/SBregister.model.js";
+import SBregister from "../../models/bonds/SBregister.model.js";
 import { getBondDetails } from "../../controllers/bonds/bondDetailsfunction.js";
 
 export const getBondDetailsController = async (req, res) => {
