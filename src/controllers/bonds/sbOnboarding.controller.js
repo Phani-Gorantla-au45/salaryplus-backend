@@ -254,12 +254,12 @@ export const sendOtp = async (req, res) => {
     const now = Date.now();
 
     // ✅ Proper rate limit: 30 seconds
-    if (user?.otpLastSentAt && now - user.otpLastSentAt.getTime() < 30 * 1000) {
-      return res.status(429).json({
-        success: false,
-        message: "Please wait 30 seconds before requesting OTP again",
-      });
-    }
+    // if (user?.otpLastSentAt && now - user.otpLastSentAt.getTime() < 30 * 1000) {
+    //   return res.status(429).json({
+    //     success: false,
+    //     message: "Please wait 30 seconds before requesting OTP again",
+    //   });
+    // }
 
     const otp = generateOTP();
 
