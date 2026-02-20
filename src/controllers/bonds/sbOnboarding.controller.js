@@ -240,9 +240,13 @@ const sendOTP = async (phone, otp) => {
 /* ================= 1️⃣ SEND OTP ================= */
 export const sendOtp = async (req, res) => {
   try {
+    console.log("📩 [SEND OTP] API HIT");
+    console.log("➡️ Request Body:", req.body);
+
     const { phone } = req.body;
 
     if (!phone) {
+      console.warn("⚠️ [SEND OTP] Phone number missing");
       return res.status(400).json({
         success: false,
         message: "Phone number is required",
@@ -250,11 +254,14 @@ export const sendOtp = async (req, res) => {
     }
 
     let user = await SBregister.findOne({ phone });
+    console.log("👤 [SEND OTP] Existing user:", user ? "YES" : "NO");
 
     const now = Date.now();
+    console.log("⏱️ [SEND OTP] Timestamp:", new Date(now).toISOString());
 
-    // ✅ Proper rate limit: 30 seconds
+    // ✅ Proper rate limit: 30 seconds (currently disabled)
     // if (user?.otpLastSentAt && now - user.otpLastSentAt.getTime() < 30 * 1000) {
+    //   console.warn("⛔ [SEND OTP] Rate limited for phone:", phone);
     //   return res.status(429).json({
     //     success: false,
     //     message: "Please wait 30 seconds before requesting OTP again",
@@ -262,9 +269,11 @@ export const sendOtp = async (req, res) => {
     // }
 
     const otp = generateOTP();
+    console.log("🔢 [SEND OTP] Generated OTP:", otp); // ❗remove in production
 
     if (!user) {
       user = new SBregister({ phone });
+      console.log("🆕 [SEND OTP] New user document created");
     }
 
     user.otp = hashOTP(otp);
@@ -273,13 +282,18 @@ export const sendOtp = async (req, res) => {
     user.isVerified = false;
 
     await user.save();
+    console.log("💾 [SEND OTP] OTP data saved to DB");
+
     await sendOTP(phone, otp);
+    console.log("📨 [SEND OTP] OTP sent via SMS gateway");
 
     return res.status(200).json({
       success: true,
       message: "OTP sent successfully",
     });
   } catch (err) {
+    console.error("❌ [SEND OTP] ERROR:", err);
+
     return res.status(500).json({
       success: false,
       message: "Failed to send OTP",
