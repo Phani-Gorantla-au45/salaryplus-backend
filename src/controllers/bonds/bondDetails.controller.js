@@ -1,5 +1,5 @@
 import SBregister from "../../models/bonds/SBregister.model.js";
-import { getBondDetails } from "../../controllers/bonds/bondDetailsfunction.js";
+import { getBondDetails } from "./utils/bondDetailsfunction.js";
 
 export const getBondDetailsController = async (req, res) => {
   try {

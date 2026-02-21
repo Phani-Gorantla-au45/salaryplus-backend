@@ -45,8 +45,12 @@ app.use("/api/sbOnboarding", sbonboardingRoutes);
 app.use("/api/kyc", sbkycRoutes);
 app.use(augmontRoutes);
 
-/* ---------------- SOCKET SETUP (🔥 THIS IS THE KEY) ---------------- */
+/* ---------------- SOCKET SETUP ---------------- */
 const server = http.createServer(app);
 initSocket(server);
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+server.listen(PORT, () => {
+  console.log(`🚀 Server + Socket.IO running on port ${PORT}`);
+});

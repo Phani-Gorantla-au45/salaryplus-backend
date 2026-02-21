@@ -1,4 +1,4 @@
-import BondTrade from "../../models/bonds/bondTrade.model.js";
+import BondTrade from "../../../models/bonds/bondTrade.model.js";
 
 export const getBondDetails = async (pan) => {
   if (!pan) {

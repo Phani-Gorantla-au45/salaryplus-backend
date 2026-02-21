@@ -1,5 +1,45 @@
 import BondTransaction from "../../models/bonds/bondTransaction.model.js";
 
+export const adminGetAllBondTransactions = async (req, res) => {
+  console.log("inside getalltrans");
+  try {
+    const { page = 1, limit = 10, uniqueId, isin, status } = req.query;
+
+    const filter = {};
+
+    if (uniqueId) filter.uniqueId = uniqueId;
+    if (isin) filter.isin = isin.trim().toUpperCase();
+    if (status) filter.status = status.toUpperCase();
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const total = await BondTransaction.countDocuments(filter);
+
+    const transactions = await BondTransaction.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+
+    return res.status(200).json({
+      statusCode: 200,
+      message: "Bond transactions fetched successfully",
+      meta: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit),
+      },
+      result: transactions,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      statusCode: 500,
+      message: error.message,
+    });
+  }
+};
+
 /* ---------- UPDATE BOND TRANSACTION STATUS (ADMIN) ---------- */
 export const updateBondTransactionStatus = async (req, res) => {
   try {

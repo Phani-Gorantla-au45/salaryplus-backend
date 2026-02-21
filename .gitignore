@@ -3,7 +3,7 @@ node_modules/
 
 # environment variables
 .env
-
+*.pem
 # logs
 logs
 *.log
