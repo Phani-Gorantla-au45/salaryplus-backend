@@ -3,7 +3,7 @@
 // import axios from "axios";
 
 // /* ---------------- CRON JOB (RUNS EVERY 5 MINUTES) ---------------- */
-// cron.schedule("*/5 * * * *", async () => {
+// cron.schedule("*/1 * * * *", async () => {
 //   console.log("⏳ Fetching metal rates from Augmont...");
 
 //   try {
@@ -82,7 +82,7 @@ import axios from "axios";
 import { emitRatesUpdate } from "../../controllers/augmont/utils/socket.js";
 
 /* ---------------- CRON JOB (RUNS EVERY 5 MINUTES) ---------------- */
-cron.schedule("*/5 * * * *", async () => {
+cron.schedule("*/1 * * * *", async () => {
   console.log("⏳ Fetching metal rates from Augmont...");
 
   try {
@@ -136,7 +136,7 @@ cron.schedule("*/5 * * * *", async () => {
       blockId,
       updatedAt: updatedRate.updatedAt,
     });
-
+    console.log("✅ Rates updated:", gBuy, gSell, sBuy, sSell, blockId);
     console.log("✅ Rates updated & socket emitted");
   } catch (err) {
     console.error("❌ Rate fetch failed:", err.response?.data || err.message);

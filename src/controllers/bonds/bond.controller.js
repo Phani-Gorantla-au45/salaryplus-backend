@@ -42,6 +42,7 @@ export const createBond = async (req, res) => {
       ratingDate,
       debentureTrustee,
       status,
+      kidDocLink,
     } = req.body;
 
     const bond = await Bond.create({
@@ -71,6 +72,7 @@ export const createBond = async (req, res) => {
       ratingDate,
       debentureTrustee,
       status,
+      kidDocLink,
     });
 
     return res.status(201).json({
@@ -191,6 +193,7 @@ export const updateBondByBondLaunchId = async (req, res) => {
       ratingDate,
       debentureTrustee,
       status,
+      kidDocLink,
     } = req.body;
 
     const updatedBond = await Bond.findOneAndUpdate(
@@ -221,6 +224,7 @@ export const updateBondByBondLaunchId = async (req, res) => {
         ratingDate,
         debentureTrustee,
         status,
+        kidDocLink,
       },
       {
         new: true,
