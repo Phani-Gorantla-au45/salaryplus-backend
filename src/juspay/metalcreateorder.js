@@ -246,6 +246,7 @@ export const createMetalIntent = async (req, res) => {
       quantity: quantity || null, // ✔ only if user sent
       amount: amount || null, // ✔ only if user sent
       lockPrice,
+      blockId,
       merchantTransactionId,
       status: "CREATED",
       providerStatus: "UPI_INTENT_CREATED",

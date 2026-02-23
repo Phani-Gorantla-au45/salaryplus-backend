@@ -82,7 +82,7 @@ import axios from "axios";
 import { emitRatesUpdate } from "../../controllers/augmont/utils/socket.js";
 
 /* ---------------- CRON JOB (RUNS EVERY 5 MINUTES) ---------------- */
-cron.schedule("*/1 * * * *", async () => {
+cron.schedule("*/5 * * * *", async () => {
   console.log("⏳ Fetching metal rates from Augmont...");
 
   try {
