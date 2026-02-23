@@ -34,7 +34,10 @@ import {
   getBondByIsin,
 } from "../../controllers/bonds/isindata.js";
 import { uploadBondTradesExcel } from "../../controllers/bonds/BondTrades.controller.js";
-import { updateBondTransactionStatus } from "../../controllers/bonds/updateBondStatus.controller.js";
+import {
+  updateBondTransactionStatus,
+  adminGetAllBondTransactions,
+} from "../../controllers/bonds/updateBondStatus.controller.js";
 const router = express.Router();
 
 //admin login rotes
