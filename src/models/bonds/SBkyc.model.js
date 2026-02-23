@@ -40,7 +40,7 @@ const kycSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["SUBMITTED", "APPROVED", "REJECTED"],
+      enum: ["SUBMITTED", "APPROVED", "REJECTED", "DELETED"],
       default: "SUBMITTED",
     },
   },
