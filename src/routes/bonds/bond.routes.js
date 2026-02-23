@@ -47,10 +47,10 @@ router.post("/admin/verify-otp", adminVerifyOtp);
 //admin  access for access for investers
 //admin  access for investers
 
-router.post("/admin/add-investers", adminAuth, addInvestor);
+router.post("/admin/add-investors", adminAuth, addInvestor);
 router.put("/admin/investors/:uniqueId", adminAuth, editInvestor);
 router.delete("/admin/investors/:uniqueId", adminAuth, deleteInvestor);
-router.get("/admin/getallinvester", adminAuth, getAllInvestors);
+router.get("/admin/getallinvestor", adminAuth, getAllInvestors);
 
 /* -------- Admin Bond Listing -------- */
 router.post("/admin/BondListing", createBond);
