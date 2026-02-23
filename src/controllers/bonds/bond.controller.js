@@ -259,3 +259,40 @@ export const updateBondByBondLaunchId = async (req, res) => {
     });
   }
 };
+
+/* ---------------- DELETE BOND LISTING BY bondLaunchId (ADMIN) ---------------- */
+export const deleteBondByBondLaunchId = async (req, res) => {
+  try {
+    const { bondLaunchId } = req.params;
+
+    if (!bondLaunchId) {
+      return res.status(400).json({
+        success: false,
+        message: "bondLaunchId is required",
+      });
+    }
+
+    const deletedBond = await Bond.findOneAndDelete(
+      { bondLaunchId },
+      { projection: { _id: 0, __v: 0 } },
+    );
+
+    if (!deletedBond) {
+      return res.status(404).json({
+        success: false,
+        message: "Bond not found for this bondLaunchId",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Bond listing deleted successfully",
+      data: deletedBond,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

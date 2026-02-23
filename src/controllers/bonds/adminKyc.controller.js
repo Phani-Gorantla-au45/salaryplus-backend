@@ -70,6 +70,38 @@ export const adminEditKyc = async (req, res) => {
 };
 
 //delete
+// export const adminDeleteKyc = async (req, res) => {
+//   try {
+//     const { uniqueId } = req.params;
+
+//     const kyc = await KYC.findOne({ userUniqueId: uniqueId });
+//     if (!kyc) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "KYC not found",
+//       });
+//     }
+
+//     kyc.status = "DELETED";
+//     await kyc.save();
+
+//     await SBregister.updateOne(
+//       { uniqueId },
+//       { $set: { kycStatus: "NOT_SUBMITTED" } },
+//     );
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "KYC deleted successfully",
+//     });
+//   } catch (err) {
+//     console.log("error", err);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to delete KYC",
+//     });
+//   }
+// };
 export const adminDeleteKyc = async (req, res) => {
   try {
     const { uniqueId } = req.params;
@@ -82,19 +114,28 @@ export const adminDeleteKyc = async (req, res) => {
       });
     }
 
-    kyc.status = "DELETED";
-    await kyc.save();
+    // 🔥 HARD DELETE KYC RECORD
+    await KYC.deleteOne({ userUniqueId: uniqueId });
 
+    // 🔄 RESET USER MASTER STATUS
     await SBregister.updateOne(
       { uniqueId },
-      { $set: { kycStatus: "NOT_SUBMITTED" } },
+      {
+        $set: {
+          kycStatus: "NOT_SUBMITTED",
+        },
+        $unset: {
+          panNumber: "",
+        },
+      },
     );
 
     return res.status(200).json({
       success: true,
-      message: "KYC deleted successfully",
+      message: "KYC deleted permanently",
     });
   } catch (err) {
+    console.error("DELETE KYC ERROR 👉", err);
     return res.status(500).json({
       success: false,
       message: "Failed to delete KYC",

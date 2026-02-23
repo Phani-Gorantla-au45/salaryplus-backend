@@ -27,6 +27,7 @@ import {
   getBondListings,
   getBondByBondLaunchId,
   updateBondByBondLaunchId,
+  deleteBondByBondLaunchId,
 } from "../../controllers/bonds/bond.controller.js";
 
 import upload from "../../middlewares/upload.middleware.js";
@@ -46,25 +47,11 @@ const router = express.Router();
 router.post("/admin/send-otp", adminSendOtp);
 router.post("/admin/verify-otp", adminVerifyOtp);
 
-/* -------- Admin Bond Listing -------- */
-router.post("/admin/BondListing", adminAuth, createBond);
-router.get("/admin/getallbonds", adminAuth, getBondListings);
-router.put("/admin/:bondLaunchId", adminAuth, updateBondByBondLaunchId);
-router.get("/admin/:bondLaunchId", adminAuth, getBondByBondLaunchId);
-
 //admin  access for investers
 router.post("/admin/add-investers", adminAuth, addInvestor);
 router.put("/admin/investors/:uniqueId", adminAuth, editInvestor);
 router.delete("/admin/investors/:uniqueId", adminAuth, deleteInvestor);
 router.get("/admin/getallinvester", adminAuth, getAllInvestors);
-
-//admin access for investers kyc
-router.post("/admin/kyc/:uniqueId", adminAuth, adminAddKyc);
-router.put("/admin/kyc/:uniqueId", adminAuth, adminEditKyc);
-router.delete("/admin/kyc/:uniqueId", adminAuth, adminDeleteKyc);
-router.get("/admin/kyc/status/:uniqueId", adminAuth, adminGetKycStatus);
-router.put("/admin/kyc/status/:uniqueId", adminAuth, updateKycStatus);
-
 //transaction details
 router.get("/admin/transactions", adminAuth, adminGetAllBondTransactions);
 router.put(
@@ -72,6 +59,20 @@ router.put(
   adminAuth,
   updateBondTransactionStatus,
 );
+
+/* -------- Admin Bond Listing -------- */
+router.post("/admin/BondListing", adminAuth, createBond);
+router.get("/admin/getallbonds", adminAuth, getBondListings);
+router.put("/admin/:bondLaunchId", adminAuth, updateBondByBondLaunchId);
+router.get("/admin/:bondLaunchId", adminAuth, getBondByBondLaunchId);
+router.delete("/admin/:bondLaunchId", adminAuth, deleteBondByBondLaunchId);
+
+//admin access for investers kyc
+router.post("/admin/kyc/:uniqueId", adminAuth, adminAddKyc);
+router.put("/admin/kyc/:uniqueId", adminAuth, adminEditKyc);
+router.delete("/admin/kyc/:uniqueId", adminAuth, adminDeleteKyc);
+router.get("/admin/kyc/status/:uniqueId", adminAuth, adminGetKycStatus);
+router.put("/admin/kyc/status/:uniqueId", adminAuth, updateKycStatus);
 
 //admin isin excel upload
 router.post(
