@@ -2,6 +2,11 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import http from "http";
+import { webcrypto } from "crypto";
+
+if (!globalThis.crypto) {
+  globalThis.crypto = webcrypto;
+}
 import connectDB from "./src/config/db.js";
 import { initSocket } from "./src/controllers/augmont/utils/socket.js";
 import registrationRoutes from "./src/routes/registration/registration.routes.js";
