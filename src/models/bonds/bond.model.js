@@ -138,10 +138,6 @@ const bondSchema = new mongoose.Schema(
     debentureTrustee: {
       type: String,
     },
-    kidDocLink: {
-      type: String,
-      trim: true,
-    },
 
     status: {
       type: String,

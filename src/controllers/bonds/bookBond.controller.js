@@ -1,5 +1,5 @@
 import BondTransaction from "../../models/bonds/bondTransaction.model.js";
-import BondListing from "../../models/bonds/bond.model.js";
+import isindata from "../../models/bonds/isin.model.js";
 
 /* ---------- BOOK BOND API ---------- */
 export const bookBond = async (req, res) => {
@@ -24,24 +24,15 @@ export const bookBond = async (req, res) => {
       });
     }
 
-    /* ---------- CHECK BOND LISTING (INVENTORY) ---------- */
-    const bond = await BondListing.findOne({
+    /* ---------- CHECK ISIN ---------- */
+    const bond = await isindata.findOne({
       isin: isin.trim().toUpperCase(),
-      status: "ACTIVE",
     });
 
     if (!bond) {
       return res.status(404).json({
         statusCode: 404,
-        message: "Bond not available",
-      });
-    }
-
-    /* ---------- CHECK AVAILABLE UNITS ---------- */
-    if (bond.availableUnits < units) {
-      return res.status(400).json({
-        statusCode: 400,
-        message: "Insufficient bond availability",
+        message: "Invalid ISIN",
       });
     }
 
@@ -62,17 +53,11 @@ export const bookBond = async (req, res) => {
     const transaction = await BondTransaction.create({
       transactionId,
       uniqueId,
-      isin: bond.isin,
+      isin: isin.trim().toUpperCase(),
       units,
       amount,
       status: "PENDING",
     });
-
-    /* ---------- REDUCE AVAILABLE UNITS (INVENTORY) ---------- */
-    await BondListing.updateOne(
-      { isin: bond.isin },
-      { $inc: { availableUnits: -units } },
-    );
 
     return res.status(201).json({
       statusCode: 201,

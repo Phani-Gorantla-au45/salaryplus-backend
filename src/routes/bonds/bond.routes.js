@@ -1,4 +1,5 @@
 import express from "express";
+
 import { adminAuth } from "../../middlewares/adminAuth.js";
 //admin login rotes
 import {
@@ -22,15 +23,14 @@ import {
   adminGetKycStatus,
   updateKycStatus,
 } from "../../controllers/bonds/adminKyc.controller.js";
+
 import {
   createBond,
   getBondListings,
   getBondByBondLaunchId,
   updateBondByBondLaunchId,
 } from "../../controllers/bonds/bond.controller.js";
-
 import upload from "../../middlewares/upload.middleware.js";
-
 import {
   uploadBondExcel,
   getBondByIsin,
@@ -64,6 +64,11 @@ router.put("/admin/kyc/:uniqueId", adminAuth, adminEditKyc);
 router.delete("/admin/kyc/:uniqueId", adminAuth, adminDeleteKyc);
 router.get("/admin/kyc/status/:uniqueId", adminAuth, adminGetKycStatus);
 router.put("/admin/kyc/status/:uniqueId", adminAuth, updateKycStatus);
+
+/* -------- Admin Bond Listing -------- */
+router.post("/admin/BondListing", createBond);
+router.get("/admin/getallbonds", getBondListings);
+router.put("/admin/:bondLaunchId", updateBondByBondLaunchId);
 
 //transaction details
 router.get("/admin/transactions", adminAuth, adminGetAllBondTransactions);
