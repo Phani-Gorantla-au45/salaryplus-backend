@@ -19,7 +19,6 @@ import {
   adminDeleteKyc,
   adminGetKycStatus,
   updateKycStatus,
-  adminGetAllKycStatus,
 } from "../../controllers/bonds/adminKyc.controller.js";
 
 import {
@@ -45,12 +44,23 @@ const router = express.Router();
 router.post("/admin/send-otp", adminSendOtp);
 router.post("/admin/verify-otp", adminVerifyOtp);
 
+//admin  access for access for investers
 //admin  access for investers
 
 router.post("/admin/add-investors", adminAuth, addInvestor);
 router.put("/admin/investors/:uniqueId", adminAuth, editInvestor);
 router.delete("/admin/investors/:uniqueId", adminAuth, deleteInvestor);
 router.get("/admin/getallinvestor", adminAuth, getAllInvestors);
+
+/* -------- Admin Bond Listing -------- */
+router.post("/admin/BondListing", createBond);
+router.get("/admin/getallbonds", getBondListings);
+router.put("/admin/:bondLaunchId", updateBondByBondLaunchId);
+
+/* -------- Admin Bond Listing -------- */
+router.post("/admin/BondListing", createBond);
+router.get("/admin/getallbonds", getBondListings);
+router.put("/admin/:bondLaunchId", updateBondByBondLaunchId);
 
 //transaction details
 router.get("/admin/transactions", adminAuth, adminGetAllBondTransactions);
@@ -60,10 +70,10 @@ router.put(
   updateBondTransactionStatus,
 );
 
-// router.get("/admin/:bondLaunchId", getBondByBondLaunchId);
-// router.get("/admin/get-by-isin/:isin", getBondByIsin);
+router.get("/admin/:bondLaunchId", getBondByBondLaunchId);
+router.get("/admin/get-by-isin/:isin", getBondByIsin);
 
-// router.post("/admin/upload-excel", upload.single("file"), uploadBondExcel);
+router.post("/admin/upload-excel", upload.single("file"), uploadBondExcel);
 
 /* -------- Admin Bond Listing -------- */
 router.post("/admin/BondListing", adminAuth, createBond);
@@ -79,8 +89,6 @@ router.delete("/admin/kyc/:uniqueId", adminAuth, adminDeleteKyc);
 router.get("/admin/kyc/status/:uniqueId", adminAuth, adminGetKycStatus);
 router.put("/admin/kyc/status/:uniqueId", adminAuth, updateKycStatus);
 
-router.get("/admin/kyc-status", adminAuth, adminGetAllKycStatus);
-
 //admin isin excel upload
 router.post(
   "/admin/upload-excel",
@@ -94,13 +102,12 @@ router.get("/admin/get-by-isin/:isin", adminAuth, getBondByIsin);
 router.post(
   "/admin/upload-trades-excel",
   upload.single("file"),
-  adminAuth,
   uploadBondTradesExcel,
 );
-// router.put(
-//   "/transaction/:transactionId/status",
+router.put(
+  "/transaction/:transactionId/status",
 
-//   // verifyAdmin,
-//   updateBondTransactionStatus,
-// );
+  // verifyAdmin,
+  updateBondTransactionStatus,
+);
 export default router;

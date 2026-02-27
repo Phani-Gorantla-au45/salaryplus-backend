@@ -231,38 +231,3 @@ export const updateKycStatus = async (req, res) => {
     });
   }
 };
-// GET ALL KYC STATUS (ADMIN)
-export const adminGetAllKycStatus = async (req, res) => {
-  try {
-    const { status } = req.query; // optional filter
-
-    const query = {};
-    if (status) {
-      query.kycStatus = status;
-    }
-
-    const users = await SBregister.find(query, {
-      _id: 0,
-      uniqueId: 1,
-      fullName: 1,
-      kycStatus: 1,
-      panNumber: 1,
-      createdAt: 1,
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      count: users.length,
-      data: users,
-    });
-  } catch (error) {
-    console.error("GET ALL KYC STATUS ERROR 👉", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch KYC status list",
-    });
-  }
-};
