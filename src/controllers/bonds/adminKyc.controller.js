@@ -122,14 +122,13 @@ export const adminDeleteKyc = async (req, res) => {
       { uniqueId },
       {
         $set: {
-          kycStatus: "NOT_SUBMITTED",
+          kycStatus: "PENDING", // ✅ CORRECT
         },
         $unset: {
           panNumber: "",
         },
       },
     );
-
     return res.status(200).json({
       success: true,
       message: "KYC deleted permanently",

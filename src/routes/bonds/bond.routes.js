@@ -57,11 +57,6 @@ router.post("/admin/BondListing", createBond);
 router.get("/admin/getallbonds", getBondListings);
 router.put("/admin/:bondLaunchId", updateBondByBondLaunchId);
 
-/* -------- Admin Bond Listing -------- */
-router.post("/admin/BondListing", createBond);
-router.get("/admin/getallbonds", getBondListings);
-router.put("/admin/:bondLaunchId", updateBondByBondLaunchId);
-
 //transaction details
 router.get("/admin/transactions", adminAuth, adminGetAllBondTransactions);
 router.put(
