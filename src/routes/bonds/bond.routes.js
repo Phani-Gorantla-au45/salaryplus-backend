@@ -67,7 +67,7 @@ router.put(
 
 /* -------- Admin Bond Listing -------- */
 router.post("/admin/BondListing", adminAuth, createBond);
-router.get("/admin/getallbonds", adminAuth, getBondListings);
+router.get("/getallbonds", getBondListings);
 router.put("/admin/:bondLaunchId", adminAuth, updateBondByBondLaunchId);
 router.get("/admin/:bondLaunchId", adminAuth, getBondByBondLaunchId);
 router.delete("/admin/:bondLaunchId", adminAuth, deleteBondByBondLaunchId);
