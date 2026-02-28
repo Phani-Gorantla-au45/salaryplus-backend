@@ -1,5 +1,5 @@
 // import KYC from "../../models/bonds/SBkyc.model.js";
-// import SBregister from "../../models/bonds/SBregister.model.js";
+import SBregister from "../../models/bonds/SBregister.model.js";
 
 // export const submitKyc = async (req, res) => {
 //   try {
@@ -197,6 +197,7 @@ export const fetchKycStatus = async (req, res) => {
       kycStatus: user.kycStatus,
     });
   } catch (error) {
+    console.log(error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch KYC status",

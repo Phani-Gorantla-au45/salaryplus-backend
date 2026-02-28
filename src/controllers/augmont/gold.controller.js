@@ -68,9 +68,36 @@ export const createGoldAccount = async (req, res) => {
       message: "Gold account created",
       goldUser,
     });
+    // } catch (err) {
+    //   console.error("❌ GOLD ERROR:", err.response?.data || err.message);
+
+    //   res.status(500).json({
+    //     message: "Gold creation failed",
+    //     error: err.response?.data || err.message,
+    //   });
+    // }
   } catch (err) {
-    console.error("❌ GOLD ERROR:", err.response?.data || err.message);
-    res.status(500).json({
+    console.error("❌ [GOLD API ERROR]");
+
+    // Axios error (API / network / 4xx / 5xx)
+    if (err.response) {
+      console.error("➡️ Status:", err.response.status);
+      console.error("➡️ Response Data:", err.response.data);
+      console.error("➡️ Headers:", err.response.headers);
+    }
+    // Request was made but no response
+    else if (err.request) {
+      console.error("➡️ No response received:", err.request);
+    }
+    // Code / logic error
+    else {
+      console.error("➡️ Error Message:", err.message);
+    }
+
+    console.error("➡️ Stack Trace:", err.stack);
+
+    return res.status(500).json({
+      success: false,
       message: "Gold creation failed",
       error: err.response?.data || err.message,
     });

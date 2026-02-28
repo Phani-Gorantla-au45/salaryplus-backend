@@ -39,8 +39,8 @@ app.get("/", (req, res) => {
 app.use("/api/registration", registrationRoutes);
 app.use("/api/gold", goldRoutes);
 app.use("/api/augmont/master", masterRoutes);
-app.use("/api/kyc/", kycRoutes);
-app.use("/api/bank/", bankRoutes);
+app.use("/api/kycs", kycRoutes);
+app.use("/api/bank", bankRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/juspay", juspayRoutes);
 app.use("/api/bonds", bondRoutes);
