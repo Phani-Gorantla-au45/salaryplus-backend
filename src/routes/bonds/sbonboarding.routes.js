@@ -4,7 +4,7 @@ import {
   verifyOtp,
   completeRegistration,
 } from "../../controllers/bonds/sbOnboarding.controller.js";
-import { auth } from "../../middlewares/jwt.js";
+import { auth } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

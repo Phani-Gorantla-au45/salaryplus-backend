@@ -1,6 +1,6 @@
 import express from "express";
 import { bookBond } from "../../controllers/bonds/bookBond.controller.js";
-import { auth } from "../../middlewares/jwt.js";
+import { auth } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

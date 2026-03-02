@@ -152,7 +152,7 @@
 //   }
 // };
 
-import { submitKycCommon } from "../../controllers/bonds/utils/kyc.function.js";
+import { submitKycCommon } from "../../utils/bonds/kyc.utils.js";
 
 export const submitKyc = async (req, res) => {
   try {

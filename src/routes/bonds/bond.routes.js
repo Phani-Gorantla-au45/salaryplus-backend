@@ -1,10 +1,10 @@
 import express from "express";
 
-import { adminAuth } from "../../middlewares/adminAuth.js";
+import { adminAuth } from "../../middlewares/adminAuth.middleware.js";
 import {
   adminSendOtp,
   adminVerifyOtp,
-} from "../../controllers/bonds/adminlogin.controller.js";
+} from "../../controllers/bonds/admin.controller.js";
 import {
   addInvestor,
   editInvestor,
@@ -32,21 +32,20 @@ import upload from "../../middlewares/upload.middleware.js";
 import {
   uploadBondExcel,
   getBondByIsin,
-} from "../../controllers/bonds/isindata.js";
-import { uploadBondTradesExcel } from "../../controllers/bonds/BondTrades.controller.js";
+} from "../../controllers/bonds/isinData.controller.js";
+import { uploadBondTradesExcel } from "../../controllers/bonds/bondTrades.controller.js";
 import {
   updateBondTransactionStatus,
   adminGetAllBondTransactions,
-} from "../../controllers/bonds/updateBondStatus.controller.js";
+} from "../../controllers/bonds/bondStatus.controller.js";
+
 const router = express.Router();
 
 //admin login rotes
 router.post("/admin/send-otp", adminSendOtp);
 router.post("/admin/verify-otp", adminVerifyOtp);
 
-//admin  access for access for investers
 //admin  access for investers
-
 router.post("/admin/add-investors", adminAuth, addInvestor);
 router.put("/admin/investors/:uniqueId", adminAuth, editInvestor);
 router.delete("/admin/investors/:uniqueId", adminAuth, deleteInvestor);
@@ -105,4 +104,5 @@ router.put(
   // verifyAdmin,
   updateBondTransactionStatus,
 );
+
 export default router;

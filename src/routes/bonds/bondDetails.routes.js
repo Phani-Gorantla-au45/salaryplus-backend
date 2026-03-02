@@ -1,7 +1,7 @@
 import express from "express";
 import { getBondDetailsController } from "../../controllers/bonds/bondDetails.controller.js";
-import { auth } from "../../middlewares/jwt.js";
-import { getBondHoldingProfile } from "../../controllers/bonds/bondHoldingProfile.controller.js";
+import { auth } from "../../middlewares/auth.middleware.js";
+import { getBondHoldingProfile } from "../../controllers/bonds/bondHolding.controller.js";
 
 const router = express.Router();
 

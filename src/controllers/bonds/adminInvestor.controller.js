@@ -1,4 +1,4 @@
-import SBregister from "../../models/bonds/SBregister.model.js";
+import SBregister from "../../models/bonds/sbRegister.model.js";
 import crypto from "crypto";
 
 /* 🆔 Generate Unique ID */

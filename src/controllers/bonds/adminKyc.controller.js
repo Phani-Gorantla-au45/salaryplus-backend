@@ -1,6 +1,6 @@
-import { submitKycCommon } from "../../controllers/bonds/utils/kyc.function.js";
-import KYC from "../../models/bonds/SBkyc.model.js";
-import SBregister from "../../models/bonds/SBregister.model.js";
+import { submitKycCommon } from "../../utils/bonds/kyc.utils.js";
+import KYC from "../../models/bonds/sbKyc.model.js";
+import SBregister from "../../models/bonds/sbRegister.model.js";
 
 export const adminAddKyc = async (req, res) => {
   try {
