@@ -1,4 +1,4 @@
-import SBregister from "../../models/bonds/sbRegister.model.js";
+import SBregister from "../../models/bonds/SBregister.model.js";
 import axios from "axios";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";

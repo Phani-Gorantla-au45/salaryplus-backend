@@ -1,5 +1,5 @@
-import KYC from "../../models/bonds/sbKyc.model.js";
-import SBregister from "../../models/bonds/sbRegister.model.js";
+import KYC from "../../models/bonds/SBkyc.model.js";
+import SBregister from "../../models/bonds/SBregister.model.js";
 
 export const submitKycCommon = async ({
   uniqueId,

@@ -12,7 +12,7 @@ import bondRoutes from "./bonds/bond.routes.js";
 import bondDetailsRoutes from "./bonds/bondDetails.routes.js";
 import bookBondRoutes from "./bonds/bookBond.routes.js";
 import sbOnboardingRoutes from "./bonds/sbOnboarding.routes.js";
-import sbKycRoutes from "./bonds/sbKyc.routes.js";
+import sbKycRoutes from "./bonds/SBkyc.routes.js";
 import mfKycRoutes from "./mf/kyc.routes.js";
 import mfKycRequestRoutes from "./mf/kycRequest.routes.js";
 import mfIdentityDocumentRoutes from "./mf/identityDocument.routes.js";

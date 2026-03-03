@@ -12,7 +12,6 @@ import {
   getAllInvestors,
 } from "../../controllers/bonds/adminInvestor.controller.js";
 
-//admin access for investers kyc
 import {
   adminAddKyc,
   adminEditKyc,
@@ -41,15 +40,15 @@ import {
 
 const router = express.Router();
 
-//admin login rotes
-router.post("/admin/send-otp", adminSendOtp);
-router.post("/admin/verify-otp", adminVerifyOtp);
-
 //admin  access for investers
+router.get("/admin/inv/getallinvestor", adminAuth, getAllInvestors);
 router.post("/admin/add-investors", adminAuth, addInvestor);
 router.put("/admin/investors/:uniqueId", adminAuth, editInvestor);
 router.delete("/admin/investors/:uniqueId", adminAuth, deleteInvestor);
-router.get("/admin/getallinvestor", adminAuth, getAllInvestors);
+
+//admin login rotes
+router.post("/admin/send-otp", adminSendOtp);
+router.post("/admin/verify-otp", adminVerifyOtp);
 
 /* -------- Admin Bond Listing -------- */
 router.post("/admin/BondListing", createBond);
@@ -76,7 +75,6 @@ router.put("/admin/:bondLaunchId", adminAuth, updateBondByBondLaunchId);
 router.get("/admin/:bondLaunchId", adminAuth, getBondByBondLaunchId);
 router.delete("/admin/:bondLaunchId", adminAuth, deleteBondByBondLaunchId);
 
-//admin access for investers kyc
 router.post("/admin/kyc/:uniqueId", adminAuth, adminAddKyc);
 router.put("/admin/kyc/:uniqueId", adminAuth, adminEditKyc);
 router.delete("/admin/kyc/:uniqueId", adminAuth, adminDeleteKyc);

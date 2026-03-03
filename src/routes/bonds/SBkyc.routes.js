@@ -2,7 +2,7 @@ import express from "express";
 import {
   submitKyc,
   fetchKycStatus,
-} from "../../controllers/bonds/sbKyc.controller.js";
+} from "../../controllers/bonds/SBkyc.controller.js";
 import { auth } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
