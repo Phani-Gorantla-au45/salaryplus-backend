@@ -41,7 +41,7 @@ import {
 const router = express.Router();
 
 //admin  access for investers
-router.get("/admin/inv/getallinvestor", adminAuth, getAllInvestors);
+router.get("/admin/inv/getallinvestor", getAllInvestors);
 router.post("/admin/add-investors", adminAuth, addInvestor);
 router.put("/admin/investors/:uniqueId", adminAuth, editInvestor);
 router.delete("/admin/investors/:uniqueId", adminAuth, deleteInvestor);
