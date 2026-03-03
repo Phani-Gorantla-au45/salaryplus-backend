@@ -49,7 +49,7 @@
 //   );
 // };
 
-import KYC from "../../../models/bonds/";
+import KYC from "../../../models/bonds/SBkyc.model.js";
 import SBregister from "../../../models/bonds/SBregister.model.js";
 
 export const submitKycCommon = async ({
