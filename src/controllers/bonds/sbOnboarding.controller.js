@@ -224,3 +224,38 @@ export const completeRegistration = async (req, res) => {
     });
   }
 };
+/* ================= 4️⃣ GET USER PROFILE ================= */
+
+export const getUserProfile = async (req, res) => {
+  try {
+    console.log("👤 GET USER PROFILE API HIT");
+
+    const { uniqueId } = req.user;
+
+    const user = await SBregister.findOne({ uniqueId }).select(
+      "uniqueId phone fullName email isVerified kycStatus createdAt",
+    );
+
+    if (!user) {
+      console.warn(`❌ USER NOT FOUND | uniqueId=${uniqueId}`);
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    console.log(`✅ PROFILE FETCHED | uniqueId=${uniqueId}`);
+
+    return res.status(200).json({
+      success: true,
+      profile: user,
+    });
+  } catch (error) {
+    console.error("🔥 GET PROFILE ERROR:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch profile",
+    });
+  }
+};
