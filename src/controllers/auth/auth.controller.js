@@ -104,6 +104,26 @@ export const verifyOtp = async (req, res) => {
   }
 };
 
+/* ---------------- ADMIN LOGIN ---------------- */
+export const adminLogin = (req, res) => {
+  try {
+    const { secret } = req.body;
+    if (!secret || secret !== process.env.ADMIN_SECRET) {
+      return res.status(401).json({ message: "Invalid admin secret" });
+    }
+
+    const token = jwt.sign(
+      { uniqueId: "admin", isAdmin: true },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    return res.json({ token });
+  } catch (err) {
+    return res.status(500).json({ message: "Admin login failed" });
+  }
+};
+
 /* ---------------- COMPLETE REGISTRATION ---------------- */
 export const completeRegistration = async (req, res) => {
   try {

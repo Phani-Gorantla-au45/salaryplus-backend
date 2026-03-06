@@ -22,8 +22,8 @@ export const createPreVerification = async (pan, name, date_of_birth) => {
       `${CYBRILLA_API_URL()}/poa/pre_verifications`,
       {
         investor_identifier: pan,
-        pan:           { value: pan },
-        name:          { value: name },
+        pan: { value: pan },
+        name: { value: name },
         date_of_birth: { value: date_of_birth },
       },
       {
@@ -47,6 +47,75 @@ export const createPreVerification = async (pan, name, date_of_birth) => {
     throw new Error(
       err.response?.data?.message ||
         "Failed to create Cybrilla pre-verification"
+    );
+  }
+};
+
+/**
+ * Creates a Pre-Verification request that includes bank account verification.
+ * Reuses the same /poa/pre_verifications endpoint with bank_accounts payload.
+ *
+ * @param {string} pan           - Investor's PAN
+ * @param {string} name          - Investor's name
+ * @param {string} date_of_birth - YYYY-MM-DD
+ * @param {string} accountNumber - Bank account number
+ * @param {string} ifscCode      - IFSC code
+ * @param {string} accountType   - "savings" | "current"
+ * @returns {object} - Cybrilla pre-verification object
+ */
+export const createBankPreVerification = async (
+  pan,
+  name,
+  date_of_birth,
+  accountNumber,
+  ifscCode,
+  accountType
+) => {
+  console.log(
+    `🔄 [CYBRILLA BANK VERIFY] Creating bank pre-verification for PAN: ${pan}, account: ${accountNumber}`
+  );
+
+  const token = await getCybrillaToken();
+
+  try {
+    const response = await axios.post(
+      `${CYBRILLA_API_URL()}/poa/pre_verifications`,
+      {
+        investor_identifier: pan,
+        pan: { value: pan },
+        name: { value: name },
+        date_of_birth: { value: date_of_birth },
+        bank_accounts: [
+          {
+            value: {
+              account_number: accountNumber,
+              ifsc_code: ifscCode,
+              account_type: accountType, // savings | current
+            },
+            // verify_manually_if_required: true,
+          },
+        ],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    console.log("pre verification after", response.data);
+    console.log(
+      `✅ [CYBRILLA BANK VERIFY] Pre-verification created — id: ${response.data?.id}, status: ${response.data?.status}`
+    );
+    return response.data;
+  } catch (err) {
+    console.error(
+      "❌ [CYBRILLA BANK VERIFY] Failed to create bank pre-verification:",
+      err.response?.data || err.message
+    );
+    throw new Error(
+      err.response?.data?.message ||
+        "Failed to create bank account pre-verification"
     );
   }
 };

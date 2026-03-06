@@ -1,8 +1,6 @@
 import MfPurchase from "../../../models/mf/purchase/mfPurchase.model.js";
-import MfInvestmentAccount from "../../../models/mf/mfInvestmentAccount.model.js";
+import MfUserData from "../../../models/mf/mfUserData.model.js";
 import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
-import PhoneNumber from "../../../models/mf/phoneNumber.model.js";
-import EmailAddress from "../../../models/mf/emailAddress.model.js";
 import User from "../../../models/user/user.model.js";
 import {
   createFpPurchase,
@@ -11,6 +9,7 @@ import {
   createFpPaymentNetbanking,
   fetchFpPayment,
 } from "../../../utils/mf/purchase/purchase.utils.js";
+import { fetchFpBankAccount } from "../../../utils/mf/bankAccount.utils.js";
 import {
   generateOtp,
   otpExpiresAt,
@@ -60,6 +59,7 @@ const resolveScheme = async (isin) => {
         $set: {
           isin: fpData.isin?.toUpperCase() || upper,
           gateway: fpData.gateway || "cybrillapoa",
+          // gateway: "ondc",
           schemeName: fpData.mf_scheme?.name ?? null,
           fundName: fpData.mf_fund?.name ?? null,
           type: fpData.type,
@@ -88,9 +88,11 @@ const resolveScheme = async (isin) => {
 /* ------------------------------------------------------------------ */
 export const createPurchase = async (req, res) => {
   try {
-    console.log("Inside create purchase");
     const { uniqueId } = req.user;
     const { isin, amount, paymentMethod = "netbanking" } = req.body;
+    console.log(
+      `\n🛒 [CREATE PURCHASE] user=${uniqueId} isin=${isin} amount=${amount}`
+    );
 
     /* ---------- VALIDATE INPUT ---------- */
     if (!isin) {
@@ -104,19 +106,28 @@ export const createPurchase = async (req, res) => {
         .json({ success: false, message: "amount must be a positive number" });
     }
 
-    /* ---------- GET INVESTMENT ACCOUNT ---------- */
-    const investmentAccount = await MfInvestmentAccount.findOne({ uniqueId });
+    /* ---------- STEP 1: GET INVESTMENT ACCOUNT ---------- */
+    console.log(`  [1/5] Fetching MF user data...`);
+    const mfData = await MfUserData.findOne({ uniqueId });
+    const investmentAccount = mfData?.investmentAccount;
     if (!investmentAccount?.fpInvestmentAccountId) {
+      console.warn(`  [1/5] ❌ No investment account found`);
       return res.status(400).json({
         success: false,
         message:
           "MF investment account not found. Complete account setup first.",
       });
     }
+    console.log(
+      `  [1/5] ✅ investmentAccount=${investmentAccount.fpInvestmentAccountId}`
+    );
 
-    /* ---------- RESOLVE SCHEME PLAN ---------- */
+    /* ---------- STEP 2: RESOLVE SCHEME PLAN ---------- */
+    console.log(`  [2/5] Resolving scheme for ISIN=${isin}...`);
     const scheme = await resolveScheme(isin);
-    console.log("Scheme resp", scheme);
+    console.log(
+      `  [2/5] ✅ scheme=${scheme.isin} gateway=${scheme.gateway} active=${scheme.active}`
+    );
     if (!scheme.active) {
       return res.status(400).json({
         success: false,
@@ -124,13 +135,11 @@ export const createPurchase = async (req, res) => {
       });
     }
 
-    /* ---------- CREATE FP PURCHASE ---------- */
-    // Capture user IP — required by FP (must be plain IPv4)
+    /* ---------- STEP 3: CREATE FP PURCHASE ---------- */
     const rawIp =
       req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
       req.socket?.remoteAddress ||
       "127.0.0.1";
-    // Strip IPv6-mapped IPv4 prefix (e.g. ::ffff:127.0.0.1 → 127.0.0.1)
     const userIp = rawIp.startsWith("::ffff:")
       ? rawIp.slice(7)
       : rawIp === "::1"
@@ -142,35 +151,38 @@ export const createPurchase = async (req, res) => {
       scheme: scheme.isin,
       amount: Number(amount),
       user_ip: userIp,
-      gateway: "ondc",
     };
-
+    console.log(`  [3/5] Creating FP purchase... user_ip=${userIp}`);
     const fpData = await createFpPurchase(fpPayload);
+    console.log(
+      `  [3/5] ✅ fpPurchaseId=${fpData.id} fpOldId=${fpData.old_id} state=${fpData.state}`
+    );
 
-    /* ---------- SEND OTP TO USER ---------- */
-    // Prefer MF phone number; fallback to User registration phone
-    let phone;
-    const mfPhone = await PhoneNumber.findOne({ uniqueId });
-    if (mfPhone?.number) {
-      phone = mfPhone.number;
-    } else {
+    /* ---------- STEP 4: SEND OTP ---------- */
+    let phone = mfData?.phone?.number;
+    if (!phone) {
       const user = await User.findOne({ uniqueId });
       phone = user?.phone;
     }
-
     if (!phone) {
+      console.warn(`  [4/5] ❌ No phone found`);
       return res.status(400).json({
         success: false,
         message: "No phone number found for user. Cannot send consent OTP.",
       });
     }
-
     const otp = generateOtp();
     const expiry = otpExpiresAt();
-
+    console.log(
+      `  [4/5] Sending consent OTP to ${phone.slice(0, 3)}****${phone.slice(
+        -3
+      )}...`
+    );
     await sendConsentOtp(phone, otp);
+    console.log(`  [4/5] ✅ OTP sent`);
 
-    /* ---------- STORE IN DB ---------- */
+    /* ---------- STEP 5: STORE IN DB ---------- */
+    console.log(`  [5/5] Saving purchase to DB...`);
     const record = await syncPurchaseToDb(uniqueId, fpData, {
       isin: scheme.isin,
       schemeName: scheme.schemeName,
@@ -181,8 +193,7 @@ export const createPurchase = async (req, res) => {
       otpExpiresAt: expiry,
       otpVerified: false,
     });
-
-    const maskedPhone = `${phone.slice(0, 3)}****${phone.slice(-3)}`;
+    console.log(`  [5/5] ✅ purchaseId=${record._id}`);
 
     return res.status(201).json({
       success: true,
@@ -195,12 +206,12 @@ export const createPurchase = async (req, res) => {
         amount: record.amount,
         paymentMethod: record.paymentMethod,
         fpState: record.fpState,
-        otpSentTo: maskedPhone,
+        otpSentTo: `${phone.slice(0, 3)}****${phone.slice(-3)}`,
         otpExpiresAt: record.otpExpiresAt,
       },
     });
   } catch (err) {
-    console.error("❌ [PURCHASE] Create error:", err.message);
+    console.error("❌ [CREATE PURCHASE] Error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -216,7 +227,8 @@ export const confirmPurchase = async (req, res) => {
   try {
     const { uniqueId } = req.user;
     const { id } = req.params;
-    const { otp, returnUrl } = req.body;
+    const { otp } = req.body;
+    console.log(`\n✅ [CONFIRM PURCHASE] purchaseId=${id} user=${uniqueId}`);
 
     if (!otp) {
       return res
@@ -224,71 +236,100 @@ export const confirmPurchase = async (req, res) => {
         .json({ success: false, message: "otp is required" });
     }
 
-    /* ---------- FETCH PURCHASE RECORD (with otpCode) ---------- */
+    /* ---------- STEP 1: FETCH PURCHASE RECORD ---------- */
+    console.log(`  [1/7] Fetching purchase record...`);
     const record = await MfPurchase.findOne({ _id: id, uniqueId }).select(
       "+otpCode"
     );
-
     if (!record) {
+      console.warn(`  [1/7] ❌ Purchase not found`);
       return res
         .status(404)
         .json({ success: false, message: "Purchase not found" });
     }
     if (record.consentGiven) {
+      console.warn(`  [1/7] ❌ Consent already given`);
       return res.status(400).json({
         success: false,
         message: "Consent already given for this purchase",
       });
     }
+    const orderLabel = record.isBasketOrder
+      ? `basket (${record.basketOrders?.length ?? 0} orders)`
+      : `fpPurchaseId=${record.fpPurchaseId} fpOldId=${record.fpOldId}`;
+    console.log(`  [1/7] ✅ ${orderLabel} state=${record.fpState}`);
 
-    /* ---------- VERIFY OTP ---------- */
+    /* ---------- STEP 2: VERIFY OTP ---------- */
+    console.log(`  [2/7] Verifying OTP...`);
     const { valid, reason } = verifyConsentOtp(
       otp,
       record.otpCode,
       record.otpExpiresAt
     );
     if (!valid) {
+      console.warn(`  [2/7] ❌ OTP invalid: ${reason}`);
       return res.status(400).json({ success: false, message: reason });
     }
+    console.log(`  [2/7] ✅ OTP valid`);
 
-    /* ---------- GET USER DETAILS FOR CONSENT ---------- */
-    const [mfPhone, mfEmail] = await Promise.all([
-      PhoneNumber.findOne({ uniqueId }),
-      EmailAddress.findOne({ uniqueId }),
-    ]);
-
-    let phone, email;
-
-    if (mfPhone?.number) {
-      phone = mfPhone.number;
-    } else {
-      const user = await User.findOne({ uniqueId });
-      phone = user?.phone;
-    }
-
-    if (mfEmail?.email) {
-      email = mfEmail.email;
-    } else {
-      const user = await User.findOne({ uniqueId });
-      email = user?.email;
-    }
-
+    /* ---------- STEP 3: GET USER DETAILS ---------- */
+    console.log(`  [3/7] Fetching user phone/email...`);
+    const mfData = await MfUserData.findOne({ uniqueId });
+    let phone = mfData?.phone?.number;
+    let email = mfData?.email?.email;
     if (!phone || !email) {
+      const user = await User.findOne({ uniqueId });
+      if (!phone) phone = user?.phone;
+      if (!email) email = user?.email;
+    }
+    if (!phone || !email) {
+      console.warn(`  [3/7] ❌ Missing phone=${phone} email=${email}`);
       return res.status(400).json({
         success: false,
         message: "Phone and email are required for consent",
       });
     }
+    console.log(
+      `  [3/7] ✅ phone=${phone.slice(0, 3)}****${phone.slice(
+        -3
+      )} email=${email}`
+    );
 
-    /* ---------- PATCH CONSENT ON FP ---------- */
-    const isd = mfPhone?.isd || "91";
-    await patchFpPurchase(record.fpPurchaseId, {
-      consent: {
-        email,
-        isd_code: isd,
-        mobile: phone,
-      },
-    });
+    /* ---------- STEP 4: PATCH CONSENT ON FP ---------- */
+    const isd = mfData?.phone?.isd || "91";
+    const consentPayload = { email, isd_code: isd, mobile: phone };
+
+    if (record.isBasketOrder) {
+      const orders = record.basketOrders ?? [];
+      console.log(
+        `  [4/7] Patching consent on ${orders.length} basket order(s) in parallel...`
+      );
+      console.log(
+        `  [4/7] basketOrders:`,
+        JSON.stringify(
+          orders.map((o) => ({
+            fpPurchaseId: o.fpPurchaseId,
+            fpOldId: o.fpOldId,
+            isin: o.isin,
+          })),
+          null,
+          2
+        )
+      );
+      console.log(
+        `  [4/7] consentPayload:`,
+        JSON.stringify(consentPayload, null, 2)
+      );
+      await Promise.all(
+        orders.map((o) =>
+          patchFpPurchase(o.fpPurchaseId, { consent: consentPayload })
+        )
+      );
+    } else {
+      console.log(`  [4/7] Patching consent on FP (isd=${isd})...`);
+      await patchFpPurchase(record.fpPurchaseId, { consent: consentPayload });
+    }
+    console.log(`  [4/7] ✅ Consent patched`);
 
     /* ---------- MARK CONSENT IN DB ---------- */
     await MfPurchase.updateOne(
@@ -303,35 +344,135 @@ export const confirmPurchase = async (req, res) => {
       }
     );
 
-    /* ---------- CREATE PAYMENT ---------- */
+    /* ---------- STEP 5: CREATE PAYMENT ---------- */
+    // ONDC state machine: created → under_review (consent) → payment_pending (payment) → payment_captured → submitted (confirm)
+    // Payment must be created while orders are in under_review — confirm PATCH happens AFTER payment.
     const postbackUrl = `${process.env.APP_URL}/api/mf/purchase/payment-callback`;
+
+    // Resolve bank account old_id — required by FP for TPV
+    let bankAccountOldId = mfData?.bankAccount?.fpBankAccountOldId ?? null;
+    if (!bankAccountOldId && mfData?.bankAccount?.fpBankAccountId) {
+      console.log(`  [5/7] fpBankAccountOldId missing — fetching from FP...`);
+      try {
+        const fpBa = await fetchFpBankAccount(
+          mfData.bankAccount.fpBankAccountId
+        );
+        bankAccountOldId = fpBa.old_id ?? null;
+        if (bankAccountOldId) {
+          await MfUserData.updateOne(
+            { uniqueId },
+            { $set: { "bankAccount.fpBankAccountOldId": bankAccountOldId } }
+          );
+          console.log(
+            `  [5/7] ✅ Fetched bankAccountOldId=${bankAccountOldId}`
+          );
+        }
+      } catch (e) {
+        console.warn(
+          `  [5/7] ⚠️  Could not fetch bank account old_id: ${e.message}`
+        );
+      }
+    }
+
+    if (!bankAccountOldId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Bank account numeric ID (old_id) not available. Please re-link your bank account.",
+      });
+    }
+
+    // For basket orders use all fpOldIds; for individual use single fpOldId
+    const amcOrderIds = record.isBasketOrder
+      ? record.fpOldIds ?? []
+      : [record.fpOldId];
+    console.log(
+      `  [5/7] isBasketOrder=${
+        record.isBasketOrder
+      } amcOrderIds=${JSON.stringify(
+        amcOrderIds
+      )} bankAccountOldId=${bankAccountOldId}`
+    );
+
     const paymentPayload = {
-      amc_order_ids: [record.fpOldId],
-      payment_method: record.paymentMethod?.toUpperCase() ?? "NETBANKING",
-      return_url: returnUrl || `${process.env.APP_URL}/mf/purchase/complete`,
+      amc_order_ids: amcOrderIds,
       payment_postback_url: postbackUrl,
+      method: "UPI",
+      provider_name: "ONDC",
+      bank_account_id: bankAccountOldId,
     };
-
+    console.log("Payment payload", paymentPayload);
     const fpPayment = await createFpPaymentNetbanking(paymentPayload);
+    console.log(
+      `  [5/7] ✅ fpPaymentId=${fpPayment.id} tokenUrl=${fpPayment.token_url}`
+    );
 
-    /* ---------- PATCH STATE=CONFIRMED ON FP ---------- */
-    const confirmedFpData = await patchFpPurchase(record.fpPurchaseId, {
-      state: "confirmed",
-    });
+    /* ---------- STEP 6: PATCH STATE=CONFIRMED ---------- */
+    // After payment is created (orders now in payment_pending), patch confirmed.
+    let confirmedState = "confirmed";
+    let updatedBasketOrders = record.basketOrders ?? [];
 
-    /* ---------- SAVE PAYMENT INFO TO DB ---------- */
+    if (record.isBasketOrder) {
+      const basketOrderIds = (record.basketOrders ?? []).map(
+        (o) => o.fpPurchaseId
+      );
+      console.log(
+        `  [6/7] [BASKET] Patching state=confirmed on ${basketOrderIds.length} order(s):`,
+        JSON.stringify(basketOrderIds)
+      );
+      const results = await Promise.allSettled(
+        (record.basketOrders ?? []).map((o) =>
+          patchFpPurchase(o.fpPurchaseId, { state: "confirmed" })
+        )
+      );
+      console.log(
+        `  [6/7] Confirm results:`,
+        JSON.stringify(
+          results.map((r) => ({
+            status: r.status,
+            state: r.value?.state,
+            reason: r.reason?.message,
+          }))
+        )
+      );
+
+      // Build updated basketOrders with latest fpState from FP confirm results
+      updatedBasketOrders = (record.basketOrders ?? []).map((o, i) => ({
+        ...o.toObject(),
+        fpState: results[i]?.value?.state ?? o.fpState,
+      }));
+
+      confirmedState =
+        results.find((r) => r.status === "fulfilled")?.value?.state ??
+        "confirmed";
+      console.log(
+        `  [6/7] ✅ Basket orders confirmed — state=${confirmedState}`
+      );
+    } else {
+      const confirmedFpData = await patchFpPurchase(record.fpPurchaseId, {
+        state: "confirmed",
+      });
+      confirmedState = confirmedFpData.state ?? "confirmed";
+      console.log(`  [6/7] ✅ FP state=${confirmedState}`);
+    }
+
+    /* ---------- STEP 7: SAVE TO DB ---------- */
+    console.log(`  [7/7] Saving payment info to DB...`);
+    const dbUpdate = {
+      fpPaymentId: fpPayment.id ?? null,
+      tokenUrl: fpPayment.token_url ?? null,
+      fpState: confirmedState ?? "confirmed",
+      rawPaymentResponse: fpPayment,
+    };
+    if (record.isBasketOrder) {
+      dbUpdate.basketOrders = updatedBasketOrders;
+    }
     const updated = await MfPurchase.findOneAndUpdate(
       { _id: record._id },
-      {
-        $set: {
-          fpPaymentId: fpPayment.id ?? null,
-          tokenUrl: fpPayment.token_url ?? null,
-          fpState: confirmedFpData.state ?? "confirmed",
-          rawPaymentResponse: fpPayment,
-        },
-      },
+      { $set: dbUpdate },
       { new: true }
     );
+    console.log(`  [7/7] ✅ Done — tokenUrl=${updated.tokenUrl}`);
 
     return res.status(200).json({
       success: true,
@@ -345,7 +486,7 @@ export const confirmPurchase = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("❌ [PURCHASE] Confirm error:", err.message);
+    console.error("❌ [CONFIRM PURCHASE] Error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -372,11 +513,9 @@ export const resendOtp = async (req, res) => {
     }
 
     /* ---------- GET PHONE ---------- */
-    let phone;
-    const mfPhone = await PhoneNumber.findOne({ uniqueId });
-    if (mfPhone?.number) {
-      phone = mfPhone.number;
-    } else {
+    const mfData = await MfUserData.findOne({ uniqueId });
+    let phone = mfData?.phone?.number;
+    if (!phone) {
       const user = await User.findOne({ uniqueId });
       phone = user?.phone;
     }
@@ -511,52 +650,48 @@ export const paymentCallback = async (req, res) => {
   try {
     const body = req.body;
     console.log(
-      "📩 [PURCHASE CALLBACK] Received payment postback:",
+      `\n📩 [PAYMENT CALLBACK] Received postback body:`,
       JSON.stringify(body, null, 2)
     );
 
     const fpPaymentId = body.payment_id || body.id;
     if (!fpPaymentId) {
-      console.warn("⚠️  [PURCHASE CALLBACK] No payment_id in postback body");
-      return res.status(200).send("OK"); // Always return 200 to FP
+      console.warn(`  ⚠️  No payment_id in postback — ignoring`);
+      return res.status(200).send("OK");
     }
+    console.log(`  fpPaymentId=${fpPaymentId}`);
 
     // Fetch fresh payment status from FP
     let fpPayment;
     try {
+      console.log(`  Fetching payment status from FP...`);
       fpPayment = await fetchFpPayment(fpPaymentId);
-    } catch (e) {
-      console.error(
-        "❌ [PURCHASE CALLBACK] Failed to fetch payment:",
-        e.message
+      console.log(
+        `  ✅ FP payment state=${
+          fpPayment.state
+        } amc_order_ids=${JSON.stringify(fpPayment.amc_order_ids)}`
       );
+    } catch (e) {
+      console.error(`  ❌ Failed to fetch payment from FP: ${e.message}`);
       return res.status(200).send("OK");
     }
 
+    const orderIds = fpPayment.amc_order_ids ?? [];
     console.log(
-      `📩 [PURCHASE CALLBACK] Payment ${fpPaymentId} state: ${fpPayment.state}`
+      `  Updating ${orderIds.length} purchase(s) with fpOldIds=${JSON.stringify(
+        orderIds
+      )}...`
     );
 
-    // Map FP payment -> update purchase records
-    // amc_order_ids in the payment contains old_id (numeric) of each purchase
-    const orderIds = fpPayment.amc_order_ids ?? [];
     if (orderIds.length > 0) {
       await MfPurchase.updateMany(
         { fpOldId: { $in: orderIds } },
-        {
-          $set: {
-            rawPaymentResponse: fpPayment,
-            fpPaymentId: fpPayment.id,
-            // If payment is successful, FP also triggers an order state update via webhooks
-          },
-        }
+        { $set: { rawPaymentResponse: fpPayment, fpPaymentId: fpPayment.id } }
       );
-      console.log(
-        `✅ [PURCHASE CALLBACK] Updated ${orderIds.length} purchase(s)`
-      );
+      console.log(`  ✅ Bulk update done`);
     }
 
-    // Also update purchase state by fetching individual FP orders (optional refresh)
+    // Refresh individual FP order states
     for (const oldId of orderIds) {
       const purchase = await MfPurchase.findOne({ fpOldId: oldId });
       if (purchase?.fpPurchaseId) {
@@ -566,15 +701,22 @@ export const paymentCallback = async (req, res) => {
             { _id: purchase._id },
             { $set: { fpState: fpOrder.state, rawPurchaseResponse: fpOrder } }
           );
+          console.log(
+            `  ✅ Purchase ${purchase._id} state refreshed → ${fpOrder.state}`
+          );
         } catch {
-          // Non-fatal
+          console.warn(
+            `  ⚠️  Could not refresh state for purchase fpOldId=${oldId}`
+          );
         }
+      } else {
+        console.warn(`  ⚠️  No local purchase found for fpOldId=${oldId}`);
       }
     }
 
     return res.status(200).send("OK");
   } catch (err) {
-    console.error("❌ [PURCHASE CALLBACK] Error:", err.message);
-    return res.status(200).send("OK"); // Always 200 to prevent FP retry loop
+    console.error("❌ [PAYMENT CALLBACK] Error:", err.message);
+    return res.status(200).send("OK");
   }
 };

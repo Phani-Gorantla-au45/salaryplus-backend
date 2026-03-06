@@ -1,12 +1,6 @@
 import KycRequest from "../../models/mf/kycRequest.model.js";
 import IdentityDocument from "../../models/mf/identityDocument.model.js";
-import InvestorProfile from "../../models/mf/investorProfile.model.js";
-import PhoneNumber from "../../models/mf/phoneNumber.model.js";
-import EmailAddress from "../../models/mf/emailAddress.model.js";
-import MfAddress from "../../models/mf/address.model.js";
-import BankAccount from "../../models/mf/bankAccount.model.js";
-import RelatedParty from "../../models/mf/relatedParty.model.js";
-import MfInvestmentAccount from "../../models/mf/mfInvestmentAccount.model.js";
+import MfUserData from "../../models/mf/mfUserData.model.js";
 
 /*
  * Maps KYC request occupation_type values → investor profile occupation values
@@ -37,29 +31,14 @@ export const getAccountPrefill = async (req, res) => {
   try {
     const { uniqueId } = req.user;
 
-    /* ---------- FETCH EVERYTHING IN PARALLEL ---------- */
-    const [
-      kycRequest,
-      investorProfile,
-      phoneNumber,
-      emailAddress,
-      address,
-      bankAccount,
-      nominees,
-      investmentAccount,
-    ] = await Promise.all([
+    /* ---------- FETCH IN PARALLEL ---------- */
+    const [mfData, kycRequest] = await Promise.all([
+      MfUserData.findOne({ uniqueId }),
       // Latest successful or submitted KYC request (has the richest user data)
       KycRequest.findOne({
         uniqueId,
         status: { $in: ["successful", "submitted"] },
       }).sort({ createdAt: -1 }),
-      InvestorProfile.findOne({ uniqueId }),
-      PhoneNumber.findOne({ uniqueId }),
-      EmailAddress.findOne({ uniqueId }),
-      MfAddress.findOne({ uniqueId }),
-      BankAccount.findOne({ uniqueId }),
-      RelatedParty.find({ uniqueId }).sort({ createdAt: 1 }),
-      MfInvestmentAccount.findOne({ uniqueId }),
     ]);
 
     // Fetch Aadhaar identity document if KYC request exists
@@ -73,13 +52,13 @@ export const getAccountPrefill = async (req, res) => {
 
     /* ---------- SECTION COMPLETION FLAGS ---------- */
     const completed = {
-      investorProfile:    !!investorProfile?.fpInvestorProfileId,
-      phoneNumber:        !!phoneNumber?.fpPhoneNumberId,
-      emailAddress:       !!emailAddress?.fpEmailAddressId,
-      address:            !!address?.fpAddressId,
-      bankAccount:        !!bankAccount?.fpBankAccountId,
-      nominee:            nominees.length > 0,
-      investmentAccount:  !!investmentAccount?.fpInvestmentAccountId,
+      investorProfile:   !!mfData?.investorProfile?.fpInvestorProfileId,
+      phoneNumber:       !!mfData?.phone?.fpPhoneNumberId,
+      emailAddress:      !!mfData?.email?.fpEmailAddressId,
+      address:           !!mfData?.address?.fpAddressId,
+      bankAccount:       !!mfData?.bankAccount?.fpBankAccountId,
+      nominee:           !!mfData?.nominee?.fpRelatedPartyId,
+      investmentAccount: !!mfData?.investmentAccount?.fpInvestmentAccountId,
     };
 
     /* ---------- BUILD PRE-FILL VALUES FROM KYC REQUEST ---------- */
@@ -137,71 +116,72 @@ export const getAccountPrefill = async (req, res) => {
     const existing = {};
 
     if (completed.investorProfile) {
+      const ip = mfData.investorProfile;
       existing.investorProfile = {
-        fpInvestorProfileId: investorProfile.fpInvestorProfileId,
-        name:       investorProfile.name,
-        pan:        investorProfile.pan,
-        gender:     investorProfile.gender,
-        occupation: investorProfile.occupation,
+        fpInvestorProfileId: ip.fpInvestorProfileId,
+        name:       ip.name,
+        pan:        ip.pan,
+        gender:     ip.gender,
+        occupation: ip.occupation,
       };
     }
 
     if (completed.phoneNumber) {
       existing.phoneNumber = {
-        fpPhoneNumberId: phoneNumber.fpPhoneNumberId,
-        isd:    phoneNumber.isd,
-        number: phoneNumber.number,
+        fpPhoneNumberId: mfData.phone.fpPhoneNumberId,
+        isd:    mfData.phone.isd,
+        number: mfData.phone.number,
       };
     }
 
     if (completed.emailAddress) {
       existing.emailAddress = {
-        fpEmailAddressId: emailAddress.fpEmailAddressId,
-        email: emailAddress.email,
+        fpEmailAddressId: mfData.email.fpEmailAddressId,
+        email: mfData.email.email,
       };
     }
 
     if (completed.address) {
       existing.address = {
-        fpAddressId: address.fpAddressId,
-        line1:       address.line1,
-        city:        address.city,
-        state:       address.state,
-        postalCode:  address.postalCode,
+        fpAddressId: mfData.address.fpAddressId,
+        line1:       mfData.address.line1,
+        city:        mfData.address.city,
+        state:       mfData.address.state,
+        postalCode:  mfData.address.postalCode,
       };
     }
 
     if (completed.bankAccount) {
       existing.bankAccount = {
-        fpBankAccountId:  bankAccount.fpBankAccountId,
-        bankName:         bankAccount.bankName,
-        accountNumber:    bankAccount.accountNumber,
-        ifscCode:         bankAccount.ifscCode,
-        type:             bankAccount.type,
+        fpBankAccountId: mfData.bankAccount.fpBankAccountId,
+        bankName:        mfData.bankAccount.bankName,
+        accountNumber:   mfData.bankAccount.accountNumber,
+        ifscCode:        mfData.bankAccount.ifscCode,
+        type:            mfData.bankAccount.type,
       };
     }
 
     if (completed.nominee) {
-      existing.nominees = nominees.map((n) => ({
-        fpRelatedPartyId: n.fpRelatedPartyId,
-        name:             n.name,
-        relationship:     n.relationship,
-      }));
+      existing.nominees = [{
+        fpRelatedPartyId: mfData.nominee.fpRelatedPartyId,
+        name:             mfData.nominee.name,
+        relationship:     mfData.nominee.relationship,
+      }];
     }
 
     if (completed.investmentAccount) {
       existing.investmentAccount = {
-        fpInvestmentAccountId: investmentAccount.fpInvestmentAccountId,
+        fpInvestmentAccountId: mfData.investmentAccount.fpInvestmentAccountId,
       };
     }
 
     /* ---------- DETERMINE NEXT INCOMPLETE STEP ---------- */
     let nextStep = null;
-    if (!completed.investorProfile)   nextStep = "investor_profile";
-    else if (!completed.phoneNumber)  nextStep = "phone_number";
-    else if (!completed.emailAddress) nextStep = "email_address";
-    else if (!completed.address)      nextStep = "address";
-    else if (!completed.bankAccount)  nextStep = "bank_account";
+    if (!completed.investorProfile)        nextStep = "investor_profile";
+    else if (!completed.phoneNumber)       nextStep = "phone_number";
+    else if (!completed.emailAddress)      nextStep = "email_address";
+    else if (!completed.address)           nextStep = "address";
+    else if (!completed.bankAccount)       nextStep = "bank_account";
     else if (!completed.investmentAccount) nextStep = "investment_account";
     // nominee is optional — don't block on it
 

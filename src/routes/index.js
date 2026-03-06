@@ -30,8 +30,13 @@ import mfInvestmentAccountRoutes from "./mf/mfInvestmentAccount.routes.js";
 import mfAccountPrefillRoutes from "./mf/accountPrefill.routes.js";
 import mfAmcRoutes from "./mf/master/amc.routes.js";
 import mfSchemePlanRoutes from "./mf/master/schemePlan.routes.js";
-import mfPurchaseRoutes from "./mf/purchase/mfPurchase.routes.js";
+import mfPurchaseRoutes       from "./mf/purchase/mfPurchase.routes.js";
+import mfBasketPurchaseRoutes from "./mf/purchase/mfBasketPurchase.routes.js";
 import mfBasketRoutes from "./mf/mfBasket.routes.js";
+import mfAdminBasketRoutes from "./mf/admin/mfBasket.routes.js";
+import mfAdminFolioRoutes  from "./mf/admin/folio.routes.js";
+import mfHoldingsRoutes    from "./mf/reports/holdings.routes.js";
+import mfCuratedBasketRoutes from "./mf/curatedBasket.routes.js";
 
 const router = Router();
 
@@ -73,7 +78,18 @@ router.use("/api/mf/master/scheme-plans", mfSchemePlanRoutes);
 // MF Basket (fund listing for frontend)
 router.use("/api/mf/basket", mfBasketRoutes);
 
+// MF Admin
+router.use("/api/mf/admin/basket",  mfAdminBasketRoutes);
+router.use("/api/mf/admin/folios",  mfAdminFolioRoutes);
+
+// MF Curated Baskets — public user-facing view
+router.use("/api/mf/curated-basket", mfCuratedBasketRoutes);
+
+// MF Reports
+router.use("/api/mf/reports/holdings", mfHoldingsRoutes);
+
 // MF Transactions
-router.use("/api/mf/purchase", mfPurchaseRoutes);
+router.use("/api/mf/purchase",        mfPurchaseRoutes);
+router.use("/api/mf/basket-purchase", mfBasketPurchaseRoutes);
 
 export default router;

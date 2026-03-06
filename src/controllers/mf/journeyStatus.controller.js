@@ -1,40 +1,35 @@
-import MfJourney from "../../models/mf/mfJourney.model.js";
-import MfKyc from "../../models/mf/mfKyc.model.js";
+import MfUserData from "../../models/mf/mfUserData.model.js";
 import KycRequest from "../../models/mf/kycRequest.model.js";
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/journey-status                                          */
-/*  Returns the user's full MF onboarding stage flags.                  */
-/*  Frontend uses this to decide which screen to show.                  */
 /* ------------------------------------------------------------------ */
 export const getJourneyStatus = async (req, res) => {
   try {
     const { uniqueId } = req.user;
 
-    /* ---------- FETCH ALL SOURCES ---------- */
-    const [journey, kycCheck, latestKycRequest] = await Promise.all([
-      MfJourney.findOne({ uniqueId }),
-      MfKyc.findOne({ uniqueId }),
+    const [mfData, latestKycRequest] = await Promise.all([
+      MfUserData.findOne({ uniqueId }),
       KycRequest.findOne({ uniqueId }).sort({ createdAt: -1 }),
     ]);
 
+    const journey  = mfData?.journey   ?? {};
+    const kycCheck = mfData?.kycStatus ?? null;
+
     /* ---------- STAGE 1: RISK PROFILE ---------- */
-    const riskProfileStage = journey?.riskProfile ?? { status: "not_started" };
+    const riskProfileStage = journey.riskProfile ?? { status: "not_started" };
 
     /* ---------- STAGE 2: KYC CHECK ---------- */
-    // overallStatus covers PAN/name/DOB validity
-    // kraStatus (from readiness field) covers KRA compliance — independent from overallStatus
-    // A user can have overallStatus=VERIFIED but kraStatus=failed, meaning fresh KYC is still needed
     let kycCheckStage = { status: "not_started" };
-    if (kycCheck) {
+    if (kycCheck?.pan) {
       const panDobVerified = kycCheck.overallStatus === "VERIFIED";
       const kraCompliant   = kycCheck.kraStatus === "verified";
 
       let derivedStatus;
       if (panDobVerified && kraCompliant) {
-        derivedStatus = "compliant";        // KRA compliant — skip KYC submission
+        derivedStatus = "compliant";
       } else if (panDobVerified && !kraCompliant) {
-        derivedStatus = "kra_not_compliant"; // PAN valid but needs fresh KYC
+        derivedStatus = "kra_not_compliant";
       } else {
         derivedStatus = kycCheck.overallStatus?.toLowerCase() ?? "not_started";
       }
@@ -54,22 +49,18 @@ export const getJourneyStatus = async (req, res) => {
 
     /* ---------- STAGE 3: KYC SUBMISSION ---------- */
     let kycSubmitStage = { status: "not_applicable" };
-    if (kycCheck && kycCheckStage.status !== "compliant") {
-      // User is not KRA compliant — KYC submission required
+    if (kycCheck?.pan && kycCheckStage.status !== "compliant") {
       kycSubmitStage = latestKycRequest
         ? { status: latestKycRequest.status, fpKycRequestId: latestKycRequest.fpKycRequestId }
         : { status: "not_started" };
     }
 
     /* ---------- STAGE 4: ACCOUNT CREATION ---------- */
-    const accountStage = journey?.account ?? { status: "not_started" };
+    const accountStage = journey.account ?? { status: "not_started" };
+    const canInvest    = journey.canInvest ?? false;
 
-    /* ---------- CAN INVEST ---------- */
-    const canInvest = journey?.canInvest ?? false;
-
-    /* ---------- DETERMINE CURRENT STEP FOR FRONTEND ---------- */
-    let currentStep;
-    let nextAction;
+    /* ---------- CURRENT STEP ---------- */
+    let currentStep, nextAction;
 
     if (riskProfileStage.status !== "completed") {
       currentStep = "risk_profile";
@@ -86,7 +77,6 @@ export const getJourneyStatus = async (req, res) => {
         nextAction  = null;
       }
     } else if (["kra_not_compliant", "pan_failed", "name_mismatch", "dob_mismatch"].includes(kycCheckStage.status)) {
-      // Needs fresh KYC submission
       if (!latestKycRequest || latestKycRequest.status === "not_started") {
         currentStep = "kyc_submission_start";
         nextAction  = "Submit your KYC application";
@@ -115,8 +105,8 @@ export const getJourneyStatus = async (req, res) => {
       stages: {
         riskProfile: {
           status:      riskProfileStage.status,
-          score:       riskProfileStage.score ?? null,
-          category:    riskProfileStage.category ?? null,
+          score:       riskProfileStage.score       ?? null,
+          category:    riskProfileStage.category    ?? null,
           completedAt: riskProfileStage.completedAt ?? null,
         },
         kycCheck: kycCheckStage,

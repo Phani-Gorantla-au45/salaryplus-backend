@@ -22,14 +22,31 @@ const mfPurchaseSchema = new mongoose.Schema(
       // numeric id used in payment API (amc_order_ids)
     },
 
-    // Scheme info (denormalised for convenience)
+    // Scheme info — null for basket orders (multiple schemes)
     isin:       { type: String, uppercase: true, trim: true, default: null },
     schemeName: { type: String, default: null },
     fundName:   { type: String, default: null },
 
+    // Basket order fields (populated only when isBasketOrder=true)
+    isBasketOrder: { type: Boolean, default: false },
+    basketFunds:   { type: [{ isin: String, amount: Number }], default: [] },
+    // One entry per FP purchase order created by the batch API
+    basketOrders:  {
+      type: [{
+        fpPurchaseId: { type: String, default: null },
+        fpOldId:      { type: Number, default: null },
+        isin:         { type: String, default: null },
+        amount:       { type: Number, default: null },
+        fpState:      { type: String, default: "created" },
+      }],
+      default: [],
+    },
+    // All numeric old_ids for basket payment (amc_order_ids)
+    fpOldIds: { type: [Number], default: [] },
+
     // Purchase details
     mfInvestmentAccountId: { type: String, default: null }, // FP MFIA id
-    amount:                { type: Number, required: true },
+    amount:                { type: Number, required: true }, // total amount (sum of basketFunds for basket orders)
     paymentMethod:         { type: String, default: "netbanking" }, // netbanking | upi
 
     // FP order state (created → payment_pending → payment_captured → submitted → successful | failed)

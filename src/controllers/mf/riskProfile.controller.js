@@ -1,9 +1,8 @@
-import MfJourney from "../../models/mf/mfJourney.model.js";
+import MfUserData from "../../models/mf/mfUserData.model.js";
 import { RISK_QUESTIONS, calculateRiskScore } from "../../utils/mf/riskProfile.utils.js";
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/risk-profile/questions                                  */
-/*  Returns all questions with options for the frontend to render       */
 /* ------------------------------------------------------------------ */
 export const getQuestions = (_req, res) => {
   return res.status(200).json({
@@ -15,12 +14,11 @@ export const getQuestions = (_req, res) => {
 
 /* ------------------------------------------------------------------ */
 /*  POST /api/mf/risk-profile/submit                                    */
-/*  Accepts answers, calculates score, stores result, updates journey   */
 /* ------------------------------------------------------------------ */
 export const submitRiskProfile = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { answers } = req.body;
+    const { answers }  = req.body;
 
     if (!Array.isArray(answers) || answers.length === 0) {
       return res.status(400).json({
@@ -29,32 +27,30 @@ export const submitRiskProfile = async (req, res) => {
       });
     }
 
-    /* ---------- CALCULATE SCORE ---------- */
     const result = calculateRiskScore(answers);
 
     if (!result.valid) {
       return res.status(400).json({
         success: false,
         message: "Invalid answers",
-        errors: result.errors,
+        errors:  result.errors,
       });
     }
 
     const { score, category } = result;
 
-    /* ---------- UPDATE JOURNEY FLAGS ---------- */
-    const journey = await MfJourney.findOneAndUpdate(
+    await MfUserData.findOneAndUpdate(
       { uniqueId },
       {
         $set: {
-          "riskProfile.status":      "completed",
-          "riskProfile.score":       score,
-          "riskProfile.category":    category,
-          "riskProfile.answers":     answers,
-          "riskProfile.completedAt": new Date(),
+          "journey.riskProfile.status":      "completed",
+          "journey.riskProfile.score":       score,
+          "journey.riskProfile.category":    category,
+          "journey.riskProfile.answers":     answers,
+          "journey.riskProfile.completedAt": new Date(),
         },
       },
-      { upsert: true, new: true }
+      { upsert: true }
     );
 
     const categoryLabels = {
@@ -70,12 +66,12 @@ export const submitRiskProfile = async (req, res) => {
     };
 
     return res.status(200).json({
-      success: true,
+      success:     true,
       score,
       category,
       label:       categoryLabels[category],
       description: categoryDescriptions[category],
-      nextStep:    "kyc_check",  // frontend knows what to show next
+      nextStep:    "kyc_check",
     });
   } catch (err) {
     console.error("❌ [RISK PROFILE] Submit error:", err.message);
@@ -85,15 +81,14 @@ export const submitRiskProfile = async (req, res) => {
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/risk-profile/status                                     */
-/*  Returns the user's current risk profile result                      */
 /* ------------------------------------------------------------------ */
 export const getRiskProfileStatus = async (req, res) => {
   try {
     const { uniqueId } = req.user;
+    const record = await MfUserData.findOne({ uniqueId });
+    const rp     = record?.journey?.riskProfile;
 
-    const journey = await MfJourney.findOne({ uniqueId });
-
-    if (!journey || journey.riskProfile.status === "not_started") {
+    if (!rp || rp.status === "not_started") {
       return res.status(200).json({
         success: true,
         status:  "not_started",
@@ -102,11 +97,11 @@ export const getRiskProfileStatus = async (req, res) => {
     }
 
     return res.status(200).json({
-      success:  true,
-      status:   journey.riskProfile.status,
-      score:    journey.riskProfile.score,
-      category: journey.riskProfile.category,
-      completedAt: journey.riskProfile.completedAt,
+      success:     true,
+      status:      rp.status,
+      score:       rp.score,
+      category:    rp.category,
+      completedAt: rp.completedAt,
     });
   } catch (err) {
     console.error("❌ [RISK PROFILE] Status error:", err.message);

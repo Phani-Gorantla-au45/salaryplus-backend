@@ -13,7 +13,7 @@ const fpHeaders = async () => {
   };
 };
 
-/* POST /v2/related_parties */
+/* POST /v2/related_parties  (also used for "update" since FP has no PATCH) */
 export const createFpRelatedParty = async (payload) => {
   try {
     console.log("\n📤 [FP NOMINEE] Create payload:", JSON.stringify(payload, null, 2));
@@ -37,6 +37,7 @@ export const fetchFpRelatedParty = async (relatedPartyId) => {
       `${FP_API_URL()}/v2/related_parties/${relatedPartyId}`,
       { headers: await fpHeaders() }
     );
+    console.log("✅ [FP NOMINEE] Fetched:", JSON.stringify(response.data, null, 2));
     return response.data;
   } catch (err) {
     console.error("❌ [FP NOMINEE] Fetch failed:", err.response?.data || err.message);

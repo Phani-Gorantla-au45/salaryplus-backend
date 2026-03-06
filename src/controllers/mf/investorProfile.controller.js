@@ -1,4 +1,4 @@
-import InvestorProfile from "../../models/mf/investorProfile.model.js";
+import MfUserData from "../../models/mf/mfUserData.model.js";
 import {
   createFpInvestorProfile,
   updateFpInvestorProfile,
@@ -6,46 +6,46 @@ import {
 } from "../../utils/mf/investorProfile.utils.js";
 
 /* ------------------------------------------------------------------ */
-/*  ENUMS — static reference data for frontend dropdowns               */
+/*  ENUMS                                                               */
 /* ------------------------------------------------------------------ */
 const ACCOUNT_ENUMS = {
   occupation: [
-    { value: "business",              label: "Business" },
-    { value: "professional",          label: "Professional" },
-    { value: "retired",               label: "Retired" },
-    { value: "house_wife",            label: "House Wife" },
-    { value: "student",               label: "Student" },
-    { value: "public_sector_service", label: "Public Sector Service" },
-    { value: "private_sector_service",label: "Private Sector Service" },
-    { value: "government_service",    label: "Government Service" },
-    { value: "agriculture",           label: "Agriculture" },
-    { value: "doctor",                label: "Doctor" },
-    { value: "forex_dealer",          label: "Forex Dealer" },
-    { value: "service",               label: "Service" },
-    { value: "others",                label: "Others" },
+    { value: "business",               label: "Business" },
+    { value: "professional",           label: "Professional" },
+    { value: "retired",                label: "Retired" },
+    { value: "house_wife",             label: "House Wife" },
+    { value: "student",                label: "Student" },
+    { value: "public_sector_service",  label: "Public Sector Service" },
+    { value: "private_sector_service", label: "Private Sector Service" },
+    { value: "government_service",     label: "Government Service" },
+    { value: "agriculture",            label: "Agriculture" },
+    { value: "doctor",                 label: "Doctor" },
+    { value: "forex_dealer",           label: "Forex Dealer" },
+    { value: "service",                label: "Service" },
+    { value: "others",                 label: "Others" },
   ],
   source_of_wealth: [
-    { value: "salary",              label: "Salary" },
-    { value: "business",            label: "Business" },
-    { value: "gift",                label: "Gift" },
-    { value: "ancestral_property",  label: "Ancestral Property" },
-    { value: "rental_income",       label: "Rental Income" },
-    { value: "prize_money",         label: "Prize Money" },
-    { value: "royalty",             label: "Royalty" },
-    { value: "others",              label: "Others" },
+    { value: "salary",             label: "Salary" },
+    { value: "business",           label: "Business" },
+    { value: "gift",               label: "Gift" },
+    { value: "ancestral_property", label: "Ancestral Property" },
+    { value: "rental_income",      label: "Rental Income" },
+    { value: "prize_money",        label: "Prize Money" },
+    { value: "royalty",            label: "Royalty" },
+    { value: "others",             label: "Others" },
   ],
   income_slab: [
-    { value: "upto_1lakh",                 label: "Up to ₹1 Lakh" },
-    { value: "above_1lakh_upto_5lakh",     label: "₹1 Lakh – ₹5 Lakh" },
-    { value: "above_5lakh_upto_10lakh",    label: "₹5 Lakh – ₹10 Lakh" },
-    { value: "above_10lakh_upto_25lakh",   label: "₹10 Lakh – ₹25 Lakh" },
-    { value: "above_25lakh_upto_1cr",      label: "₹25 Lakh – ₹1 Crore" },
-    { value: "above_1cr",                  label: "Above ₹1 Crore" },
+    { value: "upto_1lakh",               label: "Up to ₹1 Lakh" },
+    { value: "above_1lakh_upto_5lakh",   label: "₹1 Lakh – ₹5 Lakh" },
+    { value: "above_5lakh_upto_10lakh",  label: "₹5 Lakh – ₹10 Lakh" },
+    { value: "above_10lakh_upto_25lakh", label: "₹10 Lakh – ₹25 Lakh" },
+    { value: "above_25lakh_upto_1cr",    label: "₹25 Lakh – ₹1 Crore" },
+    { value: "above_1cr",                label: "Above ₹1 Crore" },
   ],
   pep_details: [
-    { value: "pep_exposed",   label: "Politically Exposed Person" },
-    { value: "pep_related",   label: "Related to Politically Exposed Person" },
-    { value: "not_applicable",label: "Not Applicable" },
+    { value: "pep_exposed",    label: "Politically Exposed Person" },
+    { value: "pep_related",    label: "Related to Politically Exposed Person" },
+    { value: "not_applicable", label: "Not Applicable" },
   ],
   gender: [
     { value: "male",        label: "Male" },
@@ -59,39 +59,29 @@ const ACCOUNT_ENUMS = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Helper — sync FP response → DB                                      */
+/*  Helper — map FP response → investorProfile $set fields              */
 /* ------------------------------------------------------------------ */
-const syncToDb = async (uniqueId, fpData) => {
-  return InvestorProfile.findOneAndUpdate(
-    { uniqueId },
-    {
-      $set: {
-        uniqueId,
-        fpInvestorProfileId: fpData.id,
-        type:           fpData.type,
-        taxStatus:      fpData.tax_status,
-        name:           fpData.name,
-        dob:            fpData.date_of_birth,
-        gender:         fpData.gender,
-        occupation:     fpData.occupation,
-        pan:            fpData.pan,
-        countryOfBirth: fpData.country_of_birth ?? "IN",
-        placeOfBirth:   fpData.place_of_birth   ?? "IN",
-        firstTaxResidency: fpData.first_tax_residency ?? null,
-        sourceOfWealth: fpData.source_of_wealth,
-        incomeSlab:     fpData.income_slab,
-        pepDetails:     fpData.pep_details,
-        signature:      fpData.signature ?? null,
-        rawResponse:    fpData,
-      },
-    },
-    { upsert: true, new: true }
-  );
-};
+const profileFromFp = (fpData) => ({
+  fpInvestorProfileId: fpData.id,
+  type:             fpData.type,
+  taxStatus:        fpData.tax_status,
+  name:             fpData.name,
+  dob:              fpData.date_of_birth,
+  gender:           fpData.gender,
+  occupation:       fpData.occupation,
+  pan:              fpData.pan,
+  countryOfBirth:   fpData.country_of_birth   ?? "IN",
+  placeOfBirth:     fpData.place_of_birth     ?? "IN",
+  firstTaxResidency: fpData.first_tax_residency ?? null,
+  sourceOfWealth:   fpData.source_of_wealth,
+  incomeSlab:       fpData.income_slab,
+  pepDetails:       fpData.pep_details,
+  signature:        fpData.signature ?? null,
+  rawResponse:      fpData,
+});
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/investor-profile/enums                                  */
-/*  No auth — returns all dropdown values for the account creation form */
 /* ------------------------------------------------------------------ */
 export const getAccountEnums = (req, res) => {
   return res.status(200).json({ success: true, data: ACCOUNT_ENUMS });
@@ -99,7 +89,6 @@ export const getAccountEnums = (req, res) => {
 
 /* ------------------------------------------------------------------ */
 /*  POST /api/mf/investor-profile                                       */
-/*  Create investor profile                                             */
 /* ------------------------------------------------------------------ */
 export const createInvestorProfile = async (req, res) => {
   try {
@@ -109,7 +98,6 @@ export const createInvestorProfile = async (req, res) => {
       source_of_wealth, income_slab, pep_details, signature,
     } = req.body;
 
-    /* ---------- REQUIRED FIELDS ---------- */
     if (!name || !dob || !gender || !occupation || !pan || !tax_status ||
         !source_of_wealth || !income_slab || !pep_details) {
       return res.status(400).json({
@@ -119,17 +107,15 @@ export const createInvestorProfile = async (req, res) => {
     }
 
     /* ---------- PREVENT DUPLICATE ---------- */
-    const existing = await InvestorProfile.findOne({ uniqueId });
-    if (existing?.fpInvestorProfileId) {
+    const mfData = await MfUserData.findOne({ uniqueId });
+    if (mfData?.investorProfile?.fpInvestorProfileId) {
       return res.status(409).json({
         success: false,
-        message: "Investor profile already exists. Use PATCH to update.",
-        fpInvestorProfileId: existing.fpInvestorProfileId,
+        message:             "Investor profile already exists. Use PATCH to update.",
+        fpInvestorProfileId: mfData.investorProfile.fpInvestorProfileId,
       });
     }
 
-    /* ---------- BUILD FP PAYLOAD ---------- */
-    // Get request IP for audit
     const ip_address = req.headers["x-forwarded-for"]?.split(",")[0]?.trim()
       || req.socket?.remoteAddress
       || null;
@@ -146,36 +132,39 @@ export const createInvestorProfile = async (req, res) => {
       place_of_birth:             "IN",
       use_default_tax_residences: false,
       first_tax_residency: {
-        country:       "IN",
-        taxid_type:    "pan",
-        taxid_number:  pan.toUpperCase().trim(),
+        country:      "IN",
+        taxid_type:   "pan",
+        taxid_number: pan.toUpperCase().trim(),
       },
       source_of_wealth,
       income_slab,
       pep_details,
-      ...(signature && { signature }),
-      ...(ip_address && { ip_address }),
+      ...(signature    && { signature }),
+      ...(ip_address   && { ip_address }),
     };
 
-    /* ---------- CALL FP API ---------- */
     const fpData = await createFpInvestorProfile(payload);
 
-    /* ---------- PERSIST ---------- */
-    const record = await syncToDb(uniqueId, fpData);
+    const record = await MfUserData.findOneAndUpdate(
+      { uniqueId },
+      { $set: { investorProfile: profileFromFp(fpData) } },
+      { upsert: true, new: true }
+    );
 
+    const ip = record.investorProfile;
     return res.status(201).json({
       success: true,
       message: "Investor profile created",
       data: {
-        fpInvestorProfileId: record.fpInvestorProfileId,
-        name:           record.name,
-        pan:            record.pan,
-        taxStatus:      record.taxStatus,
-        gender:         record.gender,
-        occupation:     record.occupation,
-        sourceOfWealth: record.sourceOfWealth,
-        incomeSlab:     record.incomeSlab,
-        pepDetails:     record.pepDetails,
+        fpInvestorProfileId: ip.fpInvestorProfileId,
+        name:           ip.name,
+        pan:            ip.pan,
+        taxStatus:      ip.taxStatus,
+        gender:         ip.gender,
+        occupation:     ip.occupation,
+        sourceOfWealth: ip.sourceOfWealth,
+        incomeSlab:     ip.incomeSlab,
+        pepDetails:     ip.pepDetails,
       },
     });
   } catch (err) {
@@ -186,36 +175,38 @@ export const createInvestorProfile = async (req, res) => {
 
 /* ------------------------------------------------------------------ */
 /*  PATCH /api/mf/investor-profile                                      */
-/*  Update investor profile (FP id from DB — no need to pass in body)  */
 /* ------------------------------------------------------------------ */
 export const updateInvestorProfile = async (req, res) => {
   try {
     const { uniqueId } = req.user;
 
-    const existing = await InvestorProfile.findOne({ uniqueId });
-    if (!existing?.fpInvestorProfileId) {
+    const mfData = await MfUserData.findOne({ uniqueId });
+    if (!mfData?.investorProfile?.fpInvestorProfileId) {
       return res.status(404).json({
         success: false,
         message: "No investor profile found. Create one first.",
       });
     }
 
-    /* ---------- CALL FP API ---------- */
-    const fpData = await updateFpInvestorProfile(existing.fpInvestorProfileId, req.body);
+    const fpData = await updateFpInvestorProfile(mfData.investorProfile.fpInvestorProfileId, req.body);
 
-    /* ---------- SYNC DB ---------- */
-    const record = await syncToDb(uniqueId, fpData);
+    const record = await MfUserData.findOneAndUpdate(
+      { uniqueId },
+      { $set: { investorProfile: profileFromFp(fpData) } },
+      { new: true }
+    );
 
+    const ip = record.investorProfile;
     return res.status(200).json({
       success: true,
       message: "Investor profile updated",
       data: {
-        fpInvestorProfileId: record.fpInvestorProfileId,
-        name:           record.name,
-        occupation:     record.occupation,
-        sourceOfWealth: record.sourceOfWealth,
-        incomeSlab:     record.incomeSlab,
-        pepDetails:     record.pepDetails,
+        fpInvestorProfileId: ip.fpInvestorProfileId,
+        name:           ip.name,
+        occupation:     ip.occupation,
+        sourceOfWealth: ip.sourceOfWealth,
+        incomeSlab:     ip.incomeSlab,
+        pepDetails:     ip.pepDetails,
       },
     });
   } catch (err) {
@@ -226,42 +217,68 @@ export const updateInvestorProfile = async (req, res) => {
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/investor-profile                                        */
-/*  Fetch stored profile (refresh from FP if exists)                    */
+/*  Always returns 200:                                                 */
+/*    created: true  — profile exists on FP, returns full data          */
+/*    created: false — profile not created yet, returns prefill from    */
+/*                     kycStatus (pan/name/dob available after KYC)     */
 /* ------------------------------------------------------------------ */
 export const getInvestorProfile = async (req, res) => {
   try {
     const { uniqueId } = req.user;
 
-    const existing = await InvestorProfile.findOne({ uniqueId });
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        message: "No investor profile found",
+    const mfData = await MfUserData.findOne({ uniqueId });
+
+    /* ---------- PROFILE NOT YET CREATED — return what we have ---------- */
+    if (!mfData?.investorProfile?.fpInvestorProfileId) {
+      const kyc = mfData?.kycStatus;
+      return res.status(200).json({
+        success: true,
+        created: false,
+        data: {
+          fpInvestorProfileId: null,
+          name: kyc?.name ?? null,
+          pan:  kyc?.pan  ?? null,
+          dob:  kyc?.dob  ?? null,
+          // All other fields must be entered by the user
+          gender:        null,
+          occupation:    null,
+          taxStatus:     null,
+          sourceOfWealth: null,
+          incomeSlab:    null,
+          pepDetails:    null,
+        },
       });
     }
 
-    /* Refresh from FP to get latest state */
-    const fpData = await fetchFpInvestorProfile(existing.fpInvestorProfileId);
-    const record = await syncToDb(uniqueId, fpData);
+    /* ---------- PROFILE EXISTS — sync from FP ---------- */
+    const fpData = await fetchFpInvestorProfile(mfData.investorProfile.fpInvestorProfileId);
 
+    const record = await MfUserData.findOneAndUpdate(
+      { uniqueId },
+      { $set: { investorProfile: profileFromFp(fpData) } },
+      { new: true }
+    );
+
+    const ip = record.investorProfile;
     return res.status(200).json({
       success: true,
+      created: true,
       data: {
-        fpInvestorProfileId: record.fpInvestorProfileId,
-        type:              record.type,
-        taxStatus:         record.taxStatus,
-        name:              record.name,
-        dob:               record.dob,
-        gender:            record.gender,
-        occupation:        record.occupation,
-        pan:               record.pan,
-        countryOfBirth:    record.countryOfBirth,
-        placeOfBirth:      record.placeOfBirth,
-        firstTaxResidency: record.firstTaxResidency,
-        sourceOfWealth:    record.sourceOfWealth,
-        incomeSlab:        record.incomeSlab,
-        pepDetails:        record.pepDetails,
-        signature:         record.signature,
+        fpInvestorProfileId: ip.fpInvestorProfileId,
+        type:              ip.type,
+        taxStatus:         ip.taxStatus,
+        name:              ip.name,
+        dob:               ip.dob,
+        gender:            ip.gender,
+        occupation:        ip.occupation,
+        pan:               ip.pan,
+        countryOfBirth:    ip.countryOfBirth,
+        placeOfBirth:      ip.placeOfBirth,
+        firstTaxResidency: ip.firstTaxResidency,
+        sourceOfWealth:    ip.sourceOfWealth,
+        incomeSlab:        ip.incomeSlab,
+        pepDetails:        ip.pepDetails,
+        signature:         ip.signature,
       },
     });
   } catch (err) {

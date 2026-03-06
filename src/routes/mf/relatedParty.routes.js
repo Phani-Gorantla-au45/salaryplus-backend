@@ -2,6 +2,7 @@ import express from "express";
 import {
   getRelatedPartyEnums,
   createRelatedParty,
+  updateRelatedParty,
   listRelatedParties,
   getRelatedParty,
 } from "../../controllers/mf/relatedParty.controller.js";
@@ -18,7 +19,10 @@ router.post("/",        auth,      createRelatedParty);
 // GET  /api/mf/related-party                 — list all nominees
 router.get("/",         auth,      listRelatedParties);
 
-// GET  /api/mf/related-party/:id             — get specific nominee (MUST be after /enums)
-router.get("/:fpRelatedPartyId", auth, getRelatedParty);
+// PATCH /api/mf/related-party/:id            — update nominee (MUST be before /:id GET)
+router.patch("/:fpRelatedPartyId", auth, updateRelatedParty);
+
+// GET  /api/mf/related-party/:id             — get specific nominee
+router.get("/:fpRelatedPartyId",   auth, getRelatedParty);
 
 export default router;
