@@ -110,6 +110,15 @@ export const uploadBondExcel = async (req, res) => {
       });
     }
 
+    const existingBond = await isindata.findOne({ isin });
+
+    if (existingBond) {
+      return res.status(400).json({
+        success: false,
+        message: "Bond with this ISIN already exists",
+      });
+    }
+
     const bond = await isindata.create({
       isin,
       issuerName,
