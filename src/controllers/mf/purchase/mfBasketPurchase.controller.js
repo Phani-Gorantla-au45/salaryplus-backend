@@ -24,13 +24,19 @@ import {
 export const createBasketPurchase = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { mf_purchases } = req.body;
+    const { mf_purchases, payment_method } = req.body;
 
     /* ---------- VALIDATE ---------- */
     if (!Array.isArray(mf_purchases) || mf_purchases.length === 0) {
       return res.status(400).json({
         success: false,
         message: "mf_purchases must be a non-empty array of { isin, amount }",
+      });
+    }
+    if (!payment_method || !["NETBANKING", "UPI"].includes(payment_method)) {
+      return res.status(400).json({
+        success: false,
+        message: "payment_method is required. Allowed values: NETBANKING, UPI",
       });
     }
     for (const p of mf_purchases) {
@@ -153,7 +159,7 @@ export const createBasketPurchase = async (req, res) => {
           })),
           basketOrders,
           fpOldIds: basketOrders.map((o) => o.fpOldId).filter(Boolean),
-          paymentMethod: "upi",
+          paymentMethod: payment_method,
           fpState: primaryOrder.state ?? "created",
           otpCode: otp,
           otpExpiresAt: expiry,

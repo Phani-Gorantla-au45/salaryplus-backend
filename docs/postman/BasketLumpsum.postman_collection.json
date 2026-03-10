@@ -1,0 +1,316 @@
+{
+  "info": {
+    "name": "SalaryPlus — Basket Lumpsum Purchase Flow",
+    "description": "Full flow: Login → Get Bank Account → Create Basket Order → Confirm (OTP + Payment Link)\n\nSteps:\n1. Send OTP\n2. Verify OTP  → auto-saves {{token}}\n3. Get Bank Account → auto-saves {{bank_account_old_id}}\n4. Create Basket Purchase → auto-saves {{purchase_id}}\n5. Confirm Purchase → returns tokenUrl (payment link)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "description": "Change to your deployed URL e.g. https://api.salaryplus.club"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "description": "Auto-set after verify-otp"
+    },
+    {
+      "key": "purchase_id",
+      "value": "",
+      "description": "Auto-set after create basket purchase"
+    },
+    {
+      "key": "bank_account_old_id",
+      "value": "",
+      "description": "Auto-set after get bank account"
+    },
+    {
+      "key": "phone",
+      "value": "9999999999",
+      "description": "Test user phone number"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "1. Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/registration/send-otp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "registration", "send-otp"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [],
+          "response": []
+        },
+        {
+          "name": "2. Verify OTP  →  saves {{token}}",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/registration/verify-otp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "registration", "verify-otp"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"otp\": \"PASTE_OTP_HERE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    console.log('✅ token saved:', json.token.slice(0,30) + '...');",
+                  "} else {",
+                  "    console.error('❌ No token in response', json);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏦 Bank Account",
+      "item": [
+        {
+          "name": "3. Get Bank Account  →  saves {{bank_account_old_id}}",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mf/bank-account",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mf", "bank-account"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const oldId = json?.data?.fpBankAccountOldId;",
+                  "if (oldId) {",
+                  "    pm.collectionVariables.set('bank_account_old_id', oldId);",
+                  "    console.log('✅ bank_account_old_id saved:', oldId);",
+                  "} else {",
+                  "    console.error('❌ fpBankAccountOldId missing in response:', JSON.stringify(json, null, 2));",
+                  "}",
+                  "",
+                  "// Log full response for debugging",
+                  "console.log('Full bank account response:', JSON.stringify(json, null, 2));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🛒 Basket Lumpsum",
+      "item": [
+        {
+          "name": "4. Create Basket Purchase  →  saves {{purchase_id}}",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mf/basket-purchase",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mf", "basket-purchase"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mf_purchases\": [\n    { \"isin\": \"INF205K01DN2\", \"amount\": 1000 },\n    { \"isin\": \"INF090I01239\", \"amount\": 2000 }\n  ],\n  \"payment_method\": \"NETBANKING\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const purchaseId = json?.data?.purchaseId;",
+                  "if (purchaseId) {",
+                  "    pm.collectionVariables.set('purchase_id', purchaseId);",
+                  "    console.log('✅ purchase_id saved:', purchaseId);",
+                  "} else {",
+                  "    console.error('❌ purchaseId missing in response:', JSON.stringify(json, null, 2));",
+                  "}",
+                  "",
+                  "// Log key fields",
+                  "console.log('--- Basket Purchase Response ---');",
+                  "console.log('purchaseId  :', json?.data?.purchaseId);",
+                  "console.log('fpPurchaseId:', json?.data?.fpPurchaseId);",
+                  "console.log('totalAmount :', json?.data?.totalAmount);",
+                  "console.log('fpState     :', json?.data?.fpState);",
+                  "console.log('otpSentTo   :', json?.data?.otpSentTo);",
+                  "console.log('otpExpiresAt:', json?.data?.otpExpiresAt);",
+                  "console.log('funds       :', JSON.stringify(json?.data?.funds));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5. Confirm Basket Purchase  →  returns tokenUrl",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mf/purchase/{{purchase_id}}/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mf", "purchase", "{{purchase_id}}", "confirm"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"otp\": \"PASTE_CONSENT_OTP_HERE\",\n  \"bank_account_id\": {{bank_account_old_id}}\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "",
+                  "console.log('--- Confirm Purchase Response ---');",
+                  "console.log('success     :', json?.success);",
+                  "console.log('purchaseId  :', json?.data?.purchaseId);",
+                  "console.log('fpPurchaseId:', json?.data?.fpPurchaseId);",
+                  "console.log('fpState     :', json?.data?.fpState);",
+                  "console.log('fpPaymentId :', json?.data?.fpPaymentId);",
+                  "console.log('tokenUrl    :', json?.data?.tokenUrl);",
+                  "",
+                  "if (json?.data?.tokenUrl) {",
+                  "    console.log('');",
+                  "    console.log('✅ PAYMENT LINK READY — open this URL:');",
+                  "    console.log(json.data.tokenUrl);",
+                  "} else {",
+                  "    console.error('❌ tokenUrl is missing!');",
+                  "    console.error('Full response:', JSON.stringify(json, null, 2));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔍 Debug Helpers",
+      "item": [
+        {
+          "name": "Get Purchase by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mf/purchase/{{purchase_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mf", "purchase", "{{purchase_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "console.log('Purchase State:', json?.data?.fpState);",
+                  "console.log('tokenUrl:', json?.data?.tokenUrl);",
+                  "console.log('consentGiven:', json?.data?.consentGiven);",
+                  "console.log('Full response:', JSON.stringify(json, null, 2));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "List All Purchases",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mf/purchase",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mf", "purchase"]
+            }
+          },
+          "event": [],
+          "response": []
+        },
+        {
+          "name": "Resend Consent OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mf/purchase/{{purchase_id}}/resend-otp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mf", "purchase", "{{purchase_id}}", "resend-otp"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [],
+          "response": []
+        }
+      ]
+    }
+  ]
+}

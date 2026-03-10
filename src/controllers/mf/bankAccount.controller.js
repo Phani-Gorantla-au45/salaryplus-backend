@@ -1,5 +1,8 @@
 import MfUserData from "../../models/mf/mfUserData.model.js";
-import { createFpBankAccount, fetchFpBankAccount } from "../../utils/mf/bankAccount.utils.js";
+import {
+  createFpBankAccount,
+  fetchFpBankAccount,
+} from "../../utils/mf/bankAccount.utils.js";
 import {
   createBankPreVerification,
   fetchPreVerification,
@@ -14,22 +17,24 @@ const CYBRILLA_ACCOUNT_TYPE = {
 };
 
 const VERIFY_POLL_MS = 3000;
-const VERIFY_MAX_MS  = 2 * 60 * 1000; // 2 minutes
+const VERIFY_MAX_MS = 2 * 60 * 1000; // 2 minutes
 
 /* ------------------------------------------------------------------ */
 /*  Internal — poll Cybrilla pre-verification until done or timeout     */
 /* ------------------------------------------------------------------ */
 const pollVerification = async (pvId) => {
-  let pv        = await fetchPreVerification(pvId);
-  const start   = Date.now();
+  let pv = await fetchPreVerification(pvId);
+  const start = Date.now();
   let pollCount = 0;
 
-  while (pv.status !== "completed" && (Date.now() - start) < VERIFY_MAX_MS) {
+  while (pv.status !== "completed" && Date.now() - start < VERIFY_MAX_MS) {
     await new Promise((r) => setTimeout(r, VERIFY_POLL_MS));
     pollCount++;
     pv = await fetchPreVerification(pvId);
     const bankStatus = pv.bank_accounts?.[0]?.status ?? "pending";
-    console.log(`⏳ [BANK VERIFY] Poll #${pollCount} — pv.status: ${pv.status}, bank: ${bankStatus}`);
+    console.log(
+      `⏳ [BANK VERIFY] Poll #${pollCount} — pv.status: ${pv.status}, bank: ${bankStatus}`
+    );
   }
 
   return pv;
@@ -41,11 +46,11 @@ const pollVerification = async (pvId) => {
 const extractBankResult = (pv) => {
   const bankEntry = pv.bank_accounts?.[0] ?? {};
   return {
-    pvId:       pv.id,
-    pvStatus:   pv.status,           // completed | pending
-    status:     bankEntry.status     ?? null,  // verified | failed | pending
-    confidence: bankEntry.confidence ?? null,  // high | low | null
-    reason:     bankEntry.reason     ?? null,
+    pvId: pv.id,
+    pvStatus: pv.status, // completed | pending
+    status: bankEntry.status ?? null, // verified | failed | pending
+    confidence: bankEntry.confidence ?? null, // high | low | null
+    reason: bankEntry.reason ?? null,
   };
 };
 
@@ -55,12 +60,19 @@ const extractBankResult = (pv) => {
 export const createBankAccount = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { account_number, primary_account_holder_name, type, ifsc_code } = req.body;
+    const { account_number, primary_account_holder_name, type, ifsc_code } =
+      req.body;
 
-    if (!account_number || !primary_account_holder_name || !type || !ifsc_code) {
+    if (
+      !account_number ||
+      !primary_account_holder_name ||
+      !type ||
+      !ifsc_code
+    ) {
       return res.status(400).json({
         success: false,
-        message: "account_number, primary_account_holder_name, type, and ifsc_code are required",
+        message:
+          "account_number, primary_account_holder_name, type, and ifsc_code are required",
       });
     }
 
@@ -78,21 +90,25 @@ export const createBankAccount = async (req, res) => {
     if (!profile?.fpInvestorProfileId) {
       return res.status(400).json({
         success: false,
-        message: "Investor profile not found. Create one first via POST /api/mf/investor-profile",
+        message:
+          "Investor profile not found. Create one first via POST /api/mf/investor-profile",
       });
     }
 
     /* ---------- PREVENT DUPLICATE (allow retry if verification failed) ---------- */
     const existingBa = mfData?.bankAccount;
-    if (existingBa?.fpBankAccountId && existingBa?.verificationStatus !== "failed") {
+    if (
+      existingBa?.fpBankAccountId &&
+      existingBa?.verificationStatus !== "failed"
+    ) {
       return res.status(409).json({
         success: false,
-        message:         "Bank account already linked to this profile",
+        message: "Bank account already linked to this profile",
         fpBankAccountId: existingBa.fpBankAccountId,
-        accountNumber:   existingBa.accountNumber,
-        bankName:        existingBa.bankName,
+        accountNumber: existingBa.accountNumber,
+        bankName: existingBa.bankName,
         verification: {
-          status:     existingBa.verificationStatus     ?? null,
+          status: existingBa.verificationStatus ?? null,
           confidence: existingBa.verificationConfidence ?? null,
         },
       });
@@ -100,11 +116,11 @@ export const createBankAccount = async (req, res) => {
 
     /* ---------- CREATE BANK ACCOUNT ON FP ---------- */
     const fpData = await createFpBankAccount({
-      profile:                     profile.fpInvestorProfileId,
-      account_number:              String(account_number),
+      profile: profile.fpInvestorProfileId,
+      account_number: String(account_number),
       primary_account_holder_name: primary_account_holder_name.trim(),
       type,
-      ifsc_code:                   ifsc_code.toUpperCase().trim(),
+      ifsc_code: ifsc_code.toUpperCase().trim(),
     });
 
     /* ---------- SAVE BANK ACCOUNT TO DB ---------- */
@@ -113,18 +129,18 @@ export const createBankAccount = async (req, res) => {
       {
         $set: {
           bankAccount: {
-            fpBankAccountId:          fpData.id,
-            fpBankAccountOldId:       fpData.old_id          ?? null,
-            accountNumber:            fpData.account_number,
+            fpBankAccountId: fpData.id,
+            fpBankAccountOldId: fpData.old_id ?? null,
+            accountNumber: fpData.account_number,
             primaryAccountHolderName: fpData.primary_account_holder_name,
-            type:                     fpData.type,
-            ifscCode:                 fpData.ifsc_code,
-            bankName:                 fpData.bank_name      ?? null,
-            branchName:               fpData.branch_name    ?? null,
-            branchCity:               fpData.branch_city    ?? null,
-            branchState:              fpData.branch_state   ?? null,
-            branchAddress:            fpData.branch_address ?? null,
-            rawResponse:              fpData,
+            type: fpData.type,
+            ifscCode: fpData.ifsc_code,
+            bankName: fpData.bank_name ?? null,
+            branchName: fpData.branch_name ?? null,
+            branchCity: fpData.branch_city ?? null,
+            branchState: fpData.branch_state ?? null,
+            branchAddress: fpData.branch_address ?? null,
+            rawResponse: fpData,
           },
         },
       },
@@ -143,13 +159,17 @@ export const createBankAccount = async (req, res) => {
         ifsc_code.toUpperCase().trim(),
         cybrillaAccountType
       );
-      const pvFinal   = await pollVerification(pvInitial.id);
-      bankResult      = extractBankResult(pvFinal);
+      const pvFinal = await pollVerification(pvInitial.id);
+      bankResult = extractBankResult(pvFinal);
     } catch (verifyErr) {
-      console.error("❌ [BANK VERIFY] Cybrilla verification failed:", verifyErr.message);
+      console.error(
+        "❌ [BANK VERIFY] Cybrilla verification failed:",
+        verifyErr.message
+      );
       return res.status(502).json({
         success: false,
-        message: "Bank account was created but verification could not be initiated. Please retry.",
+        message:
+          "Bank account was created but verification could not be initiated. Please retry.",
         fpBankAccountId: fpData.id,
       });
     }
@@ -159,10 +179,10 @@ export const createBankAccount = async (req, res) => {
       { uniqueId },
       {
         $set: {
-          "bankAccount.verificationId":         bankResult.pvId,
-          "bankAccount.verificationStatus":     bankResult.status,
+          "bankAccount.verificationId": bankResult.pvId,
+          "bankAccount.verificationStatus": bankResult.status,
           "bankAccount.verificationConfidence": bankResult.confidence,
-          "bankAccount.verificationReason":     bankResult.reason,
+          "bankAccount.verificationReason": bankResult.reason,
         },
       },
       { new: true }
@@ -174,13 +194,14 @@ export const createBankAccount = async (req, res) => {
     if (bankResult.status === "failed") {
       console.warn(`⚠️  [BANK VERIFY] Failed — reason: ${bankResult.reason}`);
       return res.status(422).json({
-        success:         false,
-        message:         "Bank account could not be verified. Please try a different bank account.",
-        reason:          bankResult.reason,
-        canRetry:        false,
+        success: false,
+        message:
+          "Bank account could not be verified. Please try a different bank account.",
+        reason: bankResult.reason,
+        canRetry: false,
         fpBankAccountId: ba.fpBankAccountId,
-        accountNumber:   ba.accountNumber,
-        bankName:        ba.bankName,
+        accountNumber: ba.accountNumber,
+        bankName: ba.bankName,
       });
     }
 
@@ -190,7 +211,9 @@ export const createBankAccount = async (req, res) => {
     }
 
     const isVerified = bankResult.status === "verified";
-    console.log(`✅ [BANK ACCOUNT] Created — verified: ${isVerified}, confidence: ${bankResult.confidence}`);
+    console.log(
+      `✅ [BANK ACCOUNT] Created — verified: ${isVerified}, confidence: ${bankResult.confidence}`
+    );
 
     return res.status(201).json({
       success: true,
@@ -198,20 +221,21 @@ export const createBankAccount = async (req, res) => {
         ? "Bank account linked and verified successfully"
         : "Bank account linked. Verification is in progress.",
       data: {
-        fpBankAccountId:          ba.fpBankAccountId,
-        fpInvestorProfileId:      profile.fpInvestorProfileId,
-        accountNumber:            ba.accountNumber,
+        fpBankAccountId: ba.fpBankAccountId,
+        fpBankAccountOldId: ba.fpBankAccountOldId ?? null,
+        fpInvestorProfileId: profile.fpInvestorProfileId,
+        accountNumber: ba.accountNumber,
         primaryAccountHolderName: ba.primaryAccountHolderName,
-        type:                     ba.type,
-        ifscCode:                 ba.ifscCode,
-        bankName:                 ba.bankName,
-        branchName:               ba.branchName,
-        branchCity:               ba.branchCity,
-        branchState:              ba.branchState,
+        type: ba.type,
+        ifscCode: ba.ifscCode,
+        bankName: ba.bankName,
+        branchName: ba.branchName,
+        branchCity: ba.branchCity,
+        branchState: ba.branchState,
         verification: {
-          status:     bankResult.status,
+          status: bankResult.status,
           confidence: bankResult.confidence,
-          reason:     bankResult.reason,
+          reason: bankResult.reason,
         },
       },
     });
@@ -230,33 +254,38 @@ export const getBankAccount = async (req, res) => {
     const mfData = await MfUserData.findOne({ uniqueId });
 
     if (!mfData?.bankAccount?.fpBankAccountId) {
-      return res.status(404).json({ success: false, message: "No bank account found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "No bank account found" });
     }
 
     const fpData = await fetchFpBankAccount(mfData.bankAccount.fpBankAccountId);
+    console.log("fpdata", fpData);
 
     const record = await MfUserData.findOneAndUpdate(
       { uniqueId },
       {
         $set: {
           bankAccount: {
-            fpBankAccountId:          fpData.id,
-            fpBankAccountOldId:       fpData.old_id ?? mfData.bankAccount.fpBankAccountOldId ?? null,
-            accountNumber:            fpData.account_number,
+            fpBankAccountId: fpData.id,
+            fpBankAccountOldId:
+              fpData.old_id ?? mfData.bankAccount.fpBankAccountOldId ?? null,
+            accountNumber: fpData.account_number,
             primaryAccountHolderName: fpData.primary_account_holder_name,
-            type:                     fpData.type,
-            ifscCode:                 fpData.ifsc_code,
-            bankName:                 fpData.bank_name      ?? null,
-            branchName:               fpData.branch_name    ?? null,
-            branchCity:               fpData.branch_city    ?? null,
-            branchState:              fpData.branch_state   ?? null,
-            branchAddress:            fpData.branch_address ?? null,
-            rawResponse:              fpData,
+            type: fpData.type,
+            ifscCode: fpData.ifsc_code,
+            bankName: fpData.bank_name ?? null,
+            branchName: fpData.branch_name ?? null,
+            branchCity: fpData.branch_city ?? null,
+            branchState: fpData.branch_state ?? null,
+            branchAddress: fpData.branch_address ?? null,
+            rawResponse: fpData,
             // Preserve existing verification data
-            verificationId:         mfData.bankAccount.verificationId         ?? null,
-            verificationStatus:     mfData.bankAccount.verificationStatus     ?? null,
-            verificationConfidence: mfData.bankAccount.verificationConfidence ?? null,
-            verificationReason:     mfData.bankAccount.verificationReason     ?? null,
+            verificationId: mfData.bankAccount.verificationId ?? null,
+            verificationStatus: mfData.bankAccount.verificationStatus ?? null,
+            verificationConfidence:
+              mfData.bankAccount.verificationConfidence ?? null,
+            verificationReason: mfData.bankAccount.verificationReason ?? null,
           },
         },
       },
@@ -267,20 +296,22 @@ export const getBankAccount = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        fpBankAccountId:          ba.fpBankAccountId,
-        fpInvestorProfileId:      mfData.investorProfile?.fpInvestorProfileId ?? null,
-        accountNumber:            ba.accountNumber,
+        fpBankAccountId: ba.fpBankAccountId,
+        fpBankAccountOldId: ba.fpBankAccountOldId ?? null,
+        fpInvestorProfileId:
+          mfData.investorProfile?.fpInvestorProfileId ?? null,
+        accountNumber: ba.accountNumber,
         primaryAccountHolderName: ba.primaryAccountHolderName,
-        type:                     ba.type,
-        ifscCode:                 ba.ifscCode,
-        bankName:                 ba.bankName,
-        branchName:               ba.branchName,
-        branchCity:               ba.branchCity,
-        branchState:              ba.branchState,
+        type: ba.type,
+        ifscCode: ba.ifscCode,
+        bankName: ba.bankName,
+        branchName: ba.branchName,
+        branchCity: ba.branchCity,
+        branchState: ba.branchState,
         verification: {
-          status:     ba.verificationStatus     ?? null,
+          status: ba.verificationStatus ?? null,
           confidence: ba.verificationConfidence ?? null,
-          reason:     ba.verificationReason     ?? null,
+          reason: ba.verificationReason ?? null,
         },
       },
     });

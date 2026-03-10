@@ -42,7 +42,7 @@ export const createFpBatchPurchase = async (purchases) => {
     );
     // FP returns { object: "list", data: [ { id, old_id, ... }, ... ] }
     // Each fund in the batch gets its own separate purchase order
-    console.log("basket order resp", response.data);
+    console.log("FP Response 1(create order)", response.data);
     const orders = response.data?.data ?? [];
     console.log(
       `✅ [FP BATCH] Created ${orders.length} order(s) — ids: ${orders
@@ -57,6 +57,43 @@ export const createFpBatchPurchase = async (purchases) => {
     );
     throw new Error(
       err.response?.data?.message || "Failed to create batch purchase on FP"
+    );
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  PATCH /v2/mf_purchases/batch                                        */
+/*                                                                      */
+/*  Batch-confirms (or batch-updates) multiple purchase orders.         */
+/*  Used for basket lumpsum confirm step.                               */
+/*                                                                      */
+/*  purchases: Array of { id: fpPurchaseId, state: "confirmed" }        */
+/*  FP response: { object: "list", data: [ { id, state, ... }, ... ] } */
+/* ------------------------------------------------------------------ */
+export const patchFpBatchPurchase = async (purchases) => {
+  try {
+    const payload = { mf_purchases: purchases };
+    console.log(
+      `\n🔄 [FP BATCH] PATCH ${purchases.length} order(s):`,
+      JSON.stringify(payload, null, 2)
+    );
+    const response = await axios.patch(
+      `${FP_API_URL()}/v2/mf_purchases/batch`,
+      payload,
+      { headers: await fpHeaders() }
+    );
+    const orders = response.data?.data ?? [];
+    console.log(
+      `✅ [FP BATCH] PATCH done — states: ${orders.map((o) => o.state).join(", ")}`
+    );
+    return orders;
+  } catch (err) {
+    console.error(
+      "❌ [FP BATCH] PATCH failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2)
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to batch-confirm purchases on FP"
     );
   }
 };

@@ -82,7 +82,8 @@ export const patchFpPurchase = async (fpPurchaseId, payload) => {
       body,
       { headers: await fpHeaders() }
     );
-    console.log(`✅ [FP PURCHASE] PATCH done — state: ${response.data?.state}`);
+    console.log("Patch FP Response", response.data);
+    // console.log(`✅ [FP PURCHASE] PATCH done — state: ${response.data?.state}`);
     return response.data;
   } catch (err) {
     console.error(

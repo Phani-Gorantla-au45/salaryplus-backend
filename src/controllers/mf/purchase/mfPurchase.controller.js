@@ -9,7 +9,6 @@ import {
   createFpPaymentNetbanking,
   fetchFpPayment,
 } from "../../../utils/mf/purchase/purchase.utils.js";
-import { fetchFpBankAccount } from "../../../utils/mf/bankAccount.utils.js";
 import {
   generateOtp,
   otpExpiresAt,
@@ -17,6 +16,7 @@ import {
   verifyConsentOtp,
 } from "../../../utils/mf/consent.utils.js";
 import { fetchFpSchemePlan } from "../../../utils/mf/master/schemePlan.utils.js";
+import { patchFpBatchPurchase } from "../../../utils/mf/purchase/batchPurchase.utils.js";
 
 /* ------------------------------------------------------------------ */
 /*  Internal helper — sync FP purchase response → DB                    */
@@ -89,7 +89,7 @@ const resolveScheme = async (isin) => {
 export const createPurchase = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { isin, amount, paymentMethod = "netbanking" } = req.body;
+    const { isin, amount, payment_method } = req.body;
     console.log(
       `\n🛒 [CREATE PURCHASE] user=${uniqueId} isin=${isin} amount=${amount}`
     );
@@ -104,6 +104,12 @@ export const createPurchase = async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "amount must be a positive number" });
+    }
+    if (!payment_method || !["NETBANKING", "UPI"].includes(payment_method)) {
+      return res.status(400).json({
+        success: false,
+        message: "payment_method is required. Allowed values: NETBANKING, UPI",
+      });
     }
 
     /* ---------- STEP 1: GET INVESTMENT ACCOUNT ---------- */
@@ -188,7 +194,7 @@ export const createPurchase = async (req, res) => {
       schemeName: scheme.schemeName,
       fundName: scheme.fundName,
       amount: Number(amount),
-      paymentMethod,
+      paymentMethod: payment_method,
       otpCode: otp,
       otpExpiresAt: expiry,
       otpVerified: false,
@@ -220,20 +226,26 @@ export const createPurchase = async (req, res) => {
 /*  POST /api/mf/purchase/:id/confirm                                   */
 /*  Step 2: Verify OTP → PATCH consent → Create payment → Confirm      */
 /*                                                                      */
-/*  Body: { otp, returnUrl }                                            */
+/*  Body: { otp, bank_account_id }                                      */
 /*  :id  = our DB _id                                                   */
 /* ------------------------------------------------------------------ */
 export const confirmPurchase = async (req, res) => {
   try {
     const { uniqueId } = req.user;
     const { id } = req.params;
-    const { otp } = req.body;
+    const { otp, bank_account_id } = req.body;
     console.log(`\n✅ [CONFIRM PURCHASE] purchaseId=${id} user=${uniqueId}`);
 
     if (!otp) {
       return res
         .status(400)
         .json({ success: false, message: "otp is required" });
+    }
+    if (!bank_account_id || isNaN(Number(bank_account_id))) {
+      return res.status(400).json({
+        success: false,
+        message: "bank_account_id is required (numeric FP bank old_id)",
+      });
     }
 
     /* ---------- STEP 1: FETCH PURCHASE RECORD ---------- */
@@ -345,61 +357,25 @@ export const confirmPurchase = async (req, res) => {
     );
 
     /* ---------- STEP 5: CREATE PAYMENT ---------- */
-    // ONDC state machine: created → under_review (consent) → payment_pending (payment) → payment_captured → submitted (confirm)
-    // Payment must be created while orders are in under_review — confirm PATCH happens AFTER payment.
+    // FP state machine: consent (pending) → payment creation → confirm
+    // Payment MUST be created while orders are in "pending" state.
+    // Confirm PATCH happens after payment is created.
     const postbackUrl = `${process.env.APP_URL}/api/mf/purchase/payment-callback`;
-
-    // Resolve bank account old_id — required by FP for TPV
-    let bankAccountOldId = mfData?.bankAccount?.fpBankAccountOldId ?? null;
-    if (!bankAccountOldId && mfData?.bankAccount?.fpBankAccountId) {
-      console.log(`  [5/7] fpBankAccountOldId missing — fetching from FP...`);
-      try {
-        const fpBa = await fetchFpBankAccount(
-          mfData.bankAccount.fpBankAccountId
-        );
-        bankAccountOldId = fpBa.old_id ?? null;
-        if (bankAccountOldId) {
-          await MfUserData.updateOne(
-            { uniqueId },
-            { $set: { "bankAccount.fpBankAccountOldId": bankAccountOldId } }
-          );
-          console.log(
-            `  [5/7] ✅ Fetched bankAccountOldId=${bankAccountOldId}`
-          );
-        }
-      } catch (e) {
-        console.warn(
-          `  [5/7] ⚠️  Could not fetch bank account old_id: ${e.message}`
-        );
-      }
-    }
-
-    if (!bankAccountOldId) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Bank account numeric ID (old_id) not available. Please re-link your bank account.",
-      });
-    }
 
     // For basket orders use all fpOldIds; for individual use single fpOldId
     const amcOrderIds = record.isBasketOrder
       ? record.fpOldIds ?? []
       : [record.fpOldId];
     console.log(
-      `  [5/7] isBasketOrder=${
-        record.isBasketOrder
-      } amcOrderIds=${JSON.stringify(
-        amcOrderIds
-      )} bankAccountOldId=${bankAccountOldId}`
+      `  [5/7] isBasketOrder=${record.isBasketOrder} amcOrderIds=${JSON.stringify(amcOrderIds)} bank_account_id=${bank_account_id}`
     );
 
     const paymentPayload = {
-      amc_order_ids: amcOrderIds,
+      amc_order_ids:        amcOrderIds,
       payment_postback_url: postbackUrl,
-      method: "UPI",
-      provider_name: "ONDC",
-      bank_account_id: bankAccountOldId,
+      method:               record.paymentMethod,
+      provider_name:        "ONDC",
+      bank_account_id:      Number(bank_account_id),
     };
     console.log("Payment payload", paymentPayload);
     const fpPayment = await createFpPaymentNetbanking(paymentPayload);
@@ -408,45 +384,31 @@ export const confirmPurchase = async (req, res) => {
     );
 
     /* ---------- STEP 6: PATCH STATE=CONFIRMED ---------- */
-    // After payment is created (orders now in payment_pending), patch confirmed.
+    // FP docs: consent (individual PATCH) → payment → batch confirm (PATCH /v2/mf_purchases/batch)
+    // For basket: FP requires the Batch Update API — individual PATCHes cause race conditions
+    // because creating a batch payment transitions all orders simultaneously.
     let confirmedState = "confirmed";
     let updatedBasketOrders = record.basketOrders ?? [];
 
     if (record.isBasketOrder) {
-      const basketOrderIds = (record.basketOrders ?? []).map(
-        (o) => o.fpPurchaseId
-      );
+      const orders = record.basketOrders ?? [];
+      const batchConfirmPayload = orders.map((o) => ({
+        id: o.fpPurchaseId,
+        state: "confirmed",
+      }));
       console.log(
-        `  [6/7] [BASKET] Patching state=confirmed on ${basketOrderIds.length} order(s):`,
-        JSON.stringify(basketOrderIds)
+        `  [6/7] [BASKET] Batch confirming ${orders.length} order(s) via PATCH /v2/mf_purchases/batch...`
       );
-      const results = await Promise.allSettled(
-        (record.basketOrders ?? []).map((o) =>
-          patchFpPurchase(o.fpPurchaseId, { state: "confirmed" })
-        )
-      );
-      console.log(
-        `  [6/7] Confirm results:`,
-        JSON.stringify(
-          results.map((r) => ({
-            status: r.status,
-            state: r.value?.state,
-            reason: r.reason?.message,
-          }))
-        )
-      );
+      const batchResults = await patchFpBatchPurchase(batchConfirmPayload);
 
-      // Build updated basketOrders with latest fpState from FP confirm results
-      updatedBasketOrders = (record.basketOrders ?? []).map((o, i) => ({
+      updatedBasketOrders = orders.map((o, i) => ({
         ...o.toObject(),
-        fpState: results[i]?.value?.state ?? o.fpState,
+        fpState: batchResults[i]?.state ?? o.fpState,
       }));
 
-      confirmedState =
-        results.find((r) => r.status === "fulfilled")?.value?.state ??
-        "confirmed";
+      confirmedState = batchResults[0]?.state ?? "confirmed";
       console.log(
-        `  [6/7] ✅ Basket orders confirmed — state=${confirmedState}`
+        `  [6/7] ✅ Basket batch confirm done — states: ${batchResults.map((r) => r.state).join(", ")}`
       );
     } else {
       const confirmedFpData = await patchFpPurchase(record.fpPurchaseId, {
