@@ -1,6 +1,6 @@
 import MfMandate from "../../../models/mf/mandate/mfMandate.model.js";
 import MfUserData from "../../../models/mf/mfUserData.model.js";
-import { fetchFpBankAccount } from "../../../utils/mf/bankAccount.utils.js";
+import { fetchFpBankAccount } from "../../../utils/mf/onboarding/bankAccount.utils.js";
 import {
   createFpMandate,
   authorizeFpMandate,
@@ -75,8 +75,9 @@ export const createMandate = async (req, res) => {
       });
     }
 
-    /* ---------- STEP 1: GET BANK ACCOUNT OLD_ID ---------- */
+    /* ---------- STEP 1: GET BANK ACCOUNT OLD_ID + INVESTMENT ACCOUNT ---------- */
     const mfData = await MfUserData.findOne({ uniqueId });
+    const fpInvestmentAccountId = mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
     let bankAccountOldId = mfData?.bankAccount?.fpBankAccountOldId ?? null;
 
     if (!bankAccountOldId && mfData?.bankAccount?.fpBankAccountId) {
@@ -125,6 +126,7 @@ export const createMandate = async (req, res) => {
         $set: {
           uniqueId,
           fpMandateId,
+          fpInvestmentAccountId,
           mandateType:        mandate_type,
           mandateLimit:       limit,
           providerName:       "CYBRILLAPOA",
@@ -366,9 +368,10 @@ export const mandateAuthCallback = async (req, res) => {
 /*  Internal — public response shape                                    */
 /* ------------------------------------------------------------------ */
 const mandatePublicResponse = (m) => ({
-  mandateId:         m._id,
-  fpMandateId:       m.fpMandateId,
-  mandateType:       m.mandateType,
+  mandateId:             m._id,
+  fpMandateId:           m.fpMandateId,
+  fpInvestmentAccountId: m.fpInvestmentAccountId,
+  mandateType:           m.mandateType,
   mandateLimit:      m.mandateLimit,
   mandateStatus:     m.mandateStatus,
   providerName:      m.providerName,

@@ -26,18 +26,18 @@ export const getCybrillaToken = async () => {
   let response;
   try {
     response = await axios.post(
-      `${process.env.CYBRILLA_AUTH_URL}/v2/auth/cybrillarta/token`,
+      `${process.env.CYBRILLA_AUTH_URL}/v2/auth/cybrillapoa/token`,
       params,
       {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
-      },
+      }
     );
   } catch (err) {
     console.error(
       "❌ [CYBRILLA TOKEN] Failed to fetch token:",
-      err.response?.data || err.message,
+      err.response?.data || err.message
     );
     throw new Error("Failed to fetch Cybrilla auth token");
   }
@@ -45,7 +45,10 @@ export const getCybrillaToken = async () => {
   const { access_token, expires_in } = response.data;
 
   if (!access_token) {
-    console.error("❌ [CYBRILLA TOKEN] No access_token in response", response.data);
+    console.error(
+      "❌ [CYBRILLA TOKEN] No access_token in response",
+      response.data
+    );
     throw new Error("Cybrilla token response missing access_token");
   }
 
@@ -56,7 +59,9 @@ export const getCybrillaToken = async () => {
   await CybrillaToken.deleteMany({});
   await CybrillaToken.create({ accessToken: access_token, expiresAt });
 
-  console.log(`✅ [CYBRILLA TOKEN] New token fetched, expires in ${expires_in}s`);
+  console.log(
+    `✅ [CYBRILLA TOKEN] New token fetched, expires in ${expires_in}s`
+  );
 
   return access_token;
 };

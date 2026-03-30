@@ -13,21 +13,23 @@ import bondDetailsRoutes from "./bonds/bondDetails.routes.js";
 import bookBondRoutes from "./bonds/bookBond.routes.js";
 import sbOnboardingRoutes from "./bonds/sbOnboarding.routes.js";
 import sbKycRoutes from "./bonds/sbKyc.routes.js";
-import mfKycRoutes from "./mf/kyc.routes.js";
-import mfKycRequestRoutes from "./mf/kycRequest.routes.js";
-import mfIdentityDocumentRoutes from "./mf/identityDocument.routes.js";
-import mfEsignRoutes from "./mf/esign.routes.js";
-import mfFileRoutes from "./mf/file.routes.js";
-import mfRiskProfileRoutes from "./mf/riskProfile.routes.js";
-import mfJourneyStatusRoutes from "./mf/journeyStatus.routes.js";
-import mfInvestorProfileRoutes from "./mf/investorProfile.routes.js";
-import mfPhoneNumberRoutes from "./mf/phoneNumber.routes.js";
-import mfEmailAddressRoutes from "./mf/emailAddress.routes.js";
-import mfAddressRoutes from "./mf/address.routes.js";
-import mfRelatedPartyRoutes from "./mf/relatedParty.routes.js";
-import mfBankAccountRoutes from "./mf/bankAccount.routes.js";
-import mfInvestmentAccountRoutes from "./mf/mfInvestmentAccount.routes.js";
-import mfAccountPrefillRoutes from "./mf/accountPrefill.routes.js";
+// MF KYC
+import mfKycRoutes             from "./mf/kyc/kyc.routes.js";
+import mfKycRequestRoutes      from "./mf/kyc/kycRequest.routes.js";
+import mfIdentityDocumentRoutes from "./mf/kyc/identityDocument.routes.js";
+import mfEsignRoutes           from "./mf/kyc/esign.routes.js";
+import mfFileRoutes            from "./mf/kyc/file.routes.js";
+// MF Onboarding
+import mfRiskProfileRoutes      from "./mf/onboarding/riskProfile.routes.js";
+import mfAccountPrefillRoutes   from "./mf/onboarding/accountPrefill.routes.js";
+import mfInvestorProfileRoutes  from "./mf/onboarding/investorProfile.routes.js";
+import mfPhoneNumberRoutes      from "./mf/onboarding/phoneNumber.routes.js";
+import mfEmailAddressRoutes     from "./mf/onboarding/emailAddress.routes.js";
+import mfAddressRoutes          from "./mf/onboarding/address.routes.js";
+import mfBankAccountRoutes      from "./mf/onboarding/bankAccount.routes.js";
+import mfRelatedPartyRoutes     from "./mf/onboarding/relatedParty.routes.js";
+import mfInvestmentAccountRoutes from "./mf/onboarding/mfInvestmentAccount.routes.js";
+import mfJourneyStatusRoutes    from "./mf/onboarding/journeyStatus.routes.js";
 import mfAmcRoutes from "./mf/master/amc.routes.js";
 import mfSchemePlanRoutes from "./mf/master/schemePlan.routes.js";
 import mfPurchaseRoutes       from "./mf/purchase/mfPurchase.routes.js";
@@ -42,7 +44,8 @@ import mfMandateRoutes       from "./mf/mandate/mandate.routes.js";
 import mfCuratedBasketRoutes from "./mf/curatedBasket.routes.js";
 import mfSipRoutes       from "./mf/sip/mfSip.routes.js";
 import mfBasketSipRoutes  from "./mf/sip/mfBasketSip.routes.js";
-import mfRedemptionRoutes from "./mf/redemption/mfRedemption.routes.js";
+import mfRedemptionRoutes  from "./mf/redemption/mfRedemption.routes.js";
+import mfSmartSavingRoutes from "./mf/smartSaving/smartSaving.routes.js";
 
 const router = Router();
 
@@ -109,5 +112,8 @@ router.use("/api/mf/basket-sip", mfBasketSipRoutes);
 
 // MF Redemption (Withdraw)
 router.use("/api/mf/redemption", mfRedemptionRoutes);
+
+// MF Smart Saving (Instant Liquid Fund)
+router.use("/api/mf/smart-saving", mfSmartSavingRoutes);
 
 export default router;

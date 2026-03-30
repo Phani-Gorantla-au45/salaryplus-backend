@@ -77,6 +77,10 @@ const phoneSchema = new Schema({
   isd:             { type: String, default: "91" },
   number:          { type: String, default: null },
   belongsTo:       { type: String, default: null },
+  // OTP verification
+  otpCode:         { type: String, default: null, select: false },
+  otpExpiresAt:    { type: Date,   default: null },
+  otpVerified:     { type: Boolean, default: false },
   rawResponse:     { type: Schema.Types.Mixed, select: false },
 }, { _id: false });
 
@@ -87,6 +91,10 @@ const emailSchema = new Schema({
   fpEmailAddressId: { type: String, default: null },
   email:            { type: String, default: null },
   belongsTo:        { type: String, default: null },
+  // OTP verification
+  otpCode:          { type: String, default: null, select: false },
+  otpExpiresAt:     { type: Date,   default: null },
+  otpVerified:      { type: Boolean, default: false },
   rawResponse:      { type: Schema.Types.Mixed, select: false },
 }, { _id: false });
 
@@ -141,29 +149,41 @@ const nomineeAddressSchema = new Schema({
 }, { _id: false });
 
 const nomineeSchema = new Schema({
-  fpRelatedPartyId: { type: String, default: null },
-  name:             { type: String, default: null },
-  relationship:     { type: String, default: null },
-  dob:              { type: String, default: null },
-  pan:              { type: String, default: null },
-  aadhaarNumber:    { type: String, default: null },
-  emailAddress:     { type: String, default: null },
-  phoneNumber:      { type: String, default: null },
-  address:          { type: nomineeAddressSchema, default: () => ({}) },
-  rawResponse:      { type: Schema.Types.Mixed, select: false },
+  fpRelatedPartyId:  { type: String, default: null },
+  name:              { type: String, default: null },
+  relationship:      { type: String, default: null },
+  dob:               { type: String, default: null },
+  isMinor:           { type: Boolean, default: false },
+  pan:               { type: String, default: null },
+  aadhaarNumber:     { type: String, default: null },
+  identityProofType: { type: String, default: null }, // "pan" | "aadhaar"
+  emailAddress:      { type: String, default: null },
+  phoneNumber:       { type: String, default: null },
+  address:           { type: nomineeAddressSchema, default: () => ({}) },
+  // Guardian fields (only when nominee is a minor)
+  guardianName:                { type: String, default: null },
+  guardianPan:                 { type: String, default: null },
+  guardianAadhaarNumber:       { type: String, default: null },
+  guardianIdentityProofType:   { type: String, default: null }, // "pan" | "aadhaar"
+  guardianEmailAddress:        { type: String, default: null },
+  guardianPhoneNumber:         { type: String, default: null },
+  guardianAddress:             { type: nomineeAddressSchema, default: () => ({}) },
+  rawResponse:       { type: Schema.Types.Mixed, select: false },
 }, { _id: false });
 
 /* ------------------------------------------------------------------ */
 /*  Investment Account Folio Defaults                                    */
 /* ------------------------------------------------------------------ */
 const folioDefaultsSchema = new Schema({
-  communication_email_address:    { type: String, default: null },
-  communication_mobile_number:    { type: String, default: null },
-  communication_address:          { type: String, default: null },
-  payout_bank_account:            { type: String, default: null },
-  nominee1:                       { type: String, default: null },
-  nominee1_allocation_percentage: { type: Number, default: null },
-  nominations_info_visibility:    { type: String, default: null },
+  communication_email_address:              { type: String, default: null },
+  communication_mobile_number:              { type: String, default: null },
+  communication_address:                    { type: String, default: null },
+  payout_bank_account:                      { type: String, default: null },
+  nominee1:                                 { type: String, default: null },
+  nominee1_allocation_percentage:           { type: Number, default: null },
+  nominee1_identity_proof_type:             { type: String, default: null }, // "pan" | "aadhaar"
+  nominee1_guardian_identity_proof_type:    { type: String, default: null }, // "pan" | "aadhaar" (minor only)
+  nominations_info_visibility:              { type: String, default: null },
 }, { _id: false });
 
 const investmentAccountSchema = new Schema({

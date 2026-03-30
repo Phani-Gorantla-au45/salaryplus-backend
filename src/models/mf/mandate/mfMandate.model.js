@@ -26,6 +26,9 @@ const mfMandateSchema = new mongoose.Schema(
     validFrom: { type: String, default: null },
     validTo:   { type: String, default: null },
 
+    // Investment account reference
+    fpInvestmentAccountId: { type: String, default: null, index: true },
+
     // Bank account reference
     fpBankAccountOldId: { type: Number, default: null }, // FP bank account old_id used when creating
 

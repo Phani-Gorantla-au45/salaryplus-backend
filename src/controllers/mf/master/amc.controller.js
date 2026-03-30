@@ -10,12 +10,12 @@ const syncAmcsFromFp = async () => {
   const amcs = await fetchAllFpAmcs();
   const ops = amcs.map((amc) => ({
     updateOne: {
-      filter: { fpAmcId: amc.id },
+      filter: { fpAmcId: amc.amc_id },
       update: {
         $set: {
-          fpAmcId: amc.id,
-          name:    amc.name,
-          active:  amc.active,
+          fpAmcId: amc.amc_id,
+          name: amc.name,
+          active: amc.active,
           amcCode: amc.amc_code ?? null,
         },
       },
@@ -37,11 +37,14 @@ const syncAmcsFromFp = async () => {
 export const listAmcs = async (req, res) => {
   try {
     const { active } = req.query; // ?active=true to filter active only
-
+    console.log("inside listamcs");
     /* ---------- CHECK IF DATA IS STALE ---------- */
     const count = await MfAmc.countDocuments();
     const oldest = await MfAmc.findOne().sort({ updatedAt: 1 });
-    const isStale = !oldest || (Date.now() - new Date(oldest.updatedAt).getTime()) > SYNC_TTL_HOURS * 3600 * 1000;
+    const isStale =
+      !oldest ||
+      Date.now() - new Date(oldest.updatedAt).getTime() >
+        SYNC_TTL_HOURS * 3600 * 1000;
 
     if (count === 0 || isStale) {
       console.log("🔄 [AMC] DB empty or stale — syncing from FP...");
@@ -50,7 +53,7 @@ export const listAmcs = async (req, res) => {
 
     /* ---------- QUERY DB ---------- */
     const filter = {};
-    if (active === "true")  filter.active = true;
+    if (active === "true") filter.active = true;
     if (active === "false") filter.active = false;
 
     const amcs = await MfAmc.find(filter).sort({ name: 1 });
@@ -59,9 +62,9 @@ export const listAmcs = async (req, res) => {
       success: true,
       count: amcs.length,
       data: amcs.map((a) => ({
-        id:      a.fpAmcId,
-        name:    a.name,
-        active:  a.active,
+        id: a.fpAmcId,
+        name: a.name,
+        active: a.active,
         amcCode: a.amcCode,
       })),
     });
