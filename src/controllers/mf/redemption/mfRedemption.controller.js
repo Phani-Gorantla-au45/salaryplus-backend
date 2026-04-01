@@ -24,7 +24,7 @@ import {
 export const createRedemption = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { folio_number, isin, amount, units, user_ip } = req.body;
+    const { folio_number, isin, amount, units, user_ip, redemption_mode } = req.body;
 
     /* ---------- VALIDATE ---------- */
     if (!folio_number) {
@@ -76,8 +76,9 @@ export const createRedemption = async (req, res) => {
       scheme:                isin.toUpperCase().trim(),
       user_ip:               user_ip || resolvedIp,
     };
-    if (amount) fpPayload.amount = Number(amount);
-    if (units)  fpPayload.units  = Number(units);
+    if (amount)                       fpPayload.amount           = Number(amount);
+    if (units)                        fpPayload.units            = Number(units);
+    if (redemption_mode === "instant") fpPayload.redemption_mode = "instant";
 
     console.log(`  [2/4] Creating redemption on FP...`);
     const fpData = await createFpRedemption(fpPayload);
