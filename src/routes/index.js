@@ -47,6 +47,10 @@ import mfSipRoutes       from "./mf/sip/mfSip.routes.js";
 import mfBasketSipRoutes  from "./mf/sip/mfBasketSip.routes.js";
 import mfRedemptionRoutes  from "./mf/redemption/mfRedemption.routes.js";
 import mfSmartSavingRoutes from "./mf/smartSaving/smartSaving.routes.js";
+import appVersionRoutes    from "./app/appVersion.routes.js";
+// MF Webhooks
+import mfFpWebhookRoutes       from "./mf/webhook/fpWebhook.routes.js";
+import mfFpWebhookManageRoutes from "./mf/webhook/fpWebhookManage.routes.js";
 
 const router = Router();
 
@@ -117,5 +121,12 @@ router.use("/api/mf/redemption", mfRedemptionRoutes);
 
 // MF Smart Saving (Instant Liquid Fund)
 router.use("/api/mf/smart-saving", mfSmartSavingRoutes);
+
+// App Version / Force Update
+router.use("/api/app", appVersionRoutes);
+
+// MF Webhooks (FP → our server)
+router.use("/api/mf/webhook/fp",        mfFpWebhookRoutes);       // public — receives FP events
+router.use("/api/mf/admin/webhook/fp",  mfFpWebhookManageRoutes); // admin — manage + event log
 
 export default router;

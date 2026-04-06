@@ -27,14 +27,16 @@ const fpHeaders = async () => {
 /* ------------------------------------------------------------------ */
 export const fetchFpTransactions = async (params) => {
   try {
-    console.log(`\n📋 [FP TRANSACTIONS] Fetching transactions, params:`, params);
+    const fullUrl = `${FP_API_URL()}/transactions?${new URLSearchParams(params).toString()}`;
+    console.log(`\n📋 [FP TRANSACTIONS] Request URL : ${fullUrl}`);
+    console.log(`📋 [FP TRANSACTIONS] Params      :`, JSON.stringify(params, null, 2));
+    console.log(`📋 [FP TRANSACTIONS] Tenant ID   : ${FP_TENANT_ID()}`);
+
     const response = await axios.get(`${FP_API_URL()}/transactions`, {
       headers: await fpHeaders(),
       params,
     });
-    console.log(
-      `✅ [FP TRANSACTIONS] Received — count: ${response.data?.data?.length ?? response.data?.length ?? "?"}`
-    );
+    console.log(`✅ [FP TRANSACTIONS] Response    :`, JSON.stringify(response.data, null, 2));
     return response.data;
   } catch (err) {
     console.error(

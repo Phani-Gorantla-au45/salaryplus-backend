@@ -453,7 +453,9 @@ export const getSip = async (req, res) => {
     const { uniqueId } = req.user;
     const { id } = req.params;
 
-    const record = await MfSip.findOne({ _id: id, uniqueId });
+    const isMongoId = /^[a-f\d]{24}$/i.test(id);
+    const query = isMongoId ? { _id: id, uniqueId } : { fpSipId: id, uniqueId };
+    const record = await MfSip.findOne(query);
     if (!record)
       return res.status(404).json({ success: false, message: "SIP not found" });
 

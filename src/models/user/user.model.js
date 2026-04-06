@@ -12,9 +12,10 @@ const registrationSchema = new mongoose.Schema(
 
     // 🔥 FIX HERE
     uniqueId: {
-      type: String,
-      unique: true,
-      sparse: true, // auto-generate
+      type:    String,
+      unique:  true,
+      sparse:  true,
+      default: undefined, // omit field entirely until set — prevents null dup key error
     },
 
     First_name: { type: String, trim: true },

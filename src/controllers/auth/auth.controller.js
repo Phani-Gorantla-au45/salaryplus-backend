@@ -13,32 +13,44 @@ const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 /* 📲 SEND OTP SERVICE */
 const sendOTP = async (phone, otp) => {
-  await axios.post(
+  const payload = {
+    route: "dlt",
+    sender_id: "SPENDI",
+    message: "181034",
+    variables_values: `Your OTP is ${otp}`,
+    numbers: phone,
+  };
+  console.log(`\n📤 [SEND OTP] Fast2SMS request — phone: ${phone}`);
+  console.log(`📤 [SEND OTP] Payload:`, JSON.stringify(payload, null, 2));
+  console.log(`📤 [SEND OTP] API URL: ${process.env.FAST2SMS_API_URL}`);
+
+  const response = await axios.post(
     process.env.FAST2SMS_API_URL,
-    {
-      route: "dlt",
-      sender_id: "SPENDI",
-      message: "181034",
-      variables_values: `Your OTP is ${otp}`,
-      numbers: phone,
-    },
+    payload,
     { headers: { authorization: process.env.FAST2SMS_API_KEY } }
   );
+  console.log(`✅ [SEND OTP] Fast2SMS response:`, JSON.stringify(response.data, null, 2));
 };
 
 /* ---------------- SEND OTP ---------------- */
 export const sendOtp = async (req, res) => {
   try {
     const { phone } = req.body;
+    console.log(`\n🔐 [SEND OTP] Request for phone: ${phone}`);
+
     if (!phone) return res.status(400).json({ message: "Phone required" });
 
     let user = await User.findOne({ phone });
+    console.log(`👤 [SEND OTP] User exists: ${!!user}`);
 
     // ⛔ Rate limit
-    if (user?.otpExpiry && user.otpExpiry > Date.now() - 30000)
+    if (user?.otpExpiry && user.otpExpiry > Date.now() - 30000) {
+      console.log(`⛔ [SEND OTP] Rate limited — otpExpiry: ${user.otpExpiry}`);
       return res.status(429).json({ message: "Wait 1 min before retry" });
+    }
 
-    const otp = generateOTP();
+    const TEST_NUMBERS = { "8801648802": "1234" };
+    const otp = TEST_NUMBERS[phone] ?? generateOTP();
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
     if (!user) user = new User({ phone });
@@ -46,12 +58,22 @@ export const sendOtp = async (req, res) => {
     user.otp = hashOTP(otp);
     user.otpExpiry = otpExpiry;
     user.isVerified = false;
-    await user.save();
 
-    await sendOTP(phone, otp);
+    await user.save();
+    console.log(`💾 [SEND OTP] User saved to DB`);
+
+    if (TEST_NUMBERS[phone]) {
+      console.log(`🧪 [SEND OTP] Test number ${phone} — skipping SMS, OTP is ${otp}`);
+    } else {
+      await sendOTP(phone, otp);
+    }
 
     res.json({ message: "OTP sent successfully" });
   } catch (err) {
+    console.error(`❌ [SEND OTP] Error for phone ${req.body?.phone}:`, err.message);
+    if (err.response) {
+      console.error(`❌ [SEND OTP] Fast2SMS error response:`, JSON.stringify(err.response.data, null, 2));
+    }
     res.status(500).json({ message: "OTP send failed", error: err.message });
   }
 };

@@ -89,7 +89,7 @@ const resolveScheme = async (isin) => {
 export const createPurchase = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { isin, amount, payment_method } = req.body;
+    const { isin, amount, payment_method, folio_number } = req.body;
     console.log(
       `\n🛒 [CREATE PURCHASE] user=${uniqueId} isin=${isin} amount=${amount}`
     );
@@ -157,6 +157,7 @@ export const createPurchase = async (req, res) => {
       scheme: scheme.isin,
       amount: Number(amount),
       user_ip: userIp,
+      ...(folio_number && { folio_number: String(folio_number) }),
     };
     console.log(`  [3/5] Creating FP purchase... user_ip=${userIp}`);
     const fpData = await createFpPurchase(fpPayload);
