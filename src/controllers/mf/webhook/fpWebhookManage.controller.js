@@ -79,6 +79,41 @@ export const setupWebhooks = async (req, res) => {
 };
 
 /**
+ * POST /api/mf/admin/webhook/fp/update-url
+ * Bulk-update the URL on ALL existing FP webhook registrations.
+ * Useful when the server domain changes.
+ * Body: { url? }  — defaults to APP_BASE_URL/api/mf/webhook/fp
+ */
+export const updateAllWebhookUrls = async (req, res) => {
+  const newUrl = req.body?.url || `${process.env.APP_BASE_URL}/api/mf/webhook/fp`;
+
+  let existing = [];
+  try {
+    const data = await listFpWebhooks();
+    existing = Array.isArray(data) ? data : (data.data || []);
+  } catch (err) {
+    return res.status(502).json({ error: "Failed to fetch webhooks from FP" });
+  }
+
+  const results = { updated: [], skipped: [], failed: [] };
+
+  for (const webhook of existing) {
+    if (webhook.url === newUrl) {
+      results.skipped.push({ id: webhook.id, event: webhook.event });
+      continue;
+    }
+    try {
+      await updateFpWebhook(webhook.id, { url: newUrl, status: webhook.status });
+      results.updated.push({ id: webhook.id, event: webhook.event });
+    } catch (err) {
+      results.failed.push({ id: webhook.id, event: webhook.event, error: err.response?.data || err.message });
+    }
+  }
+
+  res.json({ newUrl, results });
+};
+
+/**
  * GET /api/mf/admin/webhook/fp/events
  * List stored webhook events (with optional filters).
  * Query: ?status=pending|processed|failed&eventType=mf_purchase.successful&limit=50&page=1

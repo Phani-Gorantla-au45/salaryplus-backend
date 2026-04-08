@@ -63,7 +63,8 @@ const mfPurchaseSchema = new mongoose.Schema(
 
     // Payment
     fpPaymentId: { type: String, default: null },
-    tokenUrl:    { type: String, default: null }, // redirect user here to complete payment
+    tokenUrl:    { type: String, default: null }, // NETBANKING: redirect user here
+    upiUri:      { type: String, default: null }, // UPI: deep-link uri for UPI apps
 
     // Raw FP responses (excluded from default queries)
     rawPurchaseResponse: { type: mongoose.Schema.Types.Mixed, select: false },

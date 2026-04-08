@@ -7,6 +7,7 @@ import {
   fetchFpPurchase,
   patchFpPurchase,
   createFpPaymentNetbanking,
+  createFpPaymentUpi,
   fetchFpPayment,
 } from "../../../utils/mf/purchase/purchase.utils.js";
 import {
@@ -367,22 +368,42 @@ export const confirmPurchase = async (req, res) => {
     const amcOrderIds = record.isBasketOrder
       ? record.fpOldIds ?? []
       : [record.fpOldId];
+    const isUpi = record.paymentMethod === "UPI";
     console.log(
-      `  [5/7] isBasketOrder=${record.isBasketOrder} amcOrderIds=${JSON.stringify(amcOrderIds)} bank_account_id=${bank_account_id}`
+      `  [5/7] isBasketOrder=${record.isBasketOrder} paymentMethod=${record.paymentMethod} amcOrderIds=${JSON.stringify(amcOrderIds)} bank_account_id=${bank_account_id}`
     );
 
-    const paymentPayload = {
-      amc_order_ids:        amcOrderIds,
+    const basePaymentPayload = {
+      amc_order_ids: amcOrderIds,
       payment_postback_url: postbackUrl,
-      method:               record.paymentMethod,
-      provider_name:        "ONDC",
-      bank_account_id:      Number(bank_account_id),
+      provider_name: "ONDC",
+      bank_account_id: Number(bank_account_id),
     };
-    console.log("Payment payload", paymentPayload);
-    const fpPayment = await createFpPaymentNetbanking(paymentPayload);
-    console.log(
-      `  [5/7] ✅ fpPaymentId=${fpPayment.id} tokenUrl=${fpPayment.token_url}`
-    );
+
+    let fpPayment;
+    let upiUri = null;
+
+    if (isUpi) {
+      // UPI flow: create payment → fetch payment to get the URI
+      fpPayment = await createFpPaymentUpi(basePaymentPayload);
+      console.log(`  [5/7] ✅ UPI payment created — id=${fpPayment.id}, fetching URI...`);
+
+      // FP generates the URI asynchronously and delivers it via the
+      // payment.updated webhook event. URI will be null here — the webhook
+      // handler (payment.handler.js) saves it to DB when it arrives.
+      console.log(`  [5/7] ✅ UPI payment created id=${fpPayment.id} — URI will arrive via payment.updated webhook`);
+    } else {
+      // Netbanking flow — existing behaviour
+      const paymentPayload = {
+        ...basePaymentPayload,
+        method: "NETBANKING",
+      };
+      console.log("Payment payload", paymentPayload);
+      fpPayment = await createFpPaymentNetbanking(paymentPayload);
+      console.log(
+        `  [5/7] ✅ fpPaymentId=${fpPayment.id} tokenUrl=${fpPayment.token_url}`
+      );
+    }
 
     /* ---------- STEP 6: PATCH STATE=CONFIRMED ---------- */
     // FP docs: consent (individual PATCH) → payment → batch confirm (PATCH /v2/mf_purchases/batch)
@@ -409,7 +430,9 @@ export const confirmPurchase = async (req, res) => {
 
       confirmedState = batchResults[0]?.state ?? "confirmed";
       console.log(
-        `  [6/7] ✅ Basket batch confirm done — states: ${batchResults.map((r) => r.state).join(", ")}`
+        `  [6/7] ✅ Basket batch confirm done — states: ${batchResults
+          .map((r) => r.state)
+          .join(", ")}`
       );
     } else {
       const confirmedFpData = await patchFpPurchase(record.fpPurchaseId, {
@@ -423,8 +446,9 @@ export const confirmPurchase = async (req, res) => {
     console.log(`  [7/7] Saving payment info to DB...`);
     const dbUpdate = {
       fpPaymentId: fpPayment.id ?? null,
-      tokenUrl: fpPayment.token_url ?? null,
-      fpState: confirmedState ?? "confirmed",
+      tokenUrl:    fpPayment.token_url ?? null,
+      upiUri:      upiUri,
+      fpState:     confirmedState ?? "confirmed",
       rawPaymentResponse: fpPayment,
     };
     if (record.isBasketOrder) {
@@ -435,17 +459,22 @@ export const confirmPurchase = async (req, res) => {
       { $set: dbUpdate },
       { new: true }
     );
-    console.log(`  [7/7] ✅ Done — tokenUrl=${updated.tokenUrl}`);
+    console.log(`  [7/7] ✅ Done — paymentMethod=${record.paymentMethod} tokenUrl=${updated.tokenUrl} upiUri=${updated.upiUri}`);
 
     return res.status(200).json({
       success: true,
-      message: "Purchase confirmed. Redirect user to payment URL.",
+      message: isUpi
+        ? "Purchase confirmed. Use upiUri to complete payment."
+        : "Purchase confirmed. Redirect user to payment URL.",
       data: {
-        purchaseId: updated._id,
+        purchaseId:   updated._id,
         fpPurchaseId: updated.fpPurchaseId,
-        fpState: updated.fpState,
-        fpPaymentId: updated.fpPaymentId,
+        fpState:      updated.fpState,
+        fpPaymentId:  updated.fpPaymentId,
+        paymentMethod: record.paymentMethod,
+        // NETBANKING: redirect to tokenUrl; UPI: open upiUri in UPI app
         tokenUrl: updated.tokenUrl,
+        upiUri:   updated.upiUri,
       },
     });
   } catch (err) {

@@ -38,6 +38,7 @@ import mfBasketPurchaseRoutes from "./mf/purchase/mfBasketPurchase.routes.js";
 import mfBasketRoutes from "./mf/mfBasket.routes.js";
 import mfAdminBasketRoutes from "./mf/admin/mfBasket.routes.js";
 import mfAdminFolioRoutes  from "./mf/admin/folio.routes.js";
+import mfAdminSipRoutes    from "./mf/admin/sip.routes.js";
 import mfHoldingsRoutes    from "./mf/reports/holdings.routes.js";
 import mfReturnsRoutes       from "./mf/reports/returns.routes.js";
 import mfTransactionsRoutes  from "./mf/reports/transactions.routes.js";
@@ -96,6 +97,7 @@ router.use("/api/mf/basket", mfBasketRoutes);
 // MF Admin
 router.use("/api/mf/admin/basket",  mfAdminBasketRoutes);
 router.use("/api/mf/admin/folios",  mfAdminFolioRoutes);
+router.use("/api/mf/admin/sip",     mfAdminSipRoutes);
 
 // MF Curated Baskets — public user-facing view
 router.use("/api/mf/curated-basket", mfCuratedBasketRoutes);

@@ -39,6 +39,20 @@ export const handlePaymentEvent = async (eventType, fpObject) => {
   const fpPaymentId = String(fpObject.id || fpObject.old_id || "");
   if (!fpPaymentId) return;
 
+  // ── UPI intent: save URI when payment.updated delivers it ──
+  if (eventType === "payment.updated") {
+    const upiUri = fpObject?.upi?.uri ?? null;
+    if (upiUri) {
+      const result = await MfPurchase.updateOne(
+        { fpPaymentId },
+        { $set: { upiUri } }
+      );
+      console.log(`[PAYMENT HANDLER] UPI URI saved for fpPaymentId=${fpPaymentId} uri=${upiUri} matched=${result.matchedCount}`);
+    }
+    // payment.updated has no email notification — exit after saving URI
+    return;
+  }
+
   // Look up the associated purchase order
   const purchase = await MfPurchase.findOne({ fpPaymentId }).lean();
   if (!purchase) {

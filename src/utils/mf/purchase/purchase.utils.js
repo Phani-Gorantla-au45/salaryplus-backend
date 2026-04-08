@@ -111,7 +111,7 @@ export const createFpPaymentNetbanking = async (payload) => {
       payload,
       { headers: await fpHeaders() }
     );
-    console.log("After payment success", response.data);
+    console.log("After payment success1", response.data);
     console.log(
       `✅ [FP PAYMENT] Created — id: ${response.data?.id}, token_url: ${response.data?.token_url}`
     );
@@ -123,6 +123,41 @@ export const createFpPaymentNetbanking = async (payload) => {
     );
     throw new Error(
       err.response?.data?.message || "Failed to initiate payment on FP"
+    );
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  POST /api/pg/payments/netbanking  (UPI variant)                     */
+/*  Same endpoint as netbanking but method=UPI + upi.type=URI.          */
+/*  FP returns id + token_url=null + upi.uri=null on creation.          */
+/*  A subsequent GET /api/pg/payments/:id is needed to get the URI.     */
+/* ------------------------------------------------------------------ */
+export const createFpPaymentUpi = async (payload) => {
+  try {
+    const upiPayload = {
+      ...payload,
+      method: "UPI",
+      upi: { type: "uri" },
+    };
+    console.log(
+      "\n📤 [FP PAYMENT] Create UPI payload:",
+      JSON.stringify(upiPayload, null, 2)
+    );
+    const response = await axios.post(
+      `${FP_API_URL()}/api/pg/payments/netbanking`,
+      upiPayload,
+      { headers: await fpHeaders() }
+    );
+    console.log(`✅ [FP PAYMENT] UPI payment created — id: ${response.data?.id}`);
+    return response.data;
+  } catch (err) {
+    console.error(
+      "❌ [FP PAYMENT] UPI create failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2)
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to initiate UPI payment on FP"
     );
   }
 };
