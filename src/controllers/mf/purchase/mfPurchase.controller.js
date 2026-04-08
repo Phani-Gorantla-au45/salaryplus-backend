@@ -587,6 +587,7 @@ export const getPurchase = async (req, res) => {
         consentAt: updated.consentAt,
         fpPaymentId: updated.fpPaymentId,
         tokenUrl: updated.tokenUrl,
+        upiUri: updated.upiUri,
         createdAt: updated.createdAt,
       },
     });
