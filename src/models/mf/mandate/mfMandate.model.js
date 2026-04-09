@@ -47,7 +47,8 @@ const mfMandateSchema = new mongoose.Schema(
 
     // Auth payment (from POST /api/pg/payments/emandate/auth)
     fpPaymentId: { type: Number, default: null },
-    tokenUrl:    { type: String, default: null }, // redirect user here to complete mandate auth
+    tokenUrl:    { type: String, default: null }, // E_MANDATE: redirect user here
+    upiUri:      { type: String, default: null }, // UPI: deep-link uri for UPI apps
 
     // Auth status (updated via postback callback)
     authStatus:   { type: String, default: null }, // success | failure

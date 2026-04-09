@@ -7,6 +7,7 @@ import {
   getPurchase,
   listPurchases,
   paymentCallback,
+  getPaymentStatus,
 } from "../../../controllers/mf/purchase/mfPurchase.controller.js";
 
 const router = express.Router();
@@ -25,6 +26,9 @@ router.get("/:id", auth, getPurchase);
 
 // POST /api/mf/purchase/:id/confirm       — verify OTP + payment + confirm
 router.post("/:id/confirm", auth, confirmPurchase);
+
+// GET  /api/mf/purchase/:id/payment-status — poll payment status (PENDING/SUCCESS/FAILED)
+router.get("/:id/payment-status", auth, getPaymentStatus);
 
 // POST /api/mf/purchase/:id/resend-otp    — resend consent OTP
 router.post("/:id/resend-otp", auth, resendOtp);

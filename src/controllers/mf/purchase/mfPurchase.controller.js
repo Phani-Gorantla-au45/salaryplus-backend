@@ -635,6 +635,54 @@ export const listPurchases = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  GET /api/mf/purchase/:id/payment-status                             */
+/*  Frontend polls this to know if payment succeeded.                   */
+/*  Returns clean status + upiUri (for UPI polling before payment).    */
+/* ------------------------------------------------------------------ */
+export const getPaymentStatus = async (req, res) => {
+  try {
+    const { uniqueId } = req.user;
+    const { id } = req.params;
+
+    const record = await MfPurchase.findOne({ _id: id, uniqueId });
+    if (!record) {
+      return res.status(404).json({ success: false, message: "Purchase not found" });
+    }
+    if (!record.fpPaymentId) {
+      return res.status(400).json({ success: false, message: "Payment not yet initiated for this purchase" });
+    }
+
+    // Fetch live payment status from FP
+    const fpPayment = await fetchFpPayment(record.fpPaymentId);
+
+    // For UPI — save URI if it just arrived
+    const upiUri = fpPayment?.upi?.uri ?? record.upiUri ?? null;
+    if (upiUri && !record.upiUri) {
+      await MfPurchase.updateOne({ _id: record._id }, { $set: { upiUri } });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        purchaseId:    record._id,
+        fpPaymentId:   fpPayment.id,
+        paymentMethod: fpPayment.method,
+        status:        fpPayment.status,   // PENDING | SUCCESS | FAILED
+        amount:        fpPayment.amount,
+        // NETBANKING: redirect here; UPI: null
+        tokenUrl:      record.tokenUrl ?? null,
+        // UPI: open this deep-link; NETBANKING: null
+        upiUri:        upiUri,
+        failedReason:  fpPayment.failed_reason ?? null,
+      },
+    });
+  } catch (err) {
+    console.error("❌ [PAYMENT STATUS] Error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  POST /api/mf/purchase/payment-callback                              */
 /*  Payment postback handler — called by FP after payment completion.   */
 /*  No auth — FP POSTs a form to this URL.                              */

@@ -53,7 +53,10 @@ export const sendOtp = async (req, res) => {
     const otp = TEST_NUMBERS[phone] ?? generateOTP();
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
-    if (!user) user = new User({ phone });
+    if (!user) {
+      user = new User({ phone });
+      user.uniqueId = undefined; // prevent null being stored — sparse index only skips undefined/missing
+    }
 
     user.otp = hashOTP(otp);
     user.otpExpiry = otpExpiry;

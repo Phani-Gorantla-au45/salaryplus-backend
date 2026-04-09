@@ -1,4 +1,5 @@
 import MfPurchase from "../../../../models/mf/purchase/mfPurchase.model.js";
+import MfMandate  from "../../../../models/mf/mandate/mfMandate.model.js";
 import { resolveUserEmail, resolveUserName, sendWebhookNotification } from "../notification.utils.js";
 
 /**
@@ -40,14 +41,31 @@ export const handlePaymentEvent = async (eventType, fpObject) => {
   if (!fpPaymentId) return;
 
   // ── UPI intent: save URI when payment.updated delivers it ──
+  // Applies to both MF purchase UPI and mandate UPI Autopay flows
   if (eventType === "payment.updated") {
     const upiUri = fpObject?.upi?.uri ?? null;
     if (upiUri) {
-      const result = await MfPurchase.updateOne(
+      // Try purchase first
+      const purchaseResult = await MfPurchase.updateOne(
         { fpPaymentId },
         { $set: { upiUri } }
       );
-      console.log(`[PAYMENT HANDLER] UPI URI saved for fpPaymentId=${fpPaymentId} uri=${upiUri} matched=${result.matchedCount}`);
+      if (purchaseResult.matchedCount > 0) {
+        console.log(`[PAYMENT HANDLER] UPI URI saved to MfPurchase fpPaymentId=${fpPaymentId}`);
+      }
+
+      // Also try mandate (UPI Autopay mandate auth payment)
+      const mandateResult = await MfMandate.updateOne(
+        { fpPaymentId: Number(fpPaymentId) },
+        { $set: { upiUri } }
+      );
+      if (mandateResult.matchedCount > 0) {
+        console.log(`[PAYMENT HANDLER] UPI URI saved to MfMandate fpPaymentId=${fpPaymentId}`);
+      }
+
+      if (purchaseResult.matchedCount === 0 && mandateResult.matchedCount === 0) {
+        console.warn(`[PAYMENT HANDLER] payment.updated — no record found for fpPaymentId=${fpPaymentId}`);
+      }
     }
     // payment.updated has no email notification — exit after saving URI
     return;

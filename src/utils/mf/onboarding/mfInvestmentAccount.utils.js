@@ -50,6 +50,20 @@ export const updateFpMfInvestmentAccount = async (accountId, payload) => {
   }
 };
 
+/* GET /v2/mf_investment_accounts */
+export const listFpMfInvestmentAccounts = async (params = {}) => {
+  try {
+    const response = await axios.get(
+      `${FP_API_URL()}/v2/mf_investment_accounts`,
+      { headers: await fpHeaders(), params }
+    );
+    return response.data;
+  } catch (err) {
+    console.error("❌ [FP MF ACCOUNT] List failed:", err.response?.data || err.message);
+    throw new Error(err.response?.data?.message || "Failed to list MF investment accounts");
+  }
+};
+
 /* GET /v2/mf_investment_accounts/:id */
 export const fetchFpMfInvestmentAccount = async (accountId) => {
   try {

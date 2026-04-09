@@ -4,6 +4,7 @@ import { fetchFpBankAccount } from "../../../utils/mf/onboarding/bankAccount.uti
 import {
   createFpMandate,
   authorizeFpMandate,
+  authorizeFpMandateUpi,
   fetchFpMandate,
   cancelFpMandate,
 } from "../../../utils/mf/mandate/mandate.utils.js";
@@ -178,21 +179,32 @@ export const authorizeMandate = async (req, res) => {
       });
     }
 
-    // FP redirects the user's browser/WebView to this URL after auth completes.
-    // Frontend detects the navigation to this page and polls GET /api/mf/mandate/:id for final status.
-    const mandateReturnUrl = `https://www.salaryplus.club/mandate/callback`;
+    const isUpi = record.mandateType === "UPI";
 
-    const fpResult = await authorizeFpMandate({
-      mandate_id:           record.fpMandateId,
-      payment_postback_url: mandateReturnUrl,
-    });
+    let fpResult;
+    let upiUri = null;
+
+    if (isUpi) {
+      // UPI Intent/QR flow — no postback URL, URI returned directly
+      fpResult = await authorizeFpMandateUpi(record.fpMandateId);
+      upiUri   = fpResult?.upi?.uri ?? null;
+      console.log(`  ✅ [MANDATE AUTH UPI] paymentId=${fpResult.id} uri=${upiUri}`);
+    } else {
+      // E_MANDATE (eNACH) flow — redirect user to tokenUrl
+      const mandateReturnUrl = `https://www.salaryplus.club/mandate/callback`;
+      fpResult = await authorizeFpMandate({
+        mandate_id:           record.fpMandateId,
+        payment_postback_url: mandateReturnUrl,
+      });
+    }
 
     await MfMandate.updateOne(
       { _id: record._id },
       {
         $set: {
-          fpPaymentId:     fpResult.id   ?? null,
+          fpPaymentId:     fpResult.id       ?? null,
           tokenUrl:        fpResult.token_url ?? null,
+          upiUri:          upiUri,
           rawAuthResponse: fpResult,
         },
       }
@@ -200,12 +212,17 @@ export const authorizeMandate = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Mandate authorization initiated. Redirect user to tokenUrl.",
+      message: isUpi
+        ? "Mandate authorization initiated. Use upiUri to complete UPI Autopay setup."
+        : "Mandate authorization initiated. Redirect user to tokenUrl.",
       data: {
         mandateId:   record._id,
         fpMandateId: record.fpMandateId,
         fpPaymentId: fpResult.id,
-        tokenUrl:    fpResult.token_url,
+        mandateType: record.mandateType,
+        // E_MANDATE: redirect to tokenUrl; UPI: open upiUri
+        tokenUrl:    fpResult.token_url ?? null,
+        upiUri:      upiUri,
       },
     });
   } catch (err) {
@@ -381,6 +398,7 @@ const mandatePublicResponse = (m) => ({
   umrn:              m.umrn,
   authStatus:        m.authStatus,
   tokenUrl:          m.tokenUrl,
+  upiUri:            m.upiUri,
   fpPaymentId:       m.fpPaymentId,
   fpApprovedAt:      m.fpApprovedAt,
   fpCancelledAt:     m.fpCancelledAt,

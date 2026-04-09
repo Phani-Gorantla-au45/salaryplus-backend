@@ -76,6 +76,37 @@ export const authorizeFpMandate = async (payload) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  POST /api/pg/payments/emandate/auth  (UPI Intent/QR variant)        */
+/*  Same endpoint as eNACH auth but with upi.type=uri instead of        */
+/*  payment_postback_url. URI is returned directly in response.         */
+/*                                                                      */
+/*  payload: { mandate_id: Number }                                     */
+/*  FP response: { id, token_url, upi: { type, vpa, uri } }            */
+/* ------------------------------------------------------------------ */
+export const authorizeFpMandateUpi = async (mandateId) => {
+  try {
+    const payload = {
+      mandate_id: mandateId,
+      upi: { type: "uri" },
+    };
+    console.log("\n📤 [FP MANDATE AUTH UPI] Payload:", JSON.stringify(payload, null, 2));
+    const response = await axios.post(
+      `${FP_API_URL()}/api/pg/payments/emandate/auth`,
+      payload,
+      { headers: await fpHeaders() }
+    );
+    console.log(`✅ [FP MANDATE AUTH UPI] paymentId=${response.data?.id} uri=${response.data?.upi?.uri}`);
+    return response.data;
+  } catch (err) {
+    console.error(
+      "❌ [FP MANDATE AUTH UPI] Failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2)
+    );
+    throw new Error(err.response?.data?.message || "Failed to authorize UPI mandate on FP");
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  GET /api/pg/mandates/:id                                            */
 /*  Fetches current mandate details from FP.                            */
 /* ------------------------------------------------------------------ */
