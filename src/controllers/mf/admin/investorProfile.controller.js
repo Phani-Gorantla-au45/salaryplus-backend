@@ -21,7 +21,7 @@ export const listInvestorProfiles = async (req, res) => {
       return res.json({ success: true, data });
     }
 
-    const data = await listFpInvestorProfiles(params);
+    const data = await listFpInvestorProfiles({ type: "individual", ...params });
     return res.json({ success: true, data });
   } catch (err) {
     console.error("❌ [ADMIN INVESTOR PROFILE] Error:", err.message);

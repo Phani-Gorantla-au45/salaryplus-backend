@@ -52,6 +52,7 @@ import mfBasketSipRoutes  from "./mf/sip/mfBasketSip.routes.js";
 import mfRedemptionRoutes  from "./mf/redemption/mfRedemption.routes.js";
 import mfSmartSavingRoutes from "./mf/smartSaving/smartSaving.routes.js";
 import appVersionRoutes    from "./app/appVersion.routes.js";
+import goalRoutes          from "./goals/goal.routes.js";
 // MF Webhooks
 import mfFpWebhookRoutes       from "./mf/webhook/fpWebhook.routes.js";
 import mfFpWebhookManageRoutes from "./mf/webhook/fpWebhookManage.routes.js";
@@ -132,6 +133,9 @@ router.use("/api/mf/smart-saving", mfSmartSavingRoutes);
 
 // App Version / Force Update
 router.use("/api/app", appVersionRoutes);
+
+// Goal-based Financial Planning
+router.use("/api/goals", goalRoutes);
 
 // MF Webhooks (FP → our server)
 router.use("/api/mf/webhook/fp",        mfFpWebhookRoutes);       // public — receives FP events

@@ -24,12 +24,13 @@ const sendOTP = async (phone, otp) => {
   console.log(`📤 [SEND OTP] Payload:`, JSON.stringify(payload, null, 2));
   console.log(`📤 [SEND OTP] API URL: ${process.env.FAST2SMS_API_URL}`);
 
-  const response = await axios.post(
-    process.env.FAST2SMS_API_URL,
-    payload,
-    { headers: { authorization: process.env.FAST2SMS_API_KEY } }
+  const response = await axios.post(process.env.FAST2SMS_API_URL, payload, {
+    headers: { authorization: process.env.FAST2SMS_API_KEY },
+  });
+  console.log(
+    `✅ [SEND OTP] Fast2SMS response:`,
+    JSON.stringify(response.data, null, 2),
   );
-  console.log(`✅ [SEND OTP] Fast2SMS response:`, JSON.stringify(response.data, null, 2));
 };
 
 /* ---------------- SEND OTP ---------------- */
@@ -49,7 +50,7 @@ export const sendOtp = async (req, res) => {
       return res.status(429).json({ message: "Wait 1 min before retry" });
     }
 
-    const TEST_NUMBERS = { "8801648802": "1234" };
+    const TEST_NUMBERS = { 8801648802: "1234" };
     const otp = TEST_NUMBERS[phone] ?? generateOTP();
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -66,16 +67,24 @@ export const sendOtp = async (req, res) => {
     console.log(`💾 [SEND OTP] User saved to DB`);
 
     if (TEST_NUMBERS[phone]) {
-      console.log(`🧪 [SEND OTP] Test number ${phone} — skipping SMS, OTP is ${otp}`);
+      console.log(
+        `🧪 [SEND OTP] Test number ${phone} — skipping SMS, OTP is ${otp}`,
+      );
     } else {
       await sendOTP(phone, otp);
     }
 
     res.json({ message: "OTP sent successfully" });
   } catch (err) {
-    console.error(`❌ [SEND OTP] Error for phone ${req.body?.phone}:`, err.message);
+    console.error(
+      `❌ [SEND OTP] Error for phone ${req.body?.phone}:`,
+      err.message,
+    );
     if (err.response) {
-      console.error(`❌ [SEND OTP] Fast2SMS error response:`, JSON.stringify(err.response.data, null, 2));
+      console.error(
+        `❌ [SEND OTP] Fast2SMS error response:`,
+        JSON.stringify(err.response.data, null, 2),
+      );
     }
     res.status(500).json({ message: "OTP send failed", error: err.message });
   }
@@ -114,7 +123,7 @@ export const verifyOtp = async (req, res) => {
     const token = jwt.sign(
       { uniqueId: user.uniqueId },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     const isProfileComplete = user.First_name && user.Last_name && user.email;
@@ -140,7 +149,7 @@ export const adminLogin = (req, res) => {
     const token = jwt.sign(
       { uniqueId: "admin", isAdmin: true },
       process.env.JWT_SECRET,
-      { expiresIn: "30d" }
+      { expiresIn: "30d" },
     );
 
     return res.json({ token });
@@ -152,23 +161,23 @@ export const adminLogin = (req, res) => {
 /* ---------------- COMPLETE REGISTRATION ---------------- */
 export const completeRegistration = async (req, res) => {
   try {
-    const { First_name, Last_name, email, stateId } = req.body;
+    const { name, email } = req.body;
     const { uniqueId } = req.user;
 
-    // 🔥 Fetch user by uniqueId
+    if (!name || !email) {
+      return res.status(400).json({ message: "name and email are required" });
+    }
+
     const user = await User.findOne({ uniqueId });
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (!user.isVerified)
       return res.status(401).json({ message: "OTP not verified" });
 
-    // 🔥 2. Map state name → Augmont stateId
-    // const augState = await AugmontState.findOne({ name: stateName }); // ✅ FIXED
-
-    user.First_name = First_name;
-    user.Last_name = Last_name;
-    user.email = email;
-    user.stateId = stateId; // ✅ CORRECT VALUE
+    const parts = name.trim().split(" ");
+    user.First_name = parts[0];
+    user.Last_name  = parts.slice(1).join(" ") || "";
+    user.email      = email.trim().toLowerCase();
 
     await user.save();
 
