@@ -1,5 +1,6 @@
 import Esign from "../../../models/mf/esign.model.js";
 import KycRequest from "../../../models/mf/kycRequest.model.js";
+import User from "../../../models/user/user.model.js";
 import { createFpEsign, fetchFpEsign } from "../../../utils/mf/kyc/esign.utils.js";
 
 /* ------------------------------------------------------------------ */
@@ -120,12 +121,18 @@ export const getEsign = async (req, res) => {
 
     /* ---------- SYNC KYC REQUEST STATUS IF ESIGN DONE ---------- */
     // FP automatically moves KYC request to 'submitted' after successful esign.
-    // Update our local KYC record to reflect this.
+    // Update our local KYC record and the user flag to reflect this.
     if (record.status === "successful") {
-      await KycRequest.findOneAndUpdate(
-        { fpKycRequestId: record.fpKycRequestId, uniqueId },
-        { $set: { status: "submitted" } }
-      );
+      await Promise.all([
+        KycRequest.findOneAndUpdate(
+          { fpKycRequestId: record.fpKycRequestId, uniqueId },
+          { $set: { status: "submitted" } }
+        ),
+        User.findOneAndUpdate(
+          { uniqueId },
+          { $set: { mfKycStatus: "submitted" } }
+        ),
+      ]);
     }
 
     return res.status(200).json({

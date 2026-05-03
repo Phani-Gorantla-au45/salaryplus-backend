@@ -158,6 +158,29 @@ export const adminLogin = (req, res) => {
   }
 };
 
+/* ---------------- GET PROFILE ---------------- */
+export const getProfile = async (req, res) => {
+  try {
+    const { uniqueId } = req.user;
+    const user = await User.findOne({ uniqueId }).lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const name = [user.First_name, user.Last_name].filter(Boolean).join(" ") || null;
+
+    res.json({
+      uniqueId:     user.uniqueId,
+      phone:        user.phone,
+      name,
+      email:        user.email        ?? null,
+      panVerified:  user.panVerified  ?? false,
+      mfKycStatus:  user.mfKycStatus  ?? null,
+      mfAccount:    user.mfAccount    ?? "no",
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch profile" });
+  }
+};
+
 /* ---------------- COMPLETE REGISTRATION ---------------- */
 export const completeRegistration = async (req, res) => {
   try {

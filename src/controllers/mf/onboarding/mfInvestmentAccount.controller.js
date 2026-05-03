@@ -1,9 +1,13 @@
 import MfUserData from "../../../models/mf/mfUserData.model.js";
+import User from "../../../models/user/user.model.js";
 import {
   createFpMfInvestmentAccount,
   fetchFpMfInvestmentAccount,
   updateFpMfInvestmentAccount,
 } from "../../../utils/mf/onboarding/mfInvestmentAccount.utils.js";
+import { sendWebhookNotification } from "../../../utils/mf/webhook/notification.utils.js";
+
+const ADMIN_EMAIL = "phanigorantla531@gmail.com";
 
 /* ------------------------------------------------------------------ */
 /*  Helper — map FP response → investmentAccount $set fields            */
@@ -127,6 +131,25 @@ export const createMfInvestmentAccount = async (req, res) => {
     );
 
     console.log(`✅ [MF ACCOUNT] Journey account stage completed for user: ${uniqueId}`);
+
+    // ── Flag on RegistrationUser + admin email ──
+    const [userRecord] = await Promise.all([
+      User.findOneAndUpdate(
+        { uniqueId },
+        { $set: { mfAccount: "yes" } },
+        { new: true }
+      ),
+    ]);
+
+    const userName = profile?.name ?? "Investor";
+    const phone    = userRecord?.phone ?? "N/A";
+
+    sendWebhookNotification({
+      to:      ADMIN_EMAIL,
+      subject: `[Admin] New MF Account Created — ${userName}`,
+      heading: "New MF Account Created 🎉",
+      body:    `A new MF investment account has been created.\n\nUser: ${userName}\nPhone: ${phone}\nPAN: ${profile?.pan ?? "N/A"}\nAccount ID: ${fpData.id}\nuniqueId: ${uniqueId}`,
+    }).catch((err) => console.error("❌ [MF ACCOUNT] Admin email failed:", err.message));
 
     const acc = record.investmentAccount;
     return res.status(201).json({

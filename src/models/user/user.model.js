@@ -29,6 +29,14 @@ const registrationSchema = new mongoose.Schema(
     },
     panVerified: { type: Boolean, default: false },
 
+    // MF onboarding flags
+    mfKycStatus: {
+      type: String,
+      enum: ["submitted", "successful", "rejected", "expired", "esign_required", null],
+      default: null,
+    },
+    mfAccount: { type: String, enum: ["yes", "no"], default: "no" },
+
     stateId: String,
     otp: String,
     otpExpiry: Date,

@@ -1,6 +1,9 @@
 import KycRequest from "../../../../models/mf/kycRequest.model.js";
 import MfUserData from "../../../../models/mf/mfUserData.model.js";
+import User from "../../../../models/user/user.model.js";
 import { resolveUserEmail, resolveUserName, sendWebhookNotification } from "../notification.utils.js";
+
+const ADMIN_EMAIL = "phanigorantla531@gmail.com";
 
 /**
  * Maps FP kyc_request event types to local status values.
@@ -65,10 +68,18 @@ export const handleKycRequestEvent = async (eventType, fpObject) => {
     return;
   }
 
-  // ── 2. Sync journey status in MfUserData on success ──
+  const { uniqueId } = kycRecord;
+
+  // ── 2. Sync User.mfKycStatus flag ──
+  await User.findOneAndUpdate(
+    { uniqueId },
+    { $set: { mfKycStatus: newStatus } }
+  );
+
+  // ── 3. Sync journey status in MfUserData on success ──
   if (eventType === "kyc_request.successful") {
     await MfUserData.updateOne(
-      { uniqueId: kycRecord.uniqueId },
+      { uniqueId },
       {
         $set: {
           "journey.kycSubmit.status":      "completed",
@@ -79,21 +90,40 @@ export const handleKycRequestEvent = async (eventType, fpObject) => {
     );
   }
 
-  // ── 3. Email notification ──
-  const emailCfg = EMAIL_EVENTS[eventType];
-  if (!emailCfg) return;
-
-  const [email, name] = await Promise.all([
-    resolveUserEmail(kycRecord.uniqueId),
-    resolveUserName(kycRecord.uniqueId),
+  // ── 4. Resolve user details for emails ──
+  const [userEmail, userName, userRecord] = await Promise.all([
+    resolveUserEmail(uniqueId),
+    resolveUserName(uniqueId),
+    User.findOne({ uniqueId }).select("phone").lean(),
   ]);
 
-  if (!email) return;
+  // ── 5. Email to user ──
+  const emailCfg = EMAIL_EVENTS[eventType];
+  if (emailCfg && userEmail) {
+    await sendWebhookNotification({
+      to:      userEmail,
+      subject: emailCfg.subject,
+      heading: emailCfg.heading,
+      body:    emailCfg.body(userName),
+    });
+  }
+
+  // ── 6. Admin notification for every KYC status change ──
+  const adminStatusLabels = {
+    "kyc_request.submitted":      "KYC Submitted",
+    "kyc_request.esign_required": "eSign Required",
+    "kyc_request.successful":     "KYC Successful ✅",
+    "kyc_request.rejected":       "KYC Rejected ❌",
+    "kyc_request.expired":        "KYC Expired",
+  };
+
+  const adminLabel = adminStatusLabels[eventType] ?? eventType;
+  const phone = userRecord?.phone ?? "N/A";
 
   await sendWebhookNotification({
-    to:      email,
-    subject: emailCfg.subject,
-    heading: emailCfg.heading,
-    body:    emailCfg.body(name),
+    to:      ADMIN_EMAIL,
+    subject: `[Admin] ${adminLabel} — ${userName}`,
+    heading: adminLabel,
+    body:    `User: ${userName}\nPhone: ${phone}\nKYC Request ID: ${fpKycRequestId}\nNew Status: ${newStatus}\nuniqueId: ${uniqueId}`,
   });
 };
