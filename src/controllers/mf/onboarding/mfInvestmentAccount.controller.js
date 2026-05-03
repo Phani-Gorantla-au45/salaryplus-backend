@@ -141,14 +141,14 @@ export const createMfInvestmentAccount = async (req, res) => {
       ),
     ]);
 
-    const userName = profile?.name ?? "Investor";
-    const phone    = userRecord?.phone ?? "N/A";
+    const userName  = profile?.name ?? "Investor";
+    const userPhone = userRecord?.phone ?? "N/A";
 
     sendWebhookNotification({
       to:      ADMIN_EMAIL,
       subject: `[Admin] New MF Account Created — ${userName}`,
       heading: "New MF Account Created 🎉",
-      body:    `A new MF investment account has been created.\n\nUser: ${userName}\nPhone: ${phone}\nPAN: ${profile?.pan ?? "N/A"}\nAccount ID: ${fpData.id}\nuniqueId: ${uniqueId}`,
+      body:    `A new MF investment account has been created.\n\nUser: ${userName}\nPhone: ${userPhone}\nPAN: ${profile?.pan ?? "N/A"}\nAccount ID: ${fpData.id}\nuniqueId: ${uniqueId}`,
     }).catch((err) => console.error("❌ [MF ACCOUNT] Admin email failed:", err.message));
 
     const acc = record.investmentAccount;
