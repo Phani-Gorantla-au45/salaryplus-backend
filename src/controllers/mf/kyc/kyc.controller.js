@@ -1,4 +1,5 @@
 import MfUserData from "../../../models/mf/mfUserData.model.js";
+import User from "../../../models/user/user.model.js";
 import {
   createPreVerification,
   fetchPreVerification,
@@ -82,32 +83,46 @@ export const checkPanKyc = async (req, res) => {
 
     console.log(`✅ [CYBRILLA PV] Completed — pan: ${pan}, overallStatus: ${overallStatus}`);
 
-    await MfUserData.findOneAndUpdate(
-      { uniqueId },
-      {
-        $set: {
-          kycStatus: {
-            pan,
-            name,
-            dob,
-            preVerificationId: pvId,
-            overallStatus,
-            panStatus:  panResult.status       ?? null,
-            panCode:    panResult.code         ?? null,
-            nameStatus: nameResult.status      ?? null,
-            nameCode:   nameResult.code        ?? null,
-            dobStatus:  dobResult.status       ?? null,
-            dobCode:    dobResult.code         ?? null,
-            kraStatus:  readinessResult.status ?? null,
-            kraCode:    readinessResult.code   ?? null,
-            kraReason:  readinessResult.reason ?? null,
-            rawResponse:    latestPv,
-            lastCheckedAt:  new Date(),
+    const isPanVerified = panResult.status === "verified";
+    const isKraVerified = readinessResult.status === "verified";
+
+    await Promise.all([
+      MfUserData.findOneAndUpdate(
+        { uniqueId },
+        {
+          $set: {
+            kycStatus: {
+              pan,
+              name,
+              dob,
+              preVerificationId: pvId,
+              overallStatus,
+              panStatus:  panResult.status       ?? null,
+              panCode:    panResult.code         ?? null,
+              nameStatus: nameResult.status      ?? null,
+              nameCode:   nameResult.code        ?? null,
+              dobStatus:  dobResult.status       ?? null,
+              dobCode:    dobResult.code         ?? null,
+              kraStatus:  readinessResult.status ?? null,
+              kraCode:    readinessResult.code   ?? null,
+              kraReason:  readinessResult.reason ?? null,
+              rawResponse:   latestPv,
+              lastCheckedAt: new Date(),
+            },
           },
         },
-      },
-      { upsert: true }
-    );
+        { upsert: true }
+      ),
+      User.findOneAndUpdate(
+        { uniqueId },
+        {
+          $set: {
+            ...(isPanVerified              && { panVerified: true }),
+            ...(isKraVerified              && { isVerified: true }),
+          },
+        }
+      ),
+    ]);
 
     const message = {
       VERIFIED:       "PAN, name, and date of birth are verified",

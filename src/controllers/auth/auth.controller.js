@@ -172,6 +172,7 @@ export const getProfile = async (req, res) => {
       phone:        user.phone,
       name,
       email:        user.email        ?? null,
+      isVerified:   user.isVerified   ?? false,
       panVerified:  user.panVerified  ?? false,
       mfKycStatus:  user.mfKycStatus  ?? null,
       mfAccount:    user.mfAccount    ?? "no",
