@@ -82,6 +82,7 @@ export const createBasketSip = async (req, res) => {
       goal_id,
       folio_number,
     } = req.body;
+    console.log("Create sip basket", req.body);
 
     const number_of_installments =
       frequency === "daily" ? Number(years) * 365 : Number(years) * 12;
