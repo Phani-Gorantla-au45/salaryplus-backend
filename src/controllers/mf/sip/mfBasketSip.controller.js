@@ -76,12 +76,15 @@ export const createBasketSip = async (req, res) => {
       frequency,
       installment_day,
       payment_source,
-      number_of_installments = 240,
-      generate_first_installment_now = true,
+      years = 20,
+      generate_first_installment_now = false,
       sip_plans,
       goal_id,
       folio_number,
     } = req.body;
+
+    const number_of_installments =
+      frequency === "daily" ? Number(years) * 365 : Number(years) * 12;
 
     /* ---------- VALIDATE ---------- */
     if (!frequency || !["daily", "monthly"].includes(frequency)) {

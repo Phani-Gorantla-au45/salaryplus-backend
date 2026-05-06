@@ -92,11 +92,14 @@ export const createSip = async (req, res) => {
       amount,
       installment_day,
       payment_source,
-      number_of_installments = 120,
+      years = 20,
       generate_first_installment_now = false,
       folio_number,
       goal_id,
     } = req.body;
+
+    const number_of_installments =
+      frequency === "daily" ? Number(years) * 365 : Number(years) * 12;
 
     /* ---------- VALIDATE ---------- */
     if (!isin)
