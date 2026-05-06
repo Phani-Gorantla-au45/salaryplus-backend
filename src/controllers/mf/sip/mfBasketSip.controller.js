@@ -2,6 +2,7 @@ import MfSip from "../../../models/mf/sip/mfSip.model.js";
 import MfUserData from "../../../models/mf/mfUserData.model.js";
 import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
 import User from "../../../models/user/user.model.js";
+import UserGoal from "../../../models/goals/userGoal.model.js";
 import {
   createFpBatchSip,
   patchFpBatchSip,
@@ -78,6 +79,8 @@ export const createBasketSip = async (req, res) => {
       number_of_installments = 120,
       generate_first_installment_now = false,
       sip_plans,
+      goal_id,
+      folio_number,
     } = req.body;
 
     /* ---------- VALIDATE ---------- */
@@ -181,9 +184,8 @@ export const createBasketSip = async (req, res) => {
       // gateway:                        "ondc",
       user_ip: userIp,
       generate_first_installment_now: Boolean(generate_first_installment_now),
-      ...(frequency === "monthly" && {
-        installment_day: Number(installment_day),
-      }),
+      ...(frequency === "monthly" && { installment_day: Number(installment_day) }),
+      ...(folio_number && { folio_number }),
     }));
 
     const fpResults = await createFpBatchSip(fpPlans);
@@ -238,6 +240,7 @@ export const createBasketSip = async (req, res) => {
             frequency === "monthly" ? Number(installment_day) : null,
           numberOfInstallments: Number(number_of_installments),
           systematic: true,
+          folioNumber: folio_number ?? null,
           generateFirstInstallmentNow: Boolean(generate_first_installment_now),
           paymentMethod: "mandate",
           paymentSource: String(payment_source),
@@ -245,10 +248,20 @@ export const createBasketSip = async (req, res) => {
           otpCode: otp,
           otpExpiresAt: expiry,
           otpVerified: false,
+          linkedGoalId: goal_id ?? null,
         },
       },
       { upsert: true, new: true }
     );
+
+    // Link goal → SIP if goal_id provided
+    if (goal_id) {
+      await UserGoal.updateOne(
+        { _id: goal_id, uniqueId },
+        { $set: { linkedSipId: record._id.toString() } }
+      );
+      console.log(`  ✅ Linked basket SIP ${record._id} → goal ${goal_id}`);
+    }
 
     return res.status(201).json({
       success: true,

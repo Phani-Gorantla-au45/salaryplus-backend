@@ -2,6 +2,7 @@ import MfSip from "../../../models/mf/sip/mfSip.model.js";
 import MfUserData from "../../../models/mf/mfUserData.model.js";
 import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
 import User from "../../../models/user/user.model.js";
+import UserGoal from "../../../models/goals/userGoal.model.js";
 import {
   createFpSip,
   patchFpSip,
@@ -94,6 +95,7 @@ export const createSip = async (req, res) => {
       number_of_installments = 120,
       generate_first_installment_now = false,
       folio_number,
+      goal_id,
     } = req.body;
 
     /* ---------- VALIDATE ---------- */
@@ -237,10 +239,20 @@ export const createSip = async (req, res) => {
           otpExpiresAt: expiry,
           otpVerified: false,
           rawSipResponse: fpData,
+          linkedGoalId: goal_id ?? null,
         },
       },
       { upsert: true, new: true }
     );
+
+    // Link goal → SIP if goal_id provided
+    if (goal_id) {
+      await UserGoal.updateOne(
+        { _id: goal_id, uniqueId },
+        { $set: { linkedSipId: record._id.toString() } }
+      );
+      console.log(`  ✅ Linked SIP ${record._id} → goal ${goal_id}`);
+    }
 
     return res.status(201).json({
       success: true,
@@ -570,5 +582,6 @@ export const sipPublicResponse = (s) => ({
   nextInstallmentDate: s.nextInstallmentDate,
   remainingInstallments: s.remainingInstallments,
   otpExpiresAt: s.otpExpiresAt,
+  linkedGoalId: s.linkedGoalId ?? null,
   createdAt: s.createdAt,
 });

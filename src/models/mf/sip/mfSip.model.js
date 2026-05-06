@@ -66,6 +66,9 @@ const mfSipSchema = new mongoose.Schema(
     nextInstallmentDate:   { type: String, default: null },
     remainingInstallments: { type: Number, default: null },
 
+    // Optional linked goal
+    linkedGoalId: { type: mongoose.Schema.Types.ObjectId, ref: "UserGoal", default: null },
+
     // Raw FP responses
     rawSipResponse: { type: mongoose.Schema.Types.Mixed, select: false },
   },
