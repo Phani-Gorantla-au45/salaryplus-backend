@@ -39,7 +39,7 @@ const resolveScheme = async (isin) => {
           syncedAt: new Date(),
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
   }
   if (!scheme) throw new Error(`Scheme not found for ISIN: ${upper}`);
@@ -76,8 +76,8 @@ export const createBasketSip = async (req, res) => {
       frequency,
       installment_day,
       payment_source,
-      number_of_installments = 120,
-      generate_first_installment_now = false,
+      number_of_installments = 240,
+      generate_first_installment_now = true,
       sip_plans,
       goal_id,
       folio_number,
@@ -85,39 +85,31 @@ export const createBasketSip = async (req, res) => {
 
     /* ---------- VALIDATE ---------- */
     if (!frequency || !["daily", "monthly"].includes(frequency)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "frequency must be daily or monthly",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "frequency must be daily or monthly",
+      });
     }
     if (
       frequency === "monthly" &&
       (!installment_day || installment_day < 1 || installment_day > 28)
     ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "installment_day (1-28) is required for monthly SIP",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "installment_day (1-28) is required for monthly SIP",
+      });
     }
     if (!payment_source) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "payment_source (mandate id) is required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "payment_source (mandate id) is required",
+      });
     }
     if (!Array.isArray(sip_plans) || sip_plans.length < 2) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "sip_plans must be an array of at least 2 funds",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "sip_plans must be an array of at least 2 funds",
+      });
     }
     for (const plan of sip_plans) {
       if (
@@ -126,18 +118,16 @@ export const createBasketSip = async (req, res) => {
         isNaN(Number(plan.amount)) ||
         Number(plan.amount) <= 0
       ) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Each sip_plan must have a valid isin and amount",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Each sip_plan must have a valid isin and amount",
+        });
       }
     }
 
     /* ---------- STEP 1: GET INVESTMENT ACCOUNT ---------- */
     console.log(
-      `\n📋 [CREATE BASKET SIP] user=${uniqueId} freq=${frequency} plans=${sip_plans.length}`
+      `\n📋 [CREATE BASKET SIP] user=${uniqueId} freq=${frequency} plans=${sip_plans.length}`,
     );
     const mfData = await MfUserData.findOne({ uniqueId });
     const fpInvestmentAccountId =
@@ -153,16 +143,14 @@ export const createBasketSip = async (req, res) => {
 
     /* ---------- STEP 2: RESOLVE SCHEMES ---------- */
     const schemes = await Promise.all(
-      sip_plans.map((p) => resolveScheme(p.isin))
+      sip_plans.map((p) => resolveScheme(p.isin)),
     );
     for (const scheme of schemes) {
       if (!scheme.active) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: `Scheme ${scheme.isin} is currently inactive`,
-          });
+        return res.status(400).json({
+          success: false,
+          message: `Scheme ${scheme.isin} is currently inactive`,
+        });
       }
     }
     console.log(`  [2/4] ✅ schemes: ${schemes.map((s) => s.isin).join(", ")}`);
@@ -184,7 +172,9 @@ export const createBasketSip = async (req, res) => {
       // gateway:                        "ondc",
       user_ip: userIp,
       generate_first_installment_now: Boolean(generate_first_installment_now),
-      ...(frequency === "monthly" && { installment_day: Number(installment_day) }),
+      ...(frequency === "monthly" && {
+        installment_day: Number(installment_day),
+      }),
       ...(folio_number && { folio_number }),
     }));
 
@@ -206,18 +196,16 @@ export const createBasketSip = async (req, res) => {
       phone = user?.phone;
     }
     if (!phone) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "No phone number found. Cannot send consent OTP.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "No phone number found. Cannot send consent OTP.",
+      });
     }
     const otp = generateOtp();
     const expiry = otpExpiresAt();
     await sendConsentOtp(phone, otp);
     console.log(
-      `  [4/4] ✅ OTP sent to ${phone.slice(0, 3)}****${phone.slice(-3)}`
+      `  [4/4] ✅ OTP sent to ${phone.slice(0, 3)}****${phone.slice(-3)}`,
     );
 
     /* ---------- SAVE TO DB ---------- */
@@ -251,14 +239,14 @@ export const createBasketSip = async (req, res) => {
           linkedGoalId: goal_id ?? null,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     // Link goal → SIP if goal_id provided
     if (goal_id) {
       await UserGoal.updateOne(
         { _id: goal_id, uniqueId },
-        { $set: { linkedSipId: record._id.toString() } }
+        { $set: { linkedSipId: record._id.toString() } },
       );
       console.log(`  ✅ Linked basket SIP ${record._id} → goal ${goal_id}`);
     }
@@ -311,29 +299,27 @@ export const confirmBasketSip = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Basket SIP not found" });
     if (record.consentGiven) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Consent already given for this basket SIP",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Consent already given for this basket SIP",
+      });
     }
 
     /* ---------- VERIFY OTP ---------- */
     const { valid, reason } = verifyConsentOtp(
       otp,
       record.otpCode,
-      record.otpExpiresAt
+      record.otpExpiresAt,
     );
     if (!valid)
       return res.status(400).json({ success: false, message: reason });
 
     /* ---------- CHECK FP STATE FOR EACH PLAN ---------- */
     console.log(
-      `\n✅ [CONFIRM BASKET SIP] sipId=${id} — checking ${record.basketPlans.length} plan states...`
+      `\n✅ [CONFIRM BASKET SIP] sipId=${id} — checking ${record.basketPlans.length} plan states...`,
     );
     const planFetches = await Promise.allSettled(
-      record.basketPlans.map((p) => fetchFpSip(p.fpSipId))
+      record.basketPlans.map((p) => fetchFpSip(p.fpSipId)),
     );
     const statesMap = {};
     for (let i = 0; i < planFetches.length; i++) {
@@ -346,7 +332,7 @@ export const confirmBasketSip = async (req, res) => {
 
     const hasFailed = Object.values(statesMap).some((s) => s === "failed");
     const allReady = Object.values(statesMap).every(
-      (s) => s === "review_completed"
+      (s) => s === "review_completed",
     );
 
     if (hasFailed) {
@@ -360,7 +346,7 @@ export const confirmBasketSip = async (req, res) => {
     if (!allReady) {
       await MfSip.updateOne(
         { _id: record._id },
-        { $set: { otpVerified: true, otpCode: null } }
+        { $set: { otpVerified: true, otpCode: null } },
       );
       return res.status(202).json({
         success: false,
@@ -381,18 +367,16 @@ export const confirmBasketSip = async (req, res) => {
       if (!email) email = user?.email;
     }
     if (!phone || !email) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Phone and email are required for consent",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Phone and email are required for consent",
+      });
     }
     const isd = mfData?.phone?.isd || "91";
 
     /* ---------- BATCH PATCH — CONFIRMED ---------- */
     console.log(
-      `  Patching ${record.basketPlans.length} plans to confirmed...`
+      `  Patching ${record.basketPlans.length} plans to confirmed...`,
     );
     const patchPayload = record.basketPlans.map((p) => ({
       id: p.fpSipId,
@@ -403,7 +387,7 @@ export const confirmBasketSip = async (req, res) => {
     console.log(
       `  ✅ states after confirm: ${confirmResults
         .map((p) => p.state)
-        .join(", ")}`
+        .join(", ")}`,
     );
 
     /* ---------- BUILD UPDATED BASKET PLANS ---------- */
@@ -427,7 +411,7 @@ export const confirmBasketSip = async (req, res) => {
           basketPlans: updatedBasketPlans,
         },
       },
-      { new: true }
+      { new: true },
     );
 
     return res.status(200).json({
@@ -480,16 +464,14 @@ export const resendBasketSipOtp = async (req, res) => {
     await sendConsentOtp(phone, otp);
     await MfSip.updateOne(
       { _id: record._id },
-      { $set: { otpCode: otp, otpExpiresAt: expiry, otpVerified: false } }
+      { $set: { otpCode: otp, otpExpiresAt: expiry, otpVerified: false } },
     );
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "OTP resent successfully",
-        otpExpiresAt: expiry,
-      });
+    return res.status(200).json({
+      success: true,
+      message: "OTP resent successfully",
+      otpExpiresAt: expiry,
+    });
   } catch (err) {
     console.error("❌ [BASKET SIP] Resend OTP error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -517,7 +499,7 @@ export const getBasketSip = async (req, res) => {
 
     try {
       const planFetches = await Promise.allSettled(
-        record.basketPlans.map((p) => fetchFpSip(p.fpSipId))
+        record.basketPlans.map((p) => fetchFpSip(p.fpSipId)),
       );
       const updatedBasketPlans = record.basketPlans.map((plan, i) => {
         const result = planFetches[i];
@@ -532,11 +514,11 @@ export const getBasketSip = async (req, res) => {
       const overallState = updatedBasketPlans[0]?.fpState ?? record.fpState;
       await MfSip.updateOne(
         { _id: record._id },
-        { $set: { basketPlans: updatedBasketPlans, fpState: overallState } }
+        { $set: { basketPlans: updatedBasketPlans, fpState: overallState } },
       );
     } catch {
       console.warn(
-        `⚠️  [BASKET SIP] FP refresh failed for ${record._id}, returning cached`
+        `⚠️  [BASKET SIP] FP refresh failed for ${record._id}, returning cached`,
       );
     }
 
@@ -565,13 +547,11 @@ export const listBasketSips = async (req, res) => {
     if (frequency) filter.frequency = frequency;
 
     const sips = await MfSip.find(filter).sort({ createdAt: -1 });
-    return res
-      .status(200)
-      .json({
-        success: true,
-        count: sips.length,
-        data: sips.map(sipPublicResponse),
-      });
+    return res.status(200).json({
+      success: true,
+      count: sips.length,
+      data: sips.map(sipPublicResponse),
+    });
   } catch (err) {
     console.error("❌ [BASKET SIP] List error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -626,7 +606,7 @@ export const cancelBasketSip = async (req, res) => {
 
     await MfSip.updateOne(
       { _id: record._id },
-      { $set: { fpState: "cancelled", basketPlans: updatedBasketPlans } }
+      { $set: { fpState: "cancelled", basketPlans: updatedBasketPlans } },
     );
 
     return res.status(200).json({
