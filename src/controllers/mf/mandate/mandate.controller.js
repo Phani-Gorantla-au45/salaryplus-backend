@@ -1,5 +1,5 @@
-import MfMandate from "../../../models/mf/mandate/mfMandate.model.js";
-import MfUserData from "../../../models/mf/mfUserData.model.js";
+import MfMandate    from "../../../models/mf/mandate/mfMandate.model.js";
+import MfUserData   from "../../../models/mf/mfUserData.model.js";
 import { fetchFpBankAccount } from "../../../utils/mf/onboarding/bankAccount.utils.js";
 import {
   createFpMandate,
@@ -389,23 +389,42 @@ export const mandateAuthCallback = async (req, res) => {
 /* ------------------------------------------------------------------ */
 export const getMandatesFromFp = async (req, res) => {
   try {
-    const { bank_account_id, page = 0, size = 20 } = req.query;
+    const { uniqueId } = req.user;
+    const { bank_account_id, status, page = 0, size = 20 } = req.query;
+
+    // Resolve bank_account_id: query param takes priority, otherwise auto-fetch from DB
+    let resolvedBankAccountId = bank_account_id ? Number(bank_account_id) : null;
+
+    if (!resolvedBankAccountId) {
+      const mfData = await MfUserData.findOne({ uniqueId }, { "bankAccount.fpBankAccountOldId": 1 });
+      resolvedBankAccountId = mfData?.bankAccount?.fpBankAccountOldId ?? null;
+    }
+
+    if (!resolvedBankAccountId) {
+      return res.status(400).json({
+        success: false,
+        message: "No bank account found. Add a bank account first or pass bank_account_id as query param.",
+      });
+    }
 
     const clampedSize = Math.min(Number(size) || 20, 100);
     const fpData = await listFpMandates({
-      bank_account_id: bank_account_id ? Number(bank_account_id) : undefined,
+      bank_account_id: resolvedBankAccountId,
       page:            Number(page) || 0,
       size:            clampedSize,
     });
 
-    const approvedMandates = (fpData?.mandates ?? []).filter(
-      (m) => m.mandate_status === "APPROVED"
-    );
+    let mandates = fpData?.mandates ?? [];
+
+    // Filter by status if provided, default to APPROVED
+    const statusFilter = status ? status.toUpperCase() : "APPROVED";
+    mandates = mandates.filter((m) => m.mandate_status === statusFilter);
 
     return res.status(200).json({
-      success: true,
-      count:   approvedMandates.length,
-      data:    approvedMandates,
+      success:        true,
+      bank_account_id: resolvedBankAccountId,
+      count:          mandates.length,
+      data:           mandates,
     });
   } catch (err) {
     console.error("❌ [MANDATE] FP list error:", err.message);
