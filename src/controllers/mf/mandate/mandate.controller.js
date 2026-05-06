@@ -398,9 +398,14 @@ export const getMandatesFromFp = async (req, res) => {
       size:            clampedSize,
     });
 
+    const approvedMandates = (fpData?.mandates ?? []).filter(
+      (m) => m.mandate_status === "APPROVED"
+    );
+
     return res.status(200).json({
       success: true,
-      data:    fpData,
+      count:   approvedMandates.length,
+      data:    approvedMandates,
     });
   } catch (err) {
     console.error("❌ [MANDATE] FP list error:", err.message);
