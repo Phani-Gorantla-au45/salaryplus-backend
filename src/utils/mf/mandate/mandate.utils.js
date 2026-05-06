@@ -129,6 +129,37 @@ export const fetchFpMandate = async (mandateId) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  GET /api/pg/mandates                                                */
+/*  Lists mandates from FP with optional filters.                       */
+/*                                                                      */
+/*  params: {                                                           */
+/*    bank_account_id?: Number                                          */
+/*    page?:            Number  (default 0)                             */
+/*    size?:            Number  (default 20, max 100)                   */
+/*  }                                                                   */
+/* ------------------------------------------------------------------ */
+export const listFpMandates = async ({ bank_account_id, page = 0, size = 20 } = {}) => {
+  try {
+    const params = { page, size };
+    if (bank_account_id) params.bank_account_id = bank_account_id;
+
+    console.log(`\n📋 [FP MANDATE] List params:`, params);
+    const response = await axios.get(
+      `${FP_API_URL()}/api/pg/mandates`,
+      { headers: await fpHeaders(), params }
+    );
+    console.log(`✅ [FP MANDATE] List — count=${response.data?.data?.length ?? 0}`);
+    return response.data;
+  } catch (err) {
+    console.error(
+      "❌ [FP MANDATE] List failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2)
+    );
+    throw new Error(err.response?.data?.message || "Failed to list mandates from FP");
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  POST /api/pg/mandates/:id/cancel                                    */
 /*  Cancels an APPROVED mandate.                                        */
 /* ------------------------------------------------------------------ */

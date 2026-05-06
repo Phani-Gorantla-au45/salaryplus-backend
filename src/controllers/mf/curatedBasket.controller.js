@@ -7,15 +7,21 @@ import MfBasket from "../../models/mf/mfBasket.model.js";
 /* ------------------------------------------------------------------ */
 export const listCuratedBaskets = async (req, res) => {
   try {
+    console.log("Inside goal");
     const filter = { active: true };
     if (req.query.riskProfile) filter.riskProfile = req.query.riskProfile;
-
-    const baskets = await MfBasket.find(filter).sort({ riskProfile: 1, name: 1 });
+    if (req.query.goalType) filter.goalType = req.query.goalType;
+    console.log("goal type", req.query.goalType);
+    const baskets = await MfBasket.find(filter).sort({
+      riskProfile: 1,
+      goalType: 1,
+    });
+    console.log("baskets", baskets.funds);
 
     return res.status(200).json({
       success: true,
       count: baskets.length,
-      data:  baskets.map(basketPublicResponse),
+      data: baskets.map(basketPublicResponse),
     });
   } catch (err) {
     console.error("❌ [CURATED BASKET] List error:", err.message);
@@ -31,12 +37,14 @@ export const getCuratedBasket = async (req, res) => {
   try {
     const basket = await MfBasket.findOne({ _id: req.params.id, active: true });
     if (!basket) {
-      return res.status(404).json({ success: false, message: "Basket not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Basket not found" });
     }
 
     return res.status(200).json({
       success: true,
-      data:    basketPublicResponse(basket),
+      data: basketPublicResponse(basket),
     });
   } catch (err) {
     console.error("❌ [CURATED BASKET] Get error:", err.message);
@@ -48,17 +56,18 @@ export const getCuratedBasket = async (req, res) => {
 /*  Internal — public-facing response shape (no raw thresholds)         */
 /* ------------------------------------------------------------------ */
 const basketPublicResponse = (basket) => ({
-  id:                  basket._id,
-  name:                basket.name,
-  description:         basket.description,
-  riskProfile:         basket.riskProfile,
+  id: basket._id,
+  name: basket.name,
+  description: basket.description,
+  riskProfile: basket.riskProfile,
+  goalType: basket.goalType ?? null,
   basketMinInvestment: basket.basketMinInvestment ?? null,
   funds: basket.funds.map((f) => ({
-    isin:                f.isin,
-    fundName:            f.fundName,
-    schemeName:          f.schemeName,
+    isin: f.isin,
+    fundName: f.fundName,
+    schemeName: f.schemeName,
     contributionPercent: f.contributionPercent,
-    minLumpsumAmount:    f.minLumpsumAmount,
-    minSipAmount:        f.minSipAmount,
+    minLumpsumAmount: f.minLumpsumAmount,
+    minSipAmount: f.minSipAmount,
   })),
 });

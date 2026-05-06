@@ -22,6 +22,8 @@ const mfBasketSchema = new mongoose.Schema(
       required: true,
       enum:     ["conservative", "moderate", "aggressive"],
     },
+    // Optional — links this basket to a specific goal template type
+    goalType: { type: String, default: null, index: true },
     funds:               { type: [basketFundSchema], default: [] },
     basketMinInvestment: { type: Number, default: null }, // min total amount to invest so every fund gets its lumpsum minimum
     active:              { type: Boolean, default: true },

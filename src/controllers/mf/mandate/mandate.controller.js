@@ -7,6 +7,7 @@ import {
   authorizeFpMandateUpi,
   fetchFpMandate,
   cancelFpMandate,
+  listFpMandates,
 } from "../../../utils/mf/mandate/mandate.utils.js";
 
 /* ------------------------------------------------------------------ */
@@ -378,6 +379,32 @@ export const mandateAuthCallback = async (req, res) => {
   } catch (err) {
     console.error("❌ [MANDATE CALLBACK] Error:", err.message);
     return res.status(200).send("OK");
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  GET /api/mf/mandate/fp                                              */
+/*  Fetches mandate list directly from FP (not our DB).                 */
+/*  Query: ?bank_account_id=<fpBankAccountOldId>&page=0&size=20         */
+/* ------------------------------------------------------------------ */
+export const getMandatesFromFp = async (req, res) => {
+  try {
+    const { bank_account_id, page = 0, size = 20 } = req.query;
+
+    const clampedSize = Math.min(Number(size) || 20, 100);
+    const fpData = await listFpMandates({
+      bank_account_id: bank_account_id ? Number(bank_account_id) : undefined,
+      page:            Number(page) || 0,
+      size:            clampedSize,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data:    fpData,
+    });
+  } catch (err) {
+    console.error("❌ [MANDATE] FP list error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 

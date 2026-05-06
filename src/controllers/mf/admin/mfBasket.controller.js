@@ -54,7 +54,7 @@ const resolveSchemeForBasket = async (isin) => {
 /* ------------------------------------------------------------------ */
 export const createBasket = async (req, res) => {
   try {
-    const { name, description, riskProfile, funds } = req.body;
+    const { name, description, riskProfile, funds, goalType } = req.body;
 
     /* ---------- VALIDATE ---------- */
     if (!name?.trim()) {
@@ -117,6 +117,7 @@ export const createBasket = async (req, res) => {
       name:                name.trim(),
       description:         description?.trim() ?? null,
       riskProfile,
+      goalType:            goalType?.trim()    ?? null,
       funds:               resolvedFunds,
       basketMinInvestment: calcBasketMinInvestment(resolvedFunds),
     });
@@ -142,6 +143,7 @@ export const listBaskets = async (req, res) => {
   try {
     const filter = {};
     if (req.query.riskProfile) filter.riskProfile = req.query.riskProfile;
+    if (req.query.goalType)    filter.goalType    = req.query.goalType;
     if (req.query.active !== undefined) filter.active = req.query.active === "true";
 
     const baskets = await MfBasket.find(filter).sort({ createdAt: -1 });
@@ -184,11 +186,12 @@ export const updateBasket = async (req, res) => {
       return res.status(404).json({ success: false, message: "Basket not found" });
     }
 
-    const { name, description, riskProfile, active, funds } = req.body;
+    const { name, description, riskProfile, active, funds, goalType } = req.body;
 
     if (name !== undefined)        basket.name        = name.trim();
     if (description !== undefined) basket.description = description?.trim() ?? null;
     if (active !== undefined)      basket.active      = Boolean(active);
+    if (goalType !== undefined)    basket.goalType    = goalType?.trim() ?? null;
 
     if (riskProfile !== undefined) {
       if (!RISK_PROFILES.includes(riskProfile)) {
@@ -290,6 +293,7 @@ const basketResponse = (basket) => ({
   name:                basket.name,
   description:         basket.description,
   riskProfile:         basket.riskProfile,
+  goalType:            basket.goalType ?? null,
   active:              basket.active,
   basketMinInvestment: basket.basketMinInvestment ?? null,
   funds: basket.funds.map((f) => ({

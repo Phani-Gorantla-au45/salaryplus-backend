@@ -11,7 +11,9 @@ const userGoalSchema = new mongoose.Schema(
 
     // Computed outputs (recalculated on demand, persisted for display)
     targetAmount: { type: Number, default: null },  // inflation-adjusted future value (₹)
-    monthlySip:   { type: Number, default: null },  // SIP needed per month (₹)
+    monthlySip:   { type: Number, default: null },  // flat SIP needed per month (₹)
+    stepUpSip:    { type: Number, default: null },  // initial SIP if user opts for step-up plan
+    stepUpRate:   { type: Number, default: null },  // annual step-up % chosen by user
     duration:     { type: Number, default: null },  // years to goal
 
     // Tracking

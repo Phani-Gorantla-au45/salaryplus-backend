@@ -9,6 +9,7 @@ import {
   listStoredEvents,
   replayEvent,
 } from "../../../controllers/mf/webhook/fpWebhookManage.controller.js";
+import FpToken from "../../../models/mf/fpToken.model.js";
 
 const router = Router();
 
@@ -21,6 +22,12 @@ router.post("/",       createWebhook);   // POST /api/mf/admin/webhook/fp       
 router.put("/:id",     updateWebhook);   // PUT  /api/mf/admin/webhook/fp/:id      — update url/status
 router.post("/setup",      setupWebhooks);      // POST /api/mf/admin/webhook/fp/setup       — register all events
 router.post("/update-url", updateAllWebhookUrls); // POST /api/mf/admin/webhook/fp/update-url  — bulk fix URL
+
+// ── Token Management ──
+router.delete("/token", async (req, res) => {
+  await FpToken.deleteMany({});
+  res.json({ success: true, message: "FP token cache cleared — next request will fetch a fresh token" });
+});
 
 // ── Stored Event Log ──
 router.get("/events",              listStoredEvents); // GET  /api/mf/admin/webhook/fp/events

@@ -5,7 +5,8 @@
  *   FV  = PV × (1 + r)^n        — inflation-adjusted future value
  *   SIP = FV × r / ((1+r)^n - 1) — monthly SIP needed (annuity-due style)
  *
- * Rates are assumed annual; we convert to monthly for SIP.
+ * Step-up SIP: SIP amount increases by X% every year.
+ *   Calculated iteratively — sum FV of each monthly payment with its step-up factor.
  */
 
 /** Inflation-adjusted future cost of a present value. */
@@ -13,12 +14,59 @@ function futureValue(presentValue, annualInflationRate, years) {
   return presentValue * Math.pow(1 + annualInflationRate / 100, years);
 }
 
-/** Monthly SIP needed to accumulate a target corpus. */
+/** Flat monthly SIP needed to accumulate a target corpus. */
 function monthlySipNeeded(targetCorpus, annualReturnRate, years) {
   const months = years * 12;
-  const r = annualReturnRate / 100 / 12; // monthly rate
+  const r = annualReturnRate / 100 / 12;
   if (r === 0) return targetCorpus / months;
   return (targetCorpus * r) / (Math.pow(1 + r, months) - 1);
+}
+
+/**
+ * Initial monthly SIP needed when SIP increases by annualStepUpRate% each year.
+ * Uses iterative approach: compute FV of a unit SIP=1 under step-up, then scale.
+ *
+ * @param {number} targetCorpus
+ * @param {number} annualReturnRate  — % p.a. (e.g. 12)
+ * @param {number} years
+ * @param {number} annualStepUpRate  — % p.a. (e.g. 10)
+ * @returns {number} initial monthly SIP
+ */
+function stepUpSipNeeded(targetCorpus, annualReturnRate, years, annualStepUpRate) {
+  if (!annualStepUpRate || annualStepUpRate <= 0)
+    return monthlySipNeeded(targetCorpus, annualReturnRate, years);
+
+  const r      = annualReturnRate / 100 / 12; // monthly return rate
+  const stepUp = annualStepUpRate / 100;       // annual step-up as decimal
+  const totalMonths = years * 12;
+
+  // FV of a step-up SIP of ₹1/month initial, increasing by stepUp% each year
+  let fvOfUnitSip = 0;
+  let currentSip  = 1;
+  for (let year = 0; year < years; year++) {
+    for (let month = 0; month < 12; month++) {
+      const monthsLeft = totalMonths - (year * 12 + month);
+      fvOfUnitSip += currentSip * Math.pow(1 + r, monthsLeft);
+    }
+    currentSip *= (1 + stepUp);
+  }
+
+  return targetCorpus / fvOfUnitSip;
+}
+
+/**
+ * Build the SIP result object — always includes flat SIP.
+ * If stepUpRate > 0, also includes stepUpSip (lower initial amount).
+ */
+function buildSipResult(targetAmount, annualReturnRate, years, stepUpRate) {
+  const monthlySip = monthlySipNeeded(targetAmount, annualReturnRate, years);
+  const result = { targetAmount, monthlySip: Math.round(monthlySip), duration: years };
+
+  if (stepUpRate > 0) {
+    result.stepUpSip  = Math.round(stepUpSipNeeded(targetAmount, annualReturnRate, years, stepUpRate));
+    result.stepUpRate = stepUpRate;
+  }
+  return result;
 }
 
 /* ------------------------------------------------------------------ */
@@ -27,59 +75,53 @@ function monthlySipNeeded(targetCorpus, annualReturnRate, years) {
 
 /**
  * Generic/Custom goal:
- *   inputs: { current_cost, years_to_goal }
+ *   inputs: { current_cost, years_to_goal, step_up_rate? }
  */
 function calcStandardGoal(inputs, assumptions) {
-  const { current_cost, years_to_goal } = inputs;
+  const { current_cost, years_to_goal, step_up_rate = 0 } = inputs;
   const { inflationRate, returnRate } = assumptions;
 
   if (!current_cost || !years_to_goal)
     throw new Error("current_cost and years_to_goal are required");
 
   const fv = futureValue(current_cost, inflationRate, years_to_goal);
-  const sip = monthlySipNeeded(fv, returnRate, years_to_goal);
-
-  return {
-    targetAmount: Math.round(fv),
-    monthlySip: Math.round(sip),
-    duration: years_to_goal,
-  };
+  return buildSipResult(Math.round(fv), returnRate, years_to_goal, step_up_rate);
 }
 
 /**
  * Child Education:
- *   inputs: { child_age, education_age, current_cost }
+ *   inputs: { child_age, education_age, current_cost, step_up_rate? }
  */
 function calcChildEducationGoal(inputs, assumptions) {
-  const { child_age, education_age, current_cost } = inputs;
+  const { child_age, education_age, current_cost, step_up_rate = 0 } = inputs;
   if (child_age == null || !education_age || !current_cost)
     throw new Error("child_age, education_age, and current_cost are required");
   const years_to_goal = education_age - child_age;
   if (years_to_goal <= 0)
     throw new Error("education_age must be greater than child_age");
-  return calcStandardGoal({ current_cost, years_to_goal }, assumptions);
+  return calcStandardGoal({ current_cost, years_to_goal, step_up_rate }, assumptions);
 }
 
 /**
  * Child Marriage:
- *   inputs: { child_age, marriage_age, current_cost }
+ *   inputs: { child_age, marriage_age, current_cost, step_up_rate? }
  */
 function calcChildMarriageGoal(inputs, assumptions) {
-  const { child_age, marriage_age, current_cost } = inputs;
+  const { child_age, marriage_age, current_cost, step_up_rate = 0 } = inputs;
   if (child_age == null || !marriage_age || !current_cost)
     throw new Error("child_age, marriage_age, and current_cost are required");
   const years_to_goal = marriage_age - child_age;
   if (years_to_goal <= 0)
     throw new Error("marriage_age must be greater than child_age");
-  return calcStandardGoal({ current_cost, years_to_goal }, assumptions);
+  return calcStandardGoal({ current_cost, years_to_goal, step_up_rate }, assumptions);
 }
 
 /**
  * Retirement goal:
- *   inputs: { current_age, retirement_age, monthly_expenses }
+ *   inputs: { current_age, retirement_age, monthly_expenses, step_up_rate? }
  */
 function calcRetirementGoal(inputs, assumptions) {
-  const { current_age, retirement_age, monthly_expenses } = inputs;
+  const { current_age, retirement_age, monthly_expenses, step_up_rate = 0 } = inputs;
   const {
     inflationRate,
     returnRate,
@@ -115,21 +157,15 @@ function calcRetirementGoal(inputs, assumptions) {
         annualPostReturnRate);
   }
 
-  const sip = monthlySipNeeded(retirementCorpus, returnRate, yearsToRetirement);
-
-  return {
-    targetAmount: Math.round(retirementCorpus),
-    monthlySip: Math.round(sip),
-    duration: yearsToRetirement,
-  };
+  return buildSipResult(Math.round(retirementCorpus), returnRate, yearsToRetirement, step_up_rate);
 }
 
 /**
  * Home Purchase:
- *   inputs: { property_value, down_payment_pct, years_to_goal }
+ *   inputs: { property_value, down_payment_pct, years_to_goal, step_up_rate? }
  */
 function calcHomePurchaseGoal(inputs, assumptions) {
-  const { property_value, down_payment_pct, years_to_goal } = inputs;
+  const { property_value, down_payment_pct, years_to_goal, step_up_rate = 0 } = inputs;
   const { inflationRate, returnRate } = assumptions;
 
   if (!property_value || !years_to_goal)
@@ -138,13 +174,7 @@ function calcHomePurchaseGoal(inputs, assumptions) {
   const pct = down_payment_pct ?? 20;
   const downPayment = (property_value * pct) / 100;
   const fv = futureValue(downPayment, inflationRate, years_to_goal);
-  const sip = monthlySipNeeded(fv, returnRate, years_to_goal);
-
-  return {
-    targetAmount: Math.round(fv),
-    monthlySip: Math.round(sip),
-    duration: years_to_goal,
-  };
+  return buildSipResult(Math.round(fv), returnRate, years_to_goal, step_up_rate);
 }
 
 /**

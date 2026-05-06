@@ -6,6 +6,7 @@ import {
   getMandate,
   cancelMandate,
   mandateAuthCallback,
+  getMandatesFromFp,
 } from "../../../controllers/mf/mandate/mandate.controller.js";
 import { auth } from "../../../middlewares/auth.middleware.js";
 
@@ -17,6 +18,7 @@ router.post("/auth-callback", mandateAuthCallback);
 // Authenticated user routes
 router.post("/",                 auth, createMandate);
 router.get("/",                  auth, listMandates);
+router.get("/fp",                auth, getMandatesFromFp); // GET /api/mf/mandate/fp — list from FP directly
 router.get("/:id",               auth, getMandate);
 router.post("/:id/authorize",    auth, authorizeMandate);
 router.post("/:id/cancel",       auth, cancelMandate);
