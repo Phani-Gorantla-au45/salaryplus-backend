@@ -38,7 +38,7 @@ const resolveScheme = async (isin) => {
           syncedAt: new Date(),
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
   }
   if (!scheme) throw new Error(`Scheme not found for ISIN: ${upper}`);
@@ -92,7 +92,7 @@ export const createSip = async (req, res) => {
       amount,
       installment_day,
       payment_source,
-      years = 20,
+      years = 2,
       generate_first_installment_now = false,
       folio_number,
       goal_id,
@@ -107,12 +107,10 @@ export const createSip = async (req, res) => {
         .status(400)
         .json({ success: false, message: "isin is required" });
     if (!frequency || !["daily", "monthly"].includes(frequency)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "frequency must be daily or monthly",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "frequency must be daily or monthly",
+      });
     }
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       return res
@@ -123,49 +121,41 @@ export const createSip = async (req, res) => {
       frequency === "monthly" &&
       (!installment_day || installment_day < 1 || installment_day > 28)
     ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "installment_day (1-28) is required for monthly SIP",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "installment_day (1-28) is required for monthly SIP",
+      });
     }
     if (!payment_source) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "payment_source (mandate id) is required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "payment_source (mandate id) is required",
+      });
     }
 
     /* ---------- STEP 1: GET INVESTMENT ACCOUNT ---------- */
     console.log(
-      `\n📋 [CREATE SIP] user=${uniqueId} isin=${isin} freq=${frequency} amount=${amount}`
+      `\n📋 [CREATE SIP] user=${uniqueId} isin=${isin} freq=${frequency} amount=${amount}`,
     );
     const mfData = await MfUserData.findOne({ uniqueId });
     const fpInvestmentAccountId =
       mfData?.investmentAccount?.fpInvestmentAccountId;
     if (!fpInvestmentAccountId) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            "MF investment account not found. Complete account setup first.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          "MF investment account not found. Complete account setup first.",
+      });
     }
     console.log(`  [1/4] ✅ investmentAccount=${fpInvestmentAccountId}`);
 
     /* ---------- STEP 2: RESOLVE SCHEME ---------- */
     const scheme = await resolveScheme(isin);
     if (!scheme.active) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: `Scheme ${isin} is currently inactive`,
-        });
+      return res.status(400).json({
+        success: false,
+        message: `Scheme ${isin} is currently inactive`,
+      });
     }
     console.log(`  [2/4] ✅ scheme=${scheme.isin}`);
 
@@ -201,18 +191,16 @@ export const createSip = async (req, res) => {
       phone = user?.phone;
     }
     if (!phone) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "No phone number found. Cannot send consent OTP.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "No phone number found. Cannot send consent OTP.",
+      });
     }
     const otp = generateOtp();
     const expiry = otpExpiresAt();
     await sendConsentOtp(phone, otp);
     console.log(
-      `  [4/4] ✅ OTP sent to ${phone.slice(0, 3)}****${phone.slice(-3)}`
+      `  [4/4] ✅ OTP sent to ${phone.slice(0, 3)}****${phone.slice(-3)}`,
     );
 
     /* ---------- SAVE TO DB ---------- */
@@ -245,14 +233,14 @@ export const createSip = async (req, res) => {
           linkedGoalId: goal_id ?? null,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     // Link goal → SIP if goal_id provided
     if (goal_id) {
       await UserGoal.updateOne(
         { _id: goal_id, uniqueId },
-        { $set: { linkedSipId: record._id.toString() } }
+        { $set: { linkedSipId: record._id.toString() } },
       );
       console.log(`  ✅ Linked SIP ${record._id} → goal ${goal_id}`);
     }
@@ -306,19 +294,17 @@ export const confirmSip = async (req, res) => {
     if (!record)
       return res.status(404).json({ success: false, message: "SIP not found" });
     if (record.consentGiven) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Consent already given for this SIP",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Consent already given for this SIP",
+      });
     }
 
     /* ---------- VERIFY OTP ---------- */
     const { valid, reason } = verifyConsentOtp(
       otp,
       record.otpCode,
-      record.otpExpiresAt
+      record.otpExpiresAt,
     );
     if (!valid)
       return res.status(400).json({ success: false, message: reason });
@@ -329,12 +315,10 @@ export const confirmSip = async (req, res) => {
     console.log(`  FP state=${fpData.state}`);
 
     if (fpData.state === "failed") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "SIP plan failed during review. Please create a new SIP.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "SIP plan failed during review. Please create a new SIP.",
+      });
     }
     if (!["review_completed", "created"].includes(fpData.state)) {
       return res.status(400).json({
@@ -347,7 +331,7 @@ export const confirmSip = async (req, res) => {
       // Still under async review by FP — OTP is verified, save consent status but inform retry
       await MfSip.updateOne(
         { _id: record._id },
-        { $set: { otpVerified: true, otpCode: null } }
+        { $set: { otpVerified: true, otpCode: null } },
       );
       return res.status(202).json({
         success: false,
@@ -367,12 +351,10 @@ export const confirmSip = async (req, res) => {
       if (!email) email = user?.email;
     }
     if (!phone || !email) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Phone and email are required for consent",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Phone and email are required for consent",
+      });
     }
 
     const isd = mfData?.phone?.isd || "91";
@@ -398,7 +380,7 @@ export const confirmSip = async (req, res) => {
           ...sipFromFp(confirmed),
         },
       },
-      { new: true }
+      { new: true },
     );
 
     return res.status(200).json({
@@ -445,7 +427,7 @@ export const resendSipOtp = async (req, res) => {
     await sendConsentOtp(phone, otp);
     await MfSip.updateOne(
       { _id: record._id },
-      { $set: { otpCode: otp, otpExpiresAt: expiry, otpVerified: false } }
+      { $set: { otpCode: otp, otpExpiresAt: expiry, otpVerified: false } },
     );
 
     return res.status(200).json({
@@ -480,7 +462,7 @@ export const getSip = async (req, res) => {
       await MfSip.updateOne({ _id: record._id }, { $set: sipFromFp(fpData) });
     } catch {
       console.warn(
-        `⚠️  [SIP] FP refresh failed for ${record.fpSipId}, returning cached`
+        `⚠️  [SIP] FP refresh failed for ${record.fpSipId}, returning cached`,
       );
     }
 
