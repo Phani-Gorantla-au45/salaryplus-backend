@@ -1,6 +1,38 @@
 import MfUserData from "../../../models/mf/mfUserData.model.js";
 import KycRequest from "../../../models/mf/kycRequest.model.js";
 
+/*
+ * Screen name → frontend route mapping
+ * ─────────────────────────────────────
+ * mf_risk_profile        — complete risk assessment
+ * mf_pan_check           — enter PAN, trigger KYC check
+ * mf_kyc_submit          — KYC not verified, start DigiLocker submission
+ * mf_kyc_esign           — KYC submitted, pending esign
+ * mf_kyc_pending         — esign done, waiting for KYC approval
+ * mf_account_phone       — add & verify phone number
+ * mf_account_email       — add & verify email
+ * mf_account_profile     — fill investor profile (name, DOB, occupation…)
+ * mf_account_address     — add address
+ * mf_account_bank        — link bank account
+ * mf_account_nominee     — add nominee
+ * mf_account_create      — create investment account (final step)
+ * mf_ready               — fully onboarded, can invest
+ */
+
+/* ------------------------------------------------------------------ */
+/*  Internal — derive account creation sub-step from MfUserData fields  */
+/* ------------------------------------------------------------------ */
+const accountSubStep = (mfData) => {
+  if (!mfData?.phone?.fpPhoneNumberId)           return "mf_account_phone";
+  if (!mfData?.email?.fpEmailAddressId)          return "mf_account_email";
+  if (!mfData?.investorProfile?.fpInvestorProfileId) return "mf_account_profile";
+  if (!mfData?.address?.fpAddressId)             return "mf_account_address";
+  if (!mfData?.bankAccount?.fpBankAccountId)     return "mf_account_bank";
+  if (!mfData?.nominee?.fpRelatedPartyId)        return "mf_account_nominee";
+  if (!mfData?.investmentAccount?.fpInvestmentAccountId) return "mf_account_create";
+  return "mf_ready";
+};
+
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/journey-status                                          */
 /* ------------------------------------------------------------------ */
@@ -16,107 +48,148 @@ export const getJourneyStatus = async (req, res) => {
     const journey  = mfData?.journey   ?? {};
     const kycCheck = mfData?.kycStatus ?? null;
 
-    /* ---------- STAGE 1: RISK PROFILE ---------- */
-    const riskProfileStage = journey.riskProfile ?? { status: "not_started" };
-
-    /* ---------- STAGE 2: KYC CHECK ---------- */
-    let kycCheckStage = { status: "not_started" };
-    if (kycCheck?.pan) {
-      const panDobVerified = kycCheck.overallStatus === "VERIFIED";
-      const kraCompliant   = kycCheck.kraStatus === "verified";
-
-      let derivedStatus;
-      if (panDobVerified && kraCompliant) {
-        derivedStatus = "compliant";
-      } else if (panDobVerified && !kraCompliant) {
-        derivedStatus = "kra_not_compliant";
-      } else {
-        derivedStatus = kycCheck.overallStatus?.toLowerCase() ?? "not_started";
-      }
-
-      kycCheckStage = {
-        status:     derivedStatus,
-        panStatus:  kycCheck.panStatus,
-        nameStatus: kycCheck.nameStatus,
-        dobStatus:  kycCheck.dobStatus,
-        kra: {
-          status: kycCheck.kraStatus,
-          code:   kycCheck.kraCode,
-          reason: kycCheck.kraReason,
+    /* ── STAGE 1: RISK PROFILE ─────────────────────────────────────── */
+    const riskProfile = journey.riskProfile ?? { status: "not_started" };
+    if (riskProfile.status !== "completed") {
+      return res.status(200).json({
+        success: true,
+        screen: "mf_risk_profile",
+        canInvest: false,
+        stage: "risk_profile",
+        detail: {
+          status: riskProfile.status,
+          score:    riskProfile.score    ?? null,
+          category: riskProfile.category ?? null,
         },
-      };
+      });
     }
 
-    /* ---------- STAGE 3: KYC SUBMISSION ---------- */
-    let kycSubmitStage = { status: "not_applicable" };
-    if (kycCheck?.pan && kycCheckStage.status !== "compliant") {
-      kycSubmitStage = latestKycRequest
-        ? { status: latestKycRequest.status, fpKycRequestId: latestKycRequest.fpKycRequestId }
-        : { status: "not_started" };
+    /* ── STAGE 2: PAN / KYC CHECK ──────────────────────────────────── */
+    if (!kycCheck?.pan) {
+      return res.status(200).json({
+        success: true,
+        screen: "mf_pan_check",
+        canInvest: false,
+        stage: "kyc_check",
+        detail: { status: "not_started" },
+      });
     }
 
-    /* ---------- STAGE 4: ACCOUNT CREATION ---------- */
-    const accountStage = journey.account ?? { status: "not_started" };
-    const canInvest    = journey.canInvest ?? false;
+    const panVerified = kycCheck.overallStatus === "VERIFIED";
+    const kraVerified = kycCheck.kraStatus === "verified";
+    const kycCompliant = panVerified && kraVerified;
 
-    /* ---------- CURRENT STEP ---------- */
-    let currentStep, nextAction;
-
-    if (riskProfileStage.status !== "completed") {
-      currentStep = "risk_profile";
-      nextAction  = "Complete your risk profile assessment";
-    } else if (kycCheckStage.status === "not_started") {
-      currentStep = "kyc_check";
-      nextAction  = "Verify your PAN (KRA compliance check)";
-    } else if (kycCheckStage.status === "compliant") {
-      if (accountStage.status !== "completed") {
-        currentStep = "account_creation";
-        nextAction  = "Create your investor account";
-      } else {
-        currentStep = "invest";
-        nextAction  = null;
+    /* ── STAGE 3: KYC SUBMISSION (only if not KRA-compliant) ───────── */
+    if (!kycCompliant) {
+      // No KYC request yet — need to start
+      if (!latestKycRequest) {
+        return res.status(200).json({
+          success: true,
+          screen: "mf_kyc_submit",
+          canInvest: false,
+          stage: "kyc_submission",
+          detail: {
+            status: "not_started",
+            panStatus:  kycCheck.panStatus,
+            kraStatus:  kycCheck.kraStatus,
+          },
+        });
       }
-    } else if (["kra_not_compliant", "pan_failed", "name_mismatch", "dob_mismatch"].includes(kycCheckStage.status)) {
-      if (!latestKycRequest || latestKycRequest.status === "not_started") {
-        currentStep = "kyc_submission_start";
-        nextAction  = "Submit your KYC application";
-      } else if (latestKycRequest.status === "successful") {
-        if (accountStage.status !== "completed") {
-          currentStep = "account_creation";
-          nextAction  = "Create your investor account";
-        } else {
-          currentStep = "invest";
-          nextAction  = null;
-        }
-      } else {
-        currentStep = "kyc_submission_in_progress";
-        nextAction  = `Complete your KYC application (status: ${latestKycRequest.status})`;
+
+      const kycStatus = latestKycRequest.status;
+
+      // Submitted but esign not done
+      if (["submitted", "pending"].includes(kycStatus)) {
+        return res.status(200).json({
+          success: true,
+          screen: "mf_kyc_esign",
+          canInvest: false,
+          stage: "kyc_submission",
+          detail: {
+            status: kycStatus,
+            fpKycRequestId: latestKycRequest.fpKycRequestId,
+          },
+        });
       }
-    } else {
-      currentStep = "kyc_check";
-      nextAction  = "KYC check in progress or error — please retry";
+
+      // Esign done, waiting for KYC approval
+      if (kycStatus === "esign_required" || kycStatus === "under_review") {
+        return res.status(200).json({
+          success: true,
+          screen: "mf_kyc_pending",
+          canInvest: false,
+          stage: "kyc_submission",
+          detail: {
+            status: kycStatus,
+            fpKycRequestId: latestKycRequest.fpKycRequestId,
+          },
+        });
+      }
+
+      // Rejected / expired — restart KYC
+      if (["rejected", "expired"].includes(kycStatus)) {
+        return res.status(200).json({
+          success: true,
+          screen: "mf_kyc_submit",
+          canInvest: false,
+          stage: "kyc_submission",
+          detail: {
+            status: kycStatus,
+            fpKycRequestId: latestKycRequest.fpKycRequestId,
+            message: kycStatus === "rejected"
+              ? "Your KYC was rejected. Please resubmit."
+              : "Your KYC session expired. Please resubmit.",
+          },
+        });
+      }
+
+      // KYC successful — fall through to account creation below
+      if (kycStatus !== "successful") {
+        return res.status(200).json({
+          success: true,
+          screen: "mf_kyc_pending",
+          canInvest: false,
+          stage: "kyc_submission",
+          detail: { status: kycStatus },
+        });
+      }
     }
 
+    /* ── STAGE 4: MF ACCOUNT CREATION (sub-steps) ──────────────────── */
+    const nextScreen = accountSubStep(mfData);
+
+    if (nextScreen !== "mf_ready") {
+      return res.status(200).json({
+        success: true,
+        screen: nextScreen,
+        canInvest: false,
+        stage: "account_creation",
+        detail: {
+          completedSteps: {
+            phone:             !!mfData?.phone?.fpPhoneNumberId,
+            email:             !!mfData?.email?.fpEmailAddressId,
+            investorProfile:   !!mfData?.investorProfile?.fpInvestorProfileId,
+            address:           !!mfData?.address?.fpAddressId,
+            bankAccount:       !!mfData?.bankAccount?.fpBankAccountId,
+            nominee:           !!mfData?.nominee?.fpRelatedPartyId,
+            investmentAccount: !!mfData?.investmentAccount?.fpInvestmentAccountId,
+          },
+        },
+      });
+    }
+
+    /* ── READY TO INVEST ───────────────────────────────────────────── */
     return res.status(200).json({
       success: true,
-      canInvest,
-      currentStep,
-      nextAction,
-      stages: {
-        riskProfile: {
-          status:      riskProfileStage.status,
-          score:       riskProfileStage.score       ?? null,
-          category:    riskProfileStage.category    ?? null,
-          completedAt: riskProfileStage.completedAt ?? null,
-        },
-        kycCheck: kycCheckStage,
-        kycSubmission: kycSubmitStage,
-        accountCreation: {
-          status:      accountStage.status,
-          completedAt: accountStage.completedAt ?? null,
-        },
+      screen: "mf_ready",
+      canInvest: true,
+      stage: "ready",
+      detail: {
+        fpInvestmentAccountId: mfData.investmentAccount.fpInvestmentAccountId,
+        riskCategory: riskProfile.category ?? null,
       },
     });
+
   } catch (err) {
     console.error("❌ [JOURNEY STATUS] Error:", err.message);
     return res.status(500).json({ success: false, message: "Failed to fetch journey status" });
