@@ -5,16 +5,18 @@ import {
   getBasket,
   updateBasket,
   deleteBasket,
+  assignBasket,
 } from "../../../controllers/mf/admin/mfBasket.controller.js";
 import { adminAuth } from "../../../middlewares/adminAuth.middleware.js";
 
 const router = express.Router();
 
 // All routes require admin auth
-router.post("/",    adminAuth, createBasket);
-router.get("/",     adminAuth, listBaskets);
-router.get("/:id",  adminAuth, getBasket);
-router.patch("/:id", adminAuth, updateBasket);
-router.delete("/:id", adminAuth, deleteBasket);
+router.post("/",              adminAuth, createBasket);
+router.get("/",               adminAuth, listBaskets);
+router.get("/:id",            adminAuth, getBasket);
+router.patch("/:id",          adminAuth, updateBasket);
+router.delete("/:id",         adminAuth, deleteBasket);
+router.post("/:id/assign",    adminAuth, assignBasket);
 
 export default router;

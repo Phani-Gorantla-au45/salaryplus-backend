@@ -255,6 +255,35 @@ export const updateBasket = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  POST /api/mf/admin/basket/:id/assign                                */
+/*  Assign this basket to a specific user for a goal type override.     */
+/*  Body: { uniqueId }   — pass null to remove the user assignment      */
+/* ------------------------------------------------------------------ */
+export const assignBasket = async (req, res) => {
+  try {
+    const basket = await MfBasket.findById(req.params.id);
+    if (!basket) {
+      return res.status(404).json({ success: false, message: "Basket not found" });
+    }
+
+    const { uniqueId } = req.body;
+    basket.assignedUserId = uniqueId ?? null;
+    await basket.save();
+
+    return res.status(200).json({
+      success: true,
+      message: uniqueId
+        ? `Basket assigned to user ${uniqueId}`
+        : "Basket assignment cleared — now visible to all users as default",
+      data: basketResponse(basket),
+    });
+  } catch (err) {
+    console.error("❌ [ADMIN BASKET] Assign error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  DELETE /api/mf/admin/basket/:id                                     */
 /* ------------------------------------------------------------------ */
 export const deleteBasket = async (req, res) => {
@@ -293,7 +322,8 @@ const basketResponse = (basket) => ({
   name:                basket.name,
   description:         basket.description,
   riskProfile:         basket.riskProfile,
-  goalType:            basket.goalType ?? null,
+  goalType:            basket.goalType     ?? null,
+  assignedUserId:      basket.assignedUserId ?? null,
   active:              basket.active,
   basketMinInvestment: basket.basketMinInvestment ?? null,
   funds: basket.funds.map((f) => ({

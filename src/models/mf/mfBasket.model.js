@@ -24,6 +24,10 @@ const mfBasketSchema = new mongoose.Schema(
     },
     // Optional — links this basket to a specific goal template type
     goalType: { type: String, default: null, index: true },
+
+    // Optional — if set, this basket is shown only to this user (overrides the default)
+    // null = default basket visible to all users
+    assignedUserId: { type: String, default: null, index: true },
     funds:               { type: [basketFundSchema], default: [] },
     basketMinInvestment: { type: Number, default: null }, // min total amount to invest so every fund gets its lumpsum minimum
     active:              { type: Boolean, default: true },

@@ -7,16 +7,37 @@ import MfBasket from "../../models/mf/mfBasket.model.js";
 /* ------------------------------------------------------------------ */
 export const listCuratedBaskets = async (req, res) => {
   try {
-    console.log("Inside goal");
-    const filter = { active: true };
-    if (req.query.riskProfile) filter.riskProfile = req.query.riskProfile;
-    if (req.query.goalType) filter.goalType = req.query.goalType;
-    console.log("goal type", req.query.goalType);
-    const baskets = await MfBasket.find(filter).sort({
-      riskProfile: 1,
-      goalType: 1,
-    });
-    console.log("baskets", baskets.funds);
+    const uniqueId     = req.user?.uniqueId ?? null;
+    const { riskProfile, goalType } = req.query;
+
+    const baseFilter = { active: true };
+    if (riskProfile) baseFilter.riskProfile = riskProfile;
+    if (goalType)    baseFilter.goalType    = goalType;
+
+    let baskets;
+
+    if (uniqueId && goalType) {
+      // Try user-specific basket first, fall back to default
+      const userBasket = await MfBasket.findOne({
+        ...baseFilter,
+        assignedUserId: uniqueId,
+      });
+
+      if (userBasket) {
+        baskets = [userBasket];
+      } else {
+        baskets = await MfBasket.find({
+          ...baseFilter,
+          assignedUserId: null,
+        }).sort({ riskProfile: 1 });
+      }
+    } else {
+      // No goal context — return all default baskets matching filter
+      baskets = await MfBasket.find({
+        ...baseFilter,
+        assignedUserId: null,
+      }).sort({ riskProfile: 1, goalType: 1 });
+    }
 
     return res.status(200).json({
       success: true,
