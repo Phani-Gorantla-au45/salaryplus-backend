@@ -1,6 +1,7 @@
 import MfBasket from "../../../models/mf/mfBasket.model.js";
 import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
 import { fetchFpSchemePlan } from "../../../utils/mf/master/schemePlan.utils.js";
+import { getAmcLogoMap } from "../../../utils/mf/master/amc.utils.js";
 
 const RISK_PROFILES = ["conservative", "moderate", "aggressive"];
 
@@ -123,11 +124,12 @@ export const createBasket = async (req, res) => {
     });
 
     console.log(`  ✅ Basket created — id=${basket._id}`);
+    const logoMap = await getAmcLogoMap(resolvedFunds.map((f) => f.fundName).filter(Boolean));
 
     return res.status(201).json({
       success: true,
       message: "Basket created successfully",
-      data: basketResponse(basket),
+      data: basketResponse(basket, logoMap),
     });
   } catch (err) {
     console.error("❌ [ADMIN BASKET] Create error:", err.message);
@@ -147,11 +149,13 @@ export const listBaskets = async (req, res) => {
     if (req.query.active !== undefined) filter.active = req.query.active === "true";
 
     const baskets = await MfBasket.find(filter).sort({ createdAt: -1 });
+    const allFundNames = baskets.flatMap((b) => b.funds.map((f) => f.fundName)).filter(Boolean);
+    const logoMap = await getAmcLogoMap(allFundNames);
 
     return res.status(200).json({
       success: true,
       count:   baskets.length,
-      data:    baskets.map(basketResponse),
+      data:    baskets.map((b) => basketResponse(b, logoMap)),
     });
   } catch (err) {
     console.error("❌ [ADMIN BASKET] List error:", err.message);
@@ -168,7 +172,8 @@ export const getBasket = async (req, res) => {
     if (!basket) {
       return res.status(404).json({ success: false, message: "Basket not found" });
     }
-    return res.status(200).json({ success: true, data: basketResponse(basket) });
+    const logoMap = await getAmcLogoMap(basket.funds.map((f) => f.fundName).filter(Boolean));
+    return res.status(200).json({ success: true, data: basketResponse(basket, logoMap) });
   } catch (err) {
     console.error("❌ [ADMIN BASKET] Get error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -242,11 +247,12 @@ export const updateBasket = async (req, res) => {
     }
 
     await basket.save();
+    const logoMap = await getAmcLogoMap(basket.funds.map((f) => f.fundName).filter(Boolean));
 
     return res.status(200).json({
       success: true,
       message: "Basket updated successfully",
-      data: basketResponse(basket),
+      data: basketResponse(basket, logoMap),
     });
   } catch (err) {
     console.error("❌ [ADMIN BASKET] Update error:", err.message);
@@ -269,13 +275,14 @@ export const assignBasket = async (req, res) => {
     const { uniqueId } = req.body;
     basket.assignedUserId = uniqueId ?? null;
     await basket.save();
+    const logoMap = await getAmcLogoMap(basket.funds.map((f) => f.fundName).filter(Boolean));
 
     return res.status(200).json({
       success: true,
       message: uniqueId
         ? `Basket assigned to user ${uniqueId}`
         : "Basket assignment cleared — now visible to all users as default",
-      data: basketResponse(basket),
+      data: basketResponse(basket, logoMap),
     });
   } catch (err) {
     console.error("❌ [ADMIN BASKET] Assign error:", err.message);
@@ -317,12 +324,12 @@ export const calcBasketMinInvestment = (resolvedFunds) => {
 /* ------------------------------------------------------------------ */
 /*  Internal — shape response object                                    */
 /* ------------------------------------------------------------------ */
-const basketResponse = (basket) => ({
+const basketResponse = (basket, logoMap = {}) => ({
   id:                  basket._id,
   name:                basket.name,
   description:         basket.description,
   riskProfile:         basket.riskProfile,
-  goalType:            basket.goalType     ?? null,
+  goalType:            basket.goalType      ?? null,
   assignedUserId:      basket.assignedUserId ?? null,
   active:              basket.active,
   basketMinInvestment: basket.basketMinInvestment ?? null,
@@ -333,6 +340,7 @@ const basketResponse = (basket) => ({
     contributionPercent: f.contributionPercent,
     minLumpsumAmount:    f.minLumpsumAmount,
     minSipAmount:        f.minSipAmount,
+    amcLogo:             logoMap[f.fundName?.toUpperCase()] ?? null,
   })),
   createdAt: basket.createdAt,
   updatedAt: basket.updatedAt,

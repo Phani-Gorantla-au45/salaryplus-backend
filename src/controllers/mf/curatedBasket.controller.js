@@ -1,4 +1,5 @@
 import MfBasket from "../../models/mf/mfBasket.model.js";
+import { getAmcLogoMap } from "../../utils/mf/master/amc.utils.js";
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/curated-basket                                          */
@@ -39,10 +40,14 @@ export const listCuratedBaskets = async (req, res) => {
       }).sort({ riskProfile: 1, goalType: 1 });
     }
 
+    // Collect all fund names across all baskets, fetch logos in one query
+    const allFundNames = baskets.flatMap((b) => b.funds.map((f) => f.fundName)).filter(Boolean);
+    const logoMap = await getAmcLogoMap(allFundNames);
+
     return res.status(200).json({
       success: true,
       count: baskets.length,
-      data: baskets.map(basketPublicResponse),
+      data: baskets.map((b) => basketPublicResponse(b, logoMap)),
     });
   } catch (err) {
     console.error("❌ [CURATED BASKET] List error:", err.message);
@@ -58,14 +63,14 @@ export const getCuratedBasket = async (req, res) => {
   try {
     const basket = await MfBasket.findOne({ _id: req.params.id, active: true });
     if (!basket) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Basket not found" });
+      return res.status(404).json({ success: false, message: "Basket not found" });
     }
+
+    const logoMap = await getAmcLogoMap(basket.funds.map((f) => f.fundName).filter(Boolean));
 
     return res.status(200).json({
       success: true,
-      data: basketPublicResponse(basket),
+      data: basketPublicResponse(basket, logoMap),
     });
   } catch (err) {
     console.error("❌ [CURATED BASKET] Get error:", err.message);
@@ -76,7 +81,7 @@ export const getCuratedBasket = async (req, res) => {
 /* ------------------------------------------------------------------ */
 /*  Internal — public-facing response shape (no raw thresholds)         */
 /* ------------------------------------------------------------------ */
-const basketPublicResponse = (basket) => ({
+const basketPublicResponse = (basket, logoMap = {}) => ({
   id: basket._id,
   name: basket.name,
   description: basket.description,
@@ -90,5 +95,6 @@ const basketPublicResponse = (basket) => ({
     contributionPercent: f.contributionPercent,
     minLumpsumAmount: f.minLumpsumAmount,
     minSipAmount: f.minSipAmount,
+    amcLogo: logoMap[f.fundName?.toUpperCase()] ?? null,
   })),
 });

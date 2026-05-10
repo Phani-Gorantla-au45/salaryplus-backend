@@ -2,10 +2,11 @@ import mongoose from "mongoose";
 
 const mfAmcSchema = new mongoose.Schema(
   {
-    fpAmcId: { type: Number, unique: true, index: true }, // numeric id from FP
+    fpAmcId: { type: Number, unique: true, index: true },
     name:    { type: String, trim: true },
     active:  { type: Boolean, default: true },
     amcCode: { type: String, default: null },
+    amclogo: { type: String, default: null },
   },
   { timestamps: true }
 );
