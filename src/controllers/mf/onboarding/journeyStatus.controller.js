@@ -58,8 +58,34 @@ export const getJourneyStatus = async (req, res) => {
       });
     }
 
-    const panVerified = kycCheck.overallStatus === "VERIFIED";
-    const kraVerified = kycCheck.kraStatus === "verified";
+    // Last check had validation failures — user must correct and retry
+    const failedStatuses = ["PAN_FAILED", "NAME_MISMATCH", "DOB_MISMATCH", "UPSTREAM_ERROR", "ERROR"];
+    if (failedStatuses.includes(kycCheck.overallStatus)) {
+      const errorMessage = {
+        PAN_FAILED:     kycCheck.panCode === "invalid" ? "PAN number is invalid or non-existent" : "PAN validation failed",
+        NAME_MISMATCH:  "Name does not match PAN records. Please re-enter your name as on PAN card.",
+        DOB_MISMATCH:   "Date of birth does not match PAN records. Please check and retry.",
+        UPSTREAM_ERROR: "KYC check failed due to a provider error. Please retry.",
+        ERROR:          "KYC returned an unexpected result. Please retry.",
+      }[kycCheck.overallStatus];
+
+      return res.status(200).json({
+        success: true,
+        screen: "mf_pan_check",
+        canInvest: false,
+        stage: "kyc_check",
+        detail: {
+          status:        kycCheck.overallStatus,
+          panStatus:     kycCheck.panStatus  ?? null,
+          nameStatus:    kycCheck.nameStatus ?? null,
+          dobStatus:     kycCheck.dobStatus  ?? null,
+          message:       errorMessage,
+        },
+      });
+    }
+
+    const panVerified  = kycCheck.overallStatus === "VERIFIED";
+    const kraVerified  = kycCheck.kraStatus === "verified";
     const kycCompliant = panVerified && kraVerified;
 
     /* ── STAGE 3: KYC SUBMISSION (only if not KRA-compliant) ───────── */

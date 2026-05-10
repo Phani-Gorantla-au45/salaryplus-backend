@@ -138,8 +138,10 @@ export const checkPanKyc = async (req, res) => {
       ERROR:          "KYC returned an unexpected result",
     }[overallStatus];
 
-    return res.status(200).json({
-      success: true,
+    const failed = ["PAN_FAILED", "NAME_MISMATCH", "DOB_MISMATCH", "UPSTREAM_ERROR", "PENDING", "ERROR"].includes(overallStatus);
+
+    return res.status(failed ? 400 : 200).json({
+      success: !failed,
       overallStatus,
       preVerificationId: pvId,
       pan:          { status: panResult.status,  code: panResult.code  ?? null },
