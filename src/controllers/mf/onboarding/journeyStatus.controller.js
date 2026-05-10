@@ -45,26 +45,9 @@ export const getJourneyStatus = async (req, res) => {
       KycRequest.findOne({ uniqueId }).sort({ createdAt: -1 }),
     ]);
 
-    const journey  = mfData?.journey   ?? {};
     const kycCheck = mfData?.kycStatus ?? null;
 
-    /* ── STAGE 1: RISK PROFILE ─────────────────────────────────────── */
-    const riskProfile = journey.riskProfile ?? { status: "not_started" };
-    if (riskProfile.status !== "completed") {
-      return res.status(200).json({
-        success: true,
-        screen: "mf_risk_profile",
-        canInvest: false,
-        stage: "risk_profile",
-        detail: {
-          status: riskProfile.status,
-          score:    riskProfile.score    ?? null,
-          category: riskProfile.category ?? null,
-        },
-      });
-    }
-
-    /* ── STAGE 2: PAN / KYC CHECK ──────────────────────────────────── */
+    /* ── STAGE 1: PAN / KYC CHECK ──────────────────────────────────── */
     if (!kycCheck?.pan) {
       return res.status(200).json({
         success: true,
@@ -186,7 +169,6 @@ export const getJourneyStatus = async (req, res) => {
       stage: "ready",
       detail: {
         fpInvestmentAccountId: mfData.investmentAccount.fpInvestmentAccountId,
-        riskCategory: riskProfile.category ?? null,
       },
     });
 
