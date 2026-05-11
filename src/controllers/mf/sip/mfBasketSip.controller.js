@@ -83,6 +83,7 @@ export const createBasketSip = async (req, res) => {
       folio_number,
     } = req.body;
     console.log("Create sip basket", req.body);
+    console.log(`  [FOLIO] folio_number received:`, folio_number ?? "not provided");
 
     const number_of_installments =
       frequency === "daily" ? Number(years || 3) * 365 : Number(years || 25) * 12;
@@ -182,6 +183,7 @@ export const createBasketSip = async (req, res) => {
       ...(folio_number && { folio_number }),
     }));
 
+    console.log(`  [FOLIO] fpPlans folio_number:`, fpPlans.map((p) => p.folio_number ?? "none"));
     const fpResults = await createFpBatchSip(fpPlans);
     const primaryFpSipId = fpResults[0]?.id;
     const basketPlans = fpResults.map((fp, i) => ({

@@ -47,6 +47,7 @@ const mfPurchaseSchema = new mongoose.Schema(
     // Purchase details
     mfInvestmentAccountId: { type: String, default: null }, // FP MFIA id
     amount:                { type: Number, required: true }, // total amount (sum of basketFunds for basket orders)
+    folioNumber:           { type: String, default: null },  // optional existing folio
     paymentMethod:         { type: String, default: "netbanking" }, // netbanking | upi
 
     // FP order state (created → payment_pending → payment_captured → submitted → successful | failed)

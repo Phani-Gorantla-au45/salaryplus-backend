@@ -24,7 +24,7 @@ import {
 export const createBasketPurchase = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { mf_purchases, payment_method } = req.body;
+    const { mf_purchases, payment_method, folio_number } = req.body;
 
     /* ---------- VALIDATE ---------- */
     if (!Array.isArray(mf_purchases) || mf_purchases.length === 0) {
@@ -87,8 +87,10 @@ export const createBasketPurchase = async (req, res) => {
       scheme: p.isin.toUpperCase().trim(),
       gateway: "ondc",
       user_ip: userIp,
+      ...(folio_number && { folio_number }),
     }));
 
+    console.log(`  [FOLIO] folio_number received:`, folio_number ?? "not provided");
     console.log(
       `  [2/4] Creating FP batch purchase (${fpPayload.length} orders)...`
     );
@@ -153,6 +155,7 @@ export const createBasketPurchase = async (req, res) => {
           mfInvestmentAccountId: fpInvestmentAccountId,
           amount: totalAmount,
           isBasketOrder: true,
+          folioNumber: folio_number ?? null,
           basketFunds: mf_purchases.map((p) => ({
             isin: p.isin.toUpperCase().trim(),
             amount: Number(p.amount),
