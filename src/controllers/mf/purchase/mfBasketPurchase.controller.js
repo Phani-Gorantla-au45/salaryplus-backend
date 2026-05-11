@@ -25,7 +25,7 @@ export const createBasketPurchase = async (req, res) => {
   try {
     const { uniqueId } = req.user;
     const { mf_purchases, payment_method, folio_number } = req.body;
-
+    console.log("body in create basket", req.body);
     /* ---------- VALIDATE ---------- */
     if (!Array.isArray(mf_purchases) || mf_purchases.length === 0) {
       return res.status(400).json({
@@ -56,7 +56,7 @@ export const createBasketPurchase = async (req, res) => {
 
     /* ---------- STEP 1: GET INVESTMENT ACCOUNT ---------- */
     console.log(
-      `\n🗂️  [BASKET PURCHASE] user=${uniqueId} funds=${mf_purchases.length}`
+      `\n🗂️  [BASKET PURCHASE] user=${uniqueId} funds=${mf_purchases.length}`,
     );
     const mfData = await MfUserData.findOne({ uniqueId });
     const fpInvestmentAccountId =
@@ -78,8 +78,8 @@ export const createBasketPurchase = async (req, res) => {
     const userIp = rawIp.startsWith("::ffff:")
       ? rawIp.slice(7)
       : rawIp === "::1"
-      ? "127.0.0.1"
-      : rawIp;
+        ? "127.0.0.1"
+        : rawIp;
 
     const fpPayload = mf_purchases.map((p) => ({
       amount: Number(p.amount),
@@ -90,9 +90,12 @@ export const createBasketPurchase = async (req, res) => {
       ...(folio_number && { folio_number }),
     }));
 
-    console.log(`  [FOLIO] folio_number received:`, folio_number ?? "not provided");
     console.log(
-      `  [2/4] Creating FP batch purchase (${fpPayload.length} orders)...`
+      `  [FOLIO] folio_number received:`,
+      folio_number ?? "not provided",
+    );
+    console.log(
+      `  [2/4] Creating FP batch purchase (${fpPayload.length} orders)...`,
     );
 
     console.log("Basket order Payloand", fpPayload);
@@ -106,7 +109,7 @@ export const createBasketPurchase = async (req, res) => {
     console.log(
       `  [2/4] ✅ ${fpOrders.length} FP orders — ids: ${fpOrders
         .map((o) => o.id)
-        .join(", ")}`
+        .join(", ")}`,
     );
 
     /* ---------- STEP 3: SEND CONSENT OTP ---------- */
@@ -124,7 +127,7 @@ export const createBasketPurchase = async (req, res) => {
     const otp = generateOtp();
     const expiry = otpExpiresAt();
     console.log(
-      `  [3/4] Sending OTP to ${phone.slice(0, 3)}****${phone.slice(-3)}...`
+      `  [3/4] Sending OTP to ${phone.slice(0, 3)}****${phone.slice(-3)}...`,
     );
     await sendConsentOtp(phone, otp);
     console.log(`  [3/4] ✅ OTP sent`);
@@ -169,10 +172,10 @@ export const createBasketPurchase = async (req, res) => {
           otpVerified: false,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
     console.log(
-      `  [4/4] ✅ purchaseId=${record._id} (${basketOrders.length} FP orders stored)`
+      `  [4/4] ✅ purchaseId=${record._id} (${basketOrders.length} FP orders stored)`,
     );
 
     return res.status(201).json({
