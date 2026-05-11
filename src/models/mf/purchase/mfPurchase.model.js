@@ -29,7 +29,7 @@ const mfPurchaseSchema = new mongoose.Schema(
 
     // Basket order fields (populated only when isBasketOrder=true)
     isBasketOrder: { type: Boolean, default: false },
-    basketFunds:   { type: [{ isin: String, amount: Number }], default: [] },
+    basketFunds:   { type: [{ isin: String, amount: Number, folioNumber: { type: String, default: null } }], default: [] },
     // One entry per FP purchase order created by the batch API
     basketOrders:  {
       type: [{
