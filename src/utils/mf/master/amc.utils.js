@@ -19,16 +19,27 @@ const fpHeaders = async () => {
  */
 export const getAmcLogoMap = async (fundNames = []) => {
   if (!fundNames.length) return {};
-  const upperNames = [...new Set(fundNames.map((n) => n?.toUpperCase()).filter(Boolean))];
+  // Fetch all AMCs that have a logo (either field variant)
   const amcs = await MfAmc.find(
-    { name: { $in: upperNames } },
-    { name: 1, amclogo: 1 }
+    { $or: [{ amcLogo: { $ne: null } }, { amclogo: { $ne: null } }] },
+    { name: 1, amcLogo: 1, amclogo: 1 }
   ).lean();
-  const map = {};
-  for (const amc of amcs) {
-    if (amc.amclogo) map[amc.name.toUpperCase()] = amc.amclogo;
+
+  // For each fund name, find the best matching AMC by checking if either string
+  // contains the other (handles "INVESCO MUTUAL FUND" vs "INVESCO ASSET MANAGEMENT...")
+  const result = {};
+  for (const fundName of fundNames) {
+    if (!fundName) continue;
+    const fundUpper = fundName.toUpperCase().trim();
+    const matched = amcs.find((amc) => {
+      const amcUpper = amc.name?.toUpperCase().trim() ?? "";
+      return amcUpper === fundUpper || amcUpper.includes(fundUpper) || fundUpper.includes(amcUpper);
+    });
+    if (matched) {
+      result[fundUpper] = matched.amcLogo ?? matched.amclogo;
+    }
   }
-  return map;
+  return result;
 };
 
 /* GET /api/oms/amcs — returns full list of AMCs */

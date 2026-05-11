@@ -6,7 +6,7 @@ const mfAmcSchema = new mongoose.Schema(
     name:    { type: String, trim: true },
     active:  { type: Boolean, default: true },
     amcCode: { type: String, default: null },
-    amclogo: { type: String, default: null },
+    amcLogo: { type: String, default: null },
   },
   { timestamps: true }
 );

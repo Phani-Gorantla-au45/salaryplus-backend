@@ -14,9 +14,10 @@ const syncAmcsFromFp = async () => {
       update: {
         $set: {
           fpAmcId: amc.amc_id,
-          name: amc.name,
-          active: amc.active,
+          name:    amc.name,
+          active:  amc.active,
           amcCode: amc.amc_code ?? null,
+          // amclogo is NOT in $set — manually managed, never overwritten by sync
         },
       },
       upsert: true,
@@ -70,6 +71,39 @@ export const listAmcs = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ [AMC] List error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  PATCH /api/mf/master/amcs/:fpAmcId/logo                             */
+/*  Set or update the logo URL for a specific AMC.                      */
+/*  Body: { amclogo: "https://..." }                                    */
+/* ------------------------------------------------------------------ */
+export const updateAmcLogo = async (req, res) => {
+  try {
+    const { amclogo } = req.body;
+    if (!amclogo) {
+      return res.status(400).json({ success: false, message: "amclogo URL is required" });
+    }
+
+    const amc = await MfAmc.findOneAndUpdate(
+      { fpAmcId: Number(req.params.fpAmcId) },
+      { $set: { amclogo } },
+      { new: true }
+    );
+
+    if (!amc) {
+      return res.status(404).json({ success: false, message: "AMC not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Logo updated for ${amc.name}`,
+      data: { fpAmcId: amc.fpAmcId, name: amc.name, amclogo: amc.amclogo },
+    });
+  } catch (err) {
+    console.error("❌ [AMC LOGO] Update error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };

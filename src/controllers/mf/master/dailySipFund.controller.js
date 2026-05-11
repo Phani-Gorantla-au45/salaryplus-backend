@@ -1,19 +1,24 @@
 import MfDailySipFund from "../../../models/mf/master/mfDailySipFund.model.js";
+import { getAmcLogoMap } from "../../../utils/mf/master/amc.utils.js";
 
 const VALID_TYPES = ["smart_savings", "short_term", "long_term"];
 
-const publicShape = (doc) => ({
-  id:            doc._id,
-  type:          doc.type,
-  isin:          doc.isin,
-  fundName:      doc.fundName,
-  fundHouseName: doc.fundHouseName,
-  fundHouseLogo: doc.fundHouseLogo,
-  minDailySip:   doc.minDailySip,
-  description:   doc.description,
-  isActive:      doc.isActive,
-  updatedAt:     doc.updatedAt,
-});
+const publicShape = (doc, logoMap = {}) => {
+  const amcLogo = logoMap[doc.fundHouseName?.toUpperCase().trim()] ?? doc.fundHouseLogo ?? null;
+  return {
+    id:            doc._id,
+    type:          doc.type,
+    isin:          doc.isin,
+    fundName:      doc.fundName,
+    fundHouseName: doc.fundHouseName,
+    fundHouseLogo: amcLogo,
+    amcLogo,
+    minDailySip:   doc.minDailySip,
+    description:   doc.description,
+    isActive:      doc.isActive,
+    updatedAt:     doc.updatedAt,
+  };
+};
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/master/daily-sip-funds                                 */
