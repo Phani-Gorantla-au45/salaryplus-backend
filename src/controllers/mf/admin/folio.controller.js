@@ -26,3 +26,38 @@ export const listFolios = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+
+/* ------------------------------------------------------------------ */
+/*  GET /api/mf/admin/folios/by-pan?pan=XXXXX                          */
+/*  Fetches all folios from FP and returns folio numbers matching PAN. */
+/*  Checks primary, secondary, and third investor PANs.                */
+/* ------------------------------------------------------------------ */
+export const foliosByPan = async (req, res) => {
+  try {
+    const { pan } = req.query;
+    if (!pan) {
+      return res.status(400).json({ success: false, message: "pan query parameter is required" });
+    }
+
+    const panUpper = pan.trim().toUpperCase();
+    const fpResponse = await fetchFpFolios();
+    const allFolios = fpResponse?.data ?? [];
+
+    const matched = allFolios
+      .filter((f) =>
+        [f.primary_investor_pan, f.secondary_investor_pan, f.third_investor_pan]
+          .some((p) => p && p.trim().toUpperCase() === panUpper)
+      )
+      .map((f) => f.number);
+
+    return res.status(200).json({
+      success: true,
+      pan: panUpper,
+      count: matched.length,
+      folioNumbers: matched,
+    });
+  } catch (err) {
+    console.error("❌ [ADMIN FOLIOS BY PAN] Error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
