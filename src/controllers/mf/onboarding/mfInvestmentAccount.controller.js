@@ -4,6 +4,7 @@ import {
   createFpMfInvestmentAccount,
   fetchFpMfInvestmentAccount,
   updateFpMfInvestmentAccount,
+  listFpMfInvestmentAccounts,
 } from "../../../utils/mf/onboarding/mfInvestmentAccount.utils.js";
 import { sendWebhookNotification } from "../../../utils/mf/webhook/notification.utils.js";
 
@@ -249,6 +250,101 @@ export const updateMfInvestmentAccount = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ [MF ACCOUNT] Update error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  POST /api/mf/investment-account/migrate                             */
+/*  Migration path — checks FP for an existing account by PAN.         */
+/*  If found, stores it in DB with the same structure as a new account. */
+/*  Call this silently in the background after KYC check.              */
+/*                                                                      */
+/*  Returns:                                                            */
+/*    200 { migrated: false } — already in DB, nothing to do            */
+/*    200 { migrated: true  } — found on FP, saved to DB               */
+/*    404 { found:    false } — no FP account for this PAN             */
+/* ------------------------------------------------------------------ */
+export const migrateMfInvestmentAccount = async (req, res) => {
+  try {
+    const { uniqueId } = req.user;
+
+    const mfData = await MfUserData.findOne({ uniqueId });
+
+    // Already migrated or created normally — nothing to do
+    if (mfData?.investmentAccount?.fpInvestmentAccountId) {
+      return res.status(200).json({
+        success: true,
+        migrated: false,
+        message: "MF investment account already exists in DB",
+        fpInvestmentAccountId: mfData.investmentAccount.fpInvestmentAccountId,
+      });
+    }
+
+    // Resolve PAN — prefer kycStatus.pan, fall back to investorProfile.pan
+    const pan = mfData?.kycStatus?.pan ?? mfData?.investorProfile?.pan ?? null;
+    if (!pan) {
+      return res.status(400).json({
+        success: false,
+        message: "PAN not found. Complete KYC check first.",
+      });
+    }
+
+    console.log(`\n🔍 [MF MIGRATE] Checking FP for existing account — user=${uniqueId} pan=${pan}`);
+
+    const fpResponse = await listFpMfInvestmentAccounts({
+      primary_investor_pan: pan.toUpperCase().trim(),
+      holding_pattern: "single",
+    });
+
+    const fpAccounts = fpResponse?.data ?? [];
+    if (fpAccounts.length === 0) {
+      console.log(`  [MF MIGRATE] No existing FP account found for PAN=${pan}`);
+      return res.status(404).json({
+        success: false,
+        found: false,
+        message: "No existing MF investment account found on FP for this PAN",
+      });
+    }
+
+    // Use the first account (most recent if FP sorts by created_at)
+    const fpData = fpAccounts[0];
+    console.log(`  [MF MIGRATE] Found FP account id=${fpData.id} — saving to DB`);
+
+    const record = await MfUserData.findOneAndUpdate(
+      { uniqueId },
+      {
+        $set: {
+          investmentAccount:             accountFromFp(fpData),
+          "journey.account.status":      "completed",
+          "journey.account.completedAt": new Date(),
+          "journey.canInvest":           true,
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    await User.findOneAndUpdate(
+      { uniqueId },
+      { $set: { mfAccount: "yes" } }
+    );
+
+    console.log(`✅ [MF MIGRATE] Account migrated for user=${uniqueId}`);
+
+    const acc = record.investmentAccount;
+    return res.status(200).json({
+      success: true,
+      migrated: true,
+      message: "Existing MF investment account found and saved",
+      data: {
+        fpInvestmentAccountId: acc.fpInvestmentAccountId,
+        primaryInvestorPan:    acc.primaryInvestorPan,
+        holdingPattern:        acc.holdingPattern,
+        folioDefaults:         acc.folioDefaults,
+      },
+    });
+  } catch (err) {
+    console.error("❌ [MF MIGRATE] Error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
