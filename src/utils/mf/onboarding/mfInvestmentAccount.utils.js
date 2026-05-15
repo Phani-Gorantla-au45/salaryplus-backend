@@ -76,7 +76,7 @@ export const listFpMfInvestmentAccounts = async (params = {}) => {
       `${FP_API_URL()}/v2/mf_investment_accounts`,
       { headers: await fpHeaders(), params },
     );
-    console.log("migrate resp", response.data);
+    console.log(response.data.data[0].folio_defaults);
     return response.data;
   } catch (err) {
     console.error(
