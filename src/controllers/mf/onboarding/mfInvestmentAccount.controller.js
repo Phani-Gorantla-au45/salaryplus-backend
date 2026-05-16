@@ -117,19 +117,26 @@ export const createMfInvestmentAccount = async (req, res) => {
     let isExistingFpAccount = false;
 
     if (pan) {
-      const fpList = await listFpMfInvestmentAccounts({
-        primary_investor_pan: pan.toUpperCase().trim(),
-        holding_pattern:      "single",
-      });
-      const existing = fpList?.data?.[0] ?? null;
-
-      if (existing) {
-        console.log(`  [MF ACCOUNT] Existing FP account found (id=${existing.id}) — patching investor + folio_defaults`);
-        fpData = await updateFpMfInvestmentAccount(existing.id, {
-          primary_investor: profile.fpInvestorProfileId,
-          folio_defaults,
+      try {
+        const fpList = await listFpMfInvestmentAccounts({
+          primary_investor_pan: pan.toUpperCase().trim(),
+          holding_pattern:      "single",
         });
-        isExistingFpAccount = true;
+        const existing = fpList?.data?.[0] ?? null;
+
+        if (existing) {
+          console.log(`  [MF ACCOUNT] Existing FP account found (id=${existing.id}) — patching investor + folio_defaults`);
+          fpData = await updateFpMfInvestmentAccount(existing.id, {
+            primary_investor: profile.fpInvestorProfileId,
+            folio_defaults,
+          });
+          isExistingFpAccount = true;
+        } else {
+          console.log(`  [MF ACCOUNT] No existing FP account for PAN=${pan} — will create new`);
+        }
+      } catch (listErr) {
+        // FP may return 404 or error when no account exists — treat as "not found" and proceed to create
+        console.warn(`  [MF ACCOUNT] FP account check failed (${listErr.message}) — proceeding with new account creation`);
       }
     }
 
