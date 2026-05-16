@@ -3,22 +3,18 @@ import {
   createMfInvestmentAccount,
   getMfInvestmentAccount,
   updateMfInvestmentAccount,
-  migrateMfInvestmentAccount,
 } from "../../../controllers/mf/onboarding/mfInvestmentAccount.controller.js";
 import { auth } from "../../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// POST /api/mf/investment-account          — create MF investment account (auto-wires all folio defaults)
+// POST  /api/mf/investment-account  — create (or link existing FP account for migrated users)
 router.post("/", auth, createMfInvestmentAccount);
 
-// POST /api/mf/investment-account/migrate  — check FP for existing account (migration path)
-router.post("/migrate", auth, migrateMfInvestmentAccount);
-
-// GET  /api/mf/investment-account          — fetch & refresh from FP
+// GET   /api/mf/investment-account  — fetch & refresh from FP
 router.get("/",  auth, getMfInvestmentAccount);
 
-// PATCH /api/mf/investment-account         — re-sync folio_defaults from DB → FP
+// PATCH /api/mf/investment-account  — re-sync folio_defaults from DB → FP
 router.patch("/", auth, updateMfInvestmentAccount);
 
 export default router;
