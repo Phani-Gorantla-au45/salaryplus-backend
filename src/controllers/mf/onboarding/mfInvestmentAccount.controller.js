@@ -124,8 +124,11 @@ export const createMfInvestmentAccount = async (req, res) => {
       const existing = fpList?.data?.[0] ?? null;
 
       if (existing) {
-        console.log(`  [MF ACCOUNT] Existing FP account found (id=${existing.id}) — patching folio_defaults`);
-        fpData = await updateFpMfInvestmentAccount(existing.id, { folio_defaults });
+        console.log(`  [MF ACCOUNT] Existing FP account found (id=${existing.id}) — patching investor + folio_defaults`);
+        fpData = await updateFpMfInvestmentAccount(existing.id, {
+          primary_investor: profile.fpInvestorProfileId,
+          folio_defaults,
+        });
         isExistingFpAccount = true;
       }
     }
