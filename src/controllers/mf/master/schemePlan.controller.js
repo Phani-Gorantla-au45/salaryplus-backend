@@ -1,5 +1,6 @@
 import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
 import { fetchFpSchemePlan } from "../../../utils/mf/master/schemePlan.utils.js";
+import { getAmcLogoMap } from "../../../utils/mf/master/amc.utils.js";
 
 const ISIN_REGEX = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
 const CACHE_TTL_HOURS = 12; // re-fetch from FP if scheme data is older than this
@@ -160,6 +161,40 @@ export const bulkSyncSchemePlans = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ [SCHEME BULK SYNC] Error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  GET /api/mf/master/scheme-plans/:isin/amc-logo                     */
+/*  Returns the AMC logo URL for the given ISIN.                       */
+/* ------------------------------------------------------------------ */
+export const getAmcLogoByIsin = async (req, res) => {
+  try {
+    const isin = req.params.isin?.toUpperCase().trim();
+    if (!isin) {
+      return res.status(400).json({ success: false, message: "isin is required" });
+    }
+
+    const scheme = await MfSchemePlan.findOne({ isin }, { fundName: 1, schemeName: 1 }).lean();
+    if (!scheme) {
+      return res.status(404).json({ success: false, message: `No scheme found for ISIN: ${isin}` });
+    }
+
+    const logoMap = await getAmcLogoMap([scheme.fundName]);
+    const amcLogo = logoMap[scheme.fundName?.toUpperCase().trim()] ?? null;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        isin,
+        fundName:  scheme.fundName,
+        schemeName: scheme.schemeName,
+        amcLogo,
+      },
+    });
+  } catch (err) {
+    console.error("❌ [SCHEME AMC LOGO] Error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };

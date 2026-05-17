@@ -3,6 +3,7 @@ import {
   getSchemePlan,
   listSchemePlans,
   bulkSyncSchemePlans,
+  getAmcLogoByIsin,
 } from "../../../controllers/mf/master/schemePlan.controller.js";
 
 const router = express.Router();
@@ -13,6 +14,9 @@ router.get("/", listSchemePlans);
 
 // POST /api/mf/master/scheme-plans/bulk-sync    — cache multiple ISINs (MUST be before /:isin)
 router.post("/bulk-sync", bulkSyncSchemePlans);
+
+// GET  /api/mf/master/scheme-plans/:isin/amc-logo — AMC logo for a given ISIN (MUST be before /:isin)
+router.get("/:isin/amc-logo", getAmcLogoByIsin);
 
 // GET  /api/mf/master/scheme-plans/:isin        — fetch by ISIN (cache-first, live fallback)
 router.get("/:isin", getSchemePlan);
