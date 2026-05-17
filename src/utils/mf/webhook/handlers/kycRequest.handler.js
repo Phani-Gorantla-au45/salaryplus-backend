@@ -18,28 +18,28 @@ const EVENT_TO_STATUS = {
 
 const EMAIL_EVENTS = {
   "kyc_request.successful": {
-    subject: "Your KYC has been approved — SalaryPlus",
+    subject: "Your KYC has been approved — Bharat Wealth",
     heading: "KYC Approved!",
     body: (name) =>
-      `Hi ${name},\n\nGreat news! Your KYC verification has been successfully completed. You can now start investing through SalaryPlus.\n\nHappy Investing!`,
+      `Hi ${name},\n\nGreat news! Your KYC verification has been successfully completed. You can now start investing through Bharat Wealth.\n\nHappy Investing!`,
   },
   "kyc_request.rejected": {
-    subject: "KYC Verification Update — SalaryPlus",
+    subject: "KYC Verification Update — Bharat Wealth",
     heading: "KYC Not Approved",
     body: (name) =>
-      `Hi ${name},\n\nUnfortunately, your KYC verification could not be approved at this time. Please log in to the SalaryPlus app to review and re-submit your documents.`,
+      `Hi ${name},\n\nUnfortunately, your KYC verification could not be approved at this time. Please log in to the Bharat Wealth app to review and re-submit your documents.`,
   },
   "kyc_request.expired": {
-    subject: "Your KYC Request Has Expired — SalaryPlus",
+    subject: "Your KYC Request Has Expired — Bharat Wealth",
     heading: "KYC Request Expired",
     body: (name) =>
-      `Hi ${name},\n\nYour KYC request has expired. Please log in to the SalaryPlus app and initiate the KYC process again.`,
+      `Hi ${name},\n\nYour KYC request has expired. Please log in to the Bharat Wealth app and initiate the KYC process again.`,
   },
   "kyc_request.esign_required": {
-    subject: "Action Required: Complete Your eSign — SalaryPlus",
+    subject: "Action Required: Complete Your eSign — Bharat Wealth",
     heading: "eSign Required to Complete KYC",
     body: (name) =>
-      `Hi ${name},\n\nYour KYC application requires an eSign step to proceed. Please open the SalaryPlus app and complete the eSign process.`,
+      `Hi ${name},\n\nYour KYC application requires an eSign step to proceed. Please open the Bharat Wealth app and complete the eSign process.`,
   },
 };
 

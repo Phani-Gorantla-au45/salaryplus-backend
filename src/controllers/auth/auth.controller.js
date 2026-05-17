@@ -4,6 +4,7 @@ import axios from "axios";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
+import { sendFounderNote } from "../../utils/mf/webhook/notification.utils.js";
 
 /* 🔐 HASH OTP */
 const hashOTP = (otp) => crypto.createHash("sha256").update(otp).digest("hex");
@@ -204,6 +205,10 @@ export const completeRegistration = async (req, res) => {
     user.email      = email.trim().toLowerCase();
 
     await user.save();
+
+    // Founder note — fire and forget, never block registration
+    sendFounderNote({ to: email.trim().toLowerCase(), name: name.trim() })
+      .catch((err) => console.error("❌ [FOUNDER NOTE] Failed:", err.message));
 
     res.json({
       message: "Registration completed",

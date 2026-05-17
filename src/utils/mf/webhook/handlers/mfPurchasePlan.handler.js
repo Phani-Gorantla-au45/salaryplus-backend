@@ -15,28 +15,28 @@ const EVENT_TO_STATE = {
 
 const EMAIL_EVENTS = {
   "mf_purchase_plan.activated": {
-    subject: "Your SIP is Now Active — SalaryPlus",
+    subject: "Your SIP is Now Active — Bharat Wealth",
     heading: "SIP Activated!",
     body: (name, amount, frequency) =>
       `Hi ${name},\n\nYour ${frequency} SIP of ₹${amount} has been successfully activated. Installments will be auto-debited as per your schedule.\n\nHappy Investing!`,
   },
   "mf_purchase_plan.cancelled": {
-    subject: "Your SIP Has Been Cancelled — SalaryPlus",
+    subject: "Your SIP Has Been Cancelled — Bharat Wealth",
     heading: "SIP Cancelled",
     body: (name, amount) =>
       `Hi ${name},\n\nYour SIP of ₹${amount} per installment has been cancelled. No further installments will be debited.\n\nIf this was not requested by you, please contact support.`,
   },
   "mf_purchase_plan.failed": {
-    subject: "SIP Setup Failed — SalaryPlus",
+    subject: "SIP Setup Failed — Bharat Wealth",
     heading: "SIP Could Not Be Activated",
     body: (name, amount) =>
-      `Hi ${name},\n\nWe were unable to activate your SIP of ₹${amount} per installment. Please contact support or try again from the SalaryPlus app.`,
+      `Hi ${name},\n\nWe were unable to activate your SIP of ₹${amount} per installment. Please contact support or try again from the Bharat Wealth app.`,
   },
   "mf_purchase_plan.completed": {
-    subject: "Your SIP Has Completed — SalaryPlus",
+    subject: "Your SIP Has Completed — Bharat Wealth",
     heading: "SIP Completed",
     body: (name, amount) =>
-      `Hi ${name},\n\nYour SIP of ₹${amount} per installment has successfully completed all scheduled installments. Thank you for investing with SalaryPlus!`,
+      `Hi ${name},\n\nYour SIP of ₹${amount} per installment has successfully completed all scheduled installments. Thank you for investing with Bharat Wealth!`,
   },
 };
 

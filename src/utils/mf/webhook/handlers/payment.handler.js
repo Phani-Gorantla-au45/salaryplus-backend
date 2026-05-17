@@ -11,28 +11,28 @@ import { resolveUserEmail, resolveUserName, sendWebhookNotification } from "../n
  */
 const EMAIL_EVENTS = {
   "payment.success": {
-    subject: "Payment Successful — SalaryPlus",
+    subject: "Payment Successful — Bharat Wealth",
     heading: "Payment Confirmed!",
     body: (name, amount) =>
-      `Hi ${name},\n\nYour payment of ₹${amount || ""} has been successfully received. Your investment order is now being processed.\n\nThank you for investing with SalaryPlus!`,
+      `Hi ${name},\n\nYour payment of ₹${amount || ""} has been successfully received. Your investment order is now being processed.\n\nThank you for investing with Bharat Wealth!`,
   },
   "payment.failed": {
-    subject: "Payment Failed — SalaryPlus",
+    subject: "Payment Failed — Bharat Wealth",
     heading: "Payment Could Not Be Processed",
     body: (name, amount) =>
-      `Hi ${name},\n\nYour payment of ₹${amount || ""} could not be processed. Your investment order has not been placed.\n\nPlease try again from the SalaryPlus app or contact support for assistance.`,
+      `Hi ${name},\n\nYour payment of ₹${amount || ""} could not be processed. Your investment order has not been placed.\n\nPlease try again from the Bharat Wealth app or contact support for assistance.`,
   },
   "payment.approved": {
-    subject: "Payment Approved — SalaryPlus",
+    subject: "Payment Approved — Bharat Wealth",
     heading: "Payment Approved",
     body: (name) =>
       `Hi ${name},\n\nYour payment has been approved and is being processed.`,
   },
   "payment.rejected": {
-    subject: "Payment Rejected — SalaryPlus",
+    subject: "Payment Rejected — Bharat Wealth",
     heading: "Payment Rejected",
     body: (name) =>
-      `Hi ${name},\n\nYour payment was rejected. Please retry your investment from the SalaryPlus app or contact support.`,
+      `Hi ${name},\n\nYour payment was rejected. Please retry your investment from the Bharat Wealth app or contact support.`,
   },
 };
 

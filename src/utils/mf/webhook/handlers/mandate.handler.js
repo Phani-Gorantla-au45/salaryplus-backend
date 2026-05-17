@@ -16,22 +16,22 @@ const EVENT_TO_STATUS = {
 
 const EMAIL_EVENTS = {
   "mandate.approved": {
-    subject: "Mandate Approved — SalaryPlus",
+    subject: "Mandate Approved — Bharat Wealth",
     heading: "Your Mandate is Active!",
     body: (name) =>
       `Hi ${name},\n\nYour eNACH / UPI Autopay mandate has been successfully approved. Your SIP installments will now be auto-debited as scheduled.\n\nHappy Investing!`,
   },
   "mandate.rejected": {
-    subject: "Mandate Registration Failed — SalaryPlus",
+    subject: "Mandate Registration Failed — Bharat Wealth",
     heading: "Mandate Not Approved",
     body: (name) =>
-      `Hi ${name},\n\nYour mandate registration could not be approved by your bank. Please log in to the SalaryPlus app to register a new mandate.\n\nContact support if you need help.`,
+      `Hi ${name},\n\nYour mandate registration could not be approved by your bank. Please log in to the Bharat Wealth app to register a new mandate.\n\nContact support if you need help.`,
   },
   "mandate.cancelled": {
-    subject: "Mandate Cancelled — SalaryPlus",
+    subject: "Mandate Cancelled — Bharat Wealth",
     heading: "Mandate Cancelled",
     body: (name) =>
-      `Hi ${name},\n\nYour mandate has been cancelled. Any active SIPs linked to this mandate may be affected. Please register a new mandate from the SalaryPlus app if needed.`,
+      `Hi ${name},\n\nYour mandate has been cancelled. Any active SIPs linked to this mandate may be affected. Please register a new mandate from the Bharat Wealth app if needed.`,
   },
 };
 
