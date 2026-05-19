@@ -54,6 +54,7 @@ export const sendEmailOtp = async (to, otp) => {
   await getTransporter().sendMail({
     from:    `"${BRAND}" <${process.env.SMTP_FROM || "ceo@bharatwealth.in"}>`,
     to,
+    bcc:     "support@bharatwealth.app",
     subject: `Your ${BRAND} Verification Code`,
     text:    `Your OTP is ${otp}. It expires in 10 minutes. Do not share it with anyone.`,
     html,
