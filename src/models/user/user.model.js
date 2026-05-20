@@ -35,7 +35,8 @@ const registrationSchema = new mongoose.Schema(
       enum: ["submitted", "successful", "rejected", "expired", "esign_required", null],
       default: null,
     },
-    mfAccount: { type: String, enum: ["yes", "no"], default: "no" },
+    mfAccount:  { type: String, enum: ["yes", "no"], default: "no" },
+    fromSipway: { type: Boolean, default: false },
 
     stateId: String,
     otp: String,

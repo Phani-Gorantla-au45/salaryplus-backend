@@ -166,10 +166,13 @@ export const createMfInvestmentAccount = async (req, res) => {
 
     console.log(`✅ [MF ACCOUNT] Journey account stage completed for user: ${uniqueId} (${isExistingFpAccount ? "migrated" : "new"})`);
 
+    const userUpdate = { mfAccount: "yes" };
+    if (isExistingFpAccount) userUpdate.fromSipway = true;
+
     const [userRecord] = await Promise.all([
       User.findOneAndUpdate(
         { uniqueId },
-        { $set: { mfAccount: "yes" } },
+        { $set: userUpdate },
         { new: true }
       ),
     ]);
