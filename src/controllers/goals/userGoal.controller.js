@@ -125,10 +125,9 @@ export const updateUserGoal = async (req, res) => {
       stepUpSip:    result.stepUpSip  ?? null,
       stepUpRate:   result.stepUpRate ?? null,
       duration:     result.duration,
-      ...(req.body.status && { status: req.body.status }),
-      ...(req.body.linkedSipId !== undefined && {
-        linkedSipId: req.body.linkedSipId,
-      }),
+      ...(req.body.status      && { status:      req.body.status }),
+      ...(req.body.linkedSipId !== undefined && { linkedSipId: req.body.linkedSipId }),
+      ...(Array.isArray(req.body.linked_folio_numbers) && { linkedFolioNumbers: req.body.linked_folio_numbers }),
     });
 
     await goal.save();

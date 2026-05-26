@@ -24,7 +24,10 @@ const userGoalSchema = new mongoose.Schema(
     },
 
     // Optional linked MF SIP / investment for this goal
-    linkedSipId: { type: String, default: null },
+    linkedSipId:        { type: String,   default: null },
+
+    // Folio-to-goal mapping — user links folios to track goal progress
+    linkedFolioNumbers: { type: [String], default: [] },
   },
   { timestamps: true }
 );
