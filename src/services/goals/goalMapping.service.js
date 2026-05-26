@@ -28,16 +28,18 @@ export async function mapTemplatesWithUserGoals(uniqueId) {
       description:  t.description,
       icon:         t.icon,
       displayOrder: t.displayOrder,
-      isSetup:      !!ug,
+      isSetup:             !!ug,
       // computed fields — null if not yet set up
-      userGoalId:   ug?._id          ?? null,
-      targetAmount: ug?.targetAmount ?? null,
-      monthlySip:   ug?.monthlySip   ?? null,
-      stepUpSip:    ug?.stepUpSip    ?? null,
-      stepUpRate:   ug?.stepUpRate   ?? null,
-      duration:     ug?.duration     ?? null,
-      status:       ug?.status       ?? null,
-      linkedSipId:  ug?.linkedSipId  ?? null,
+      userGoalId:          ug?._id                 ?? null,
+      targetAmount:        ug?.targetAmount        ?? null,
+      monthlySip:          ug?.monthlySip          ?? null,
+      stepUpSip:           ug?.stepUpSip           ?? null,
+      stepUpRate:          ug?.stepUpRate          ?? null,
+      duration:            ug?.duration            ?? null,
+      status:              ug?.status              ?? null,
+      linkedSipId:         ug?.linkedSipId         ?? null,
+      basketId:            ug?.basketId            ?? null,
+      linkedFolioNumbers:  ug?.linkedFolioNumbers  ?? [],
     };
   });
 }

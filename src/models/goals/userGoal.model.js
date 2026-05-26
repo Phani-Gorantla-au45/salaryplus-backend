@@ -26,7 +26,10 @@ const userGoalSchema = new mongoose.Schema(
     // Optional linked MF SIP / investment for this goal
     linkedSipId:        { type: String,   default: null },
 
-    // Folio-to-goal mapping — user links folios to track goal progress
+    // Optional curated basket that drives this goal
+    basketId:           { type: mongoose.Schema.Types.ObjectId, ref: "MfBasket", default: null },
+
+    // All folio numbers counting toward this goal (basket + legacy)
     linkedFolioNumbers: { type: [String], default: [] },
   },
   { timestamps: true }

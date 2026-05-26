@@ -1,12 +1,54 @@
 import MfPurchase from "../../../models/mf/purchase/mfPurchase.model.js";
 import MfUserData from "../../../models/mf/mfUserData.model.js";
+import MfBasket from "../../../models/mf/mfBasket.model.js";
 import User from "../../../models/user/user.model.js";
+import GoalTemplate from "../../../models/goals/goalTemplate.model.js";
+import UserGoal from "../../../models/goals/userGoal.model.js";
 import { createFpBatchPurchase } from "../../../utils/mf/purchase/batchPurchase.utils.js";
 import {
   generateOtp,
   otpExpiresAt,
   sendConsentOtp,
 } from "../../../utils/mf/consent.utils.js";
+
+/* ------------------------------------------------------------------ */
+/*  Internal — auto-upsert goal and link folios after basket purchase   */
+/* ------------------------------------------------------------------ */
+const autoLinkGoal = async ({ uniqueId, basketId, folioNumbers }) => {
+  const basket = await MfBasket.findById(basketId).lean();
+  if (!basket?.goalType) return; // basket not tied to a goal, nothing to do
+
+  const template = await GoalTemplate.findOne({ type: basket.goalType }).lean();
+  if (!template) return; // no matching goal template
+
+  // Upsert the goal — idempotent, only sets basketId on creation
+  const goal = await UserGoal.findOneAndUpdate(
+    { uniqueId, templateType: basket.goalType },
+    {
+      $setOnInsert: {
+        templateId:   template._id,
+        templateType: basket.goalType,
+        uniqueId,
+        inputs:       {},
+        status:       "active",
+        basketId,
+      },
+      // Always keep basketId in sync in case it was null
+      $set: { basketId },
+    },
+    { upsert: true, new: true }
+  );
+
+  // Append new folio numbers without duplicates
+  if (folioNumbers.length > 0) {
+    await UserGoal.updateOne(
+      { _id: goal._id },
+      { $addToSet: { linkedFolioNumbers: { $each: folioNumbers } } }
+    );
+  }
+
+  console.log(`✅ [GOAL LINK] Goal "${basket.goalType}" linked for user=${uniqueId}, folios added: [${folioNumbers.join(", ")}]`);
+};
 
 /* ------------------------------------------------------------------ */
 /*  POST /api/mf/basket-purchase                                        */
@@ -24,7 +66,7 @@ import {
 export const createBasketPurchase = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { mf_purchases, payment_method } = req.body;
+    const { mf_purchases, payment_method, basket_id } = req.body;
     console.log("body in create basket", req.body);
     /* ---------- VALIDATE ---------- */
     if (!Array.isArray(mf_purchases) || mf_purchases.length === 0) {
@@ -177,6 +219,13 @@ export const createBasketPurchase = async (req, res) => {
     console.log(
       `  [4/4] ✅ purchaseId=${record._id} (${basketOrders.length} FP orders stored)`,
     );
+
+    // Auto-link goal — fire and forget, never blocks the purchase response
+    if (basket_id) {
+      const folioNumbers = mf_purchases.map((p) => p.folio_number).filter(Boolean);
+      autoLinkGoal({ uniqueId, basketId: basket_id, folioNumbers })
+        .catch((err) => console.error("❌ [GOAL LINK] Error:", err.message));
+    }
 
     return res.status(201).json({
       success: true,
