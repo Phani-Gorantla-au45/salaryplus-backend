@@ -1,22 +1,12 @@
 import AppVersion from "../../models/app/appVersion.model.js";
 
 /* ------------------------------------------------------------------ */
-/*  Helper — compare semver strings "1.2.3"                            */
-/*  Returns: -1 if a < b, 0 if equal, 1 if a > b                      */
-/* ------------------------------------------------------------------ */
-const compareVersions = (a, b) => {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (diff !== 0) return diff < 0 ? -1 : 1;
-  }
-  return 0;
-};
-
-/* ------------------------------------------------------------------ */
-/*  GET /api/app/version-check?platform=android&version=1.0.0          */
+/*  GET /api/app/version-check?platform=android&version=1.0.4          */
 /*  Called by the app on every launch. No auth required.               */
+/*                                                                      */
+/*  Logic: if app version != configured latestVersion → notify user.   */
+/*    forceUpdate=true  → must update before using the app             */
+/*    forceUpdate=false → soft nudge, can dismiss                      */
 /* ------------------------------------------------------------------ */
 export const checkVersion = async (req, res) => {
   try {
@@ -36,36 +26,39 @@ export const checkVersion = async (req, res) => {
     }
 
     const config = await AppVersion.findOne({ platform });
+
+    // No config set yet — let app through with no update prompt
     if (!config) {
-      // No config set yet — let the app through
       return res.status(200).json({
-        success:     true,
-        forceUpdate: false,
-        softUpdate:  false,
-        message:     null,
-        storeUrl:    null,
+        success:        true,
+        updateRequired: false,
+        forceUpdate:    false,
+        softUpdate:     false,
+        latestVersion:  null,
+        storeUrl:       null,
+        message:        null,
       });
     }
 
-    const isForceUpdate =
-      config.forceUpdate ||
-      compareVersions(version, config.minRequiredVersion) < 0;
+    const isOutdated = version.trim() !== config.latestVersion.trim();
 
-    const isSoftUpdate =
-      !isForceUpdate &&
-      compareVersions(version, config.latestVersion) < 0;
+    const forceUpdate = isOutdated && config.forceUpdate;
+    const softUpdate  = isOutdated && !config.forceUpdate;
 
-    const defaultMessage = isForceUpdate
+    const defaultMessage = forceUpdate
       ? "A required update is available. Please update the app to continue."
       : "A new version is available. Update now for the best experience.";
 
     return res.status(200).json({
-      success:      true,
-      forceUpdate:  isForceUpdate,
-      softUpdate:   isSoftUpdate,
-      message:      config.updateMessage ?? (isForceUpdate || isSoftUpdate ? defaultMessage : null),
-      storeUrl:     config.storeUrl,
-      latestVersion: config.latestVersion,
+      success:        true,
+      updateRequired: isOutdated,
+      forceUpdate,
+      softUpdate,
+      latestVersion:  config.latestVersion,
+      storeUrl:       config.storeUrl ?? null,
+      message:        isOutdated
+                        ? (config.updateMessage ?? defaultMessage)
+                        : null,
     });
   } catch (err) {
     console.error("❌ [VERSION CHECK] Error:", err.message);
@@ -74,17 +67,20 @@ export const checkVersion = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
-/*  POST /api/admin/app/version                                         */
-/*  Admin — create or update version config for a platform.           */
-/*  Body: { platform, minRequiredVersion, latestVersion,               */
-/*          forceUpdate?, updateMessage?, storeUrl }                   */
+/*  POST /api/app/admin/version                                         */
+/*  Admin — set the current latest version for a platform.             */
+/*                                                                      */
+/*  Body: {                                                             */
+/*    platform:      "android" | "ios"     (required)                  */
+/*    version:       "1.0.5"               (required — new latest)     */
+/*    forceUpdate:   true | false          (required)                  */
+/*    storeUrl?:     "https://..."         (optional, keep if omitted) */
+/*    updateMessage?: "..."               (optional)                   */
+/*  }                                                                   */
 /* ------------------------------------------------------------------ */
 export const upsertVersionConfig = async (req, res) => {
   try {
-    const {
-      platform, minRequiredVersion, latestVersion,
-      forceUpdate, updateMessage, storeUrl,
-    } = req.body;
+    const { platform, version, forceUpdate, storeUrl, updateMessage } = req.body;
 
     if (!platform || !["ios", "android"].includes(platform)) {
       return res.status(400).json({
@@ -92,33 +88,46 @@ export const upsertVersionConfig = async (req, res) => {
         message: "platform must be ios or android",
       });
     }
-    if (!minRequiredVersion || !latestVersion || !storeUrl) {
+    if (!version) {
       return res.status(400).json({
         success: false,
-        message: "minRequiredVersion, latestVersion, and storeUrl are required",
+        message: "version is required (e.g. 1.0.5)",
+      });
+    }
+    if (forceUpdate === undefined || forceUpdate === null) {
+      return res.status(400).json({
+        success: false,
+        message: "forceUpdate (true or false) is required",
       });
     }
 
+    // Build update — only overwrite storeUrl if explicitly provided
+    const setFields = {
+      platform,
+      latestVersion: version.trim(),
+      forceUpdate:   Boolean(forceUpdate),
+      updatedBy:     req.admin?.email ?? req.admin?.id ?? null,
+    };
+    if (updateMessage !== undefined) setFields.updateMessage = updateMessage ?? null;
+    if (storeUrl      !== undefined) setFields.storeUrl      = storeUrl      ?? null;
+
     const config = await AppVersion.findOneAndUpdate(
       { platform },
-      {
-        $set: {
-          platform,
-          minRequiredVersion,
-          latestVersion,
-          forceUpdate:   forceUpdate   ?? false,
-          updateMessage: updateMessage ?? null,
-          storeUrl,
-          updatedBy:     req.admin?.email ?? req.admin?.id ?? null,
-        },
-      },
+      { $set: setFields },
       { upsert: true, new: true }
     );
 
     return res.status(200).json({
       success: true,
       message: `Version config updated for ${platform}`,
-      data:    config,
+      data: {
+        platform:      config.platform,
+        latestVersion: config.latestVersion,
+        forceUpdate:   config.forceUpdate,
+        storeUrl:      config.storeUrl,
+        updateMessage: config.updateMessage,
+        updatedAt:     config.updatedAt,
+      },
     });
   } catch (err) {
     console.error("❌ [VERSION CONFIG] Upsert error:", err.message);
@@ -127,7 +136,7 @@ export const upsertVersionConfig = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
-/*  GET /api/admin/app/version                                          */
+/*  GET /api/app/admin/version                                          */
 /*  Admin — view current config for all platforms.                     */
 /* ------------------------------------------------------------------ */
 export const getVersionConfigs = async (req, res) => {

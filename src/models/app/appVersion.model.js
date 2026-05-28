@@ -9,12 +9,11 @@ const appVersionSchema = new mongoose.Schema(
       unique:   true,   // one active config per platform
     },
 
-    minRequiredVersion: { type: String, required: true }, // below this = force update  e.g. "1.2.0"
-    latestVersion:      { type: String, required: true }, // below this = soft update   e.g. "1.5.0"
+    latestVersion: { type: String, required: true }, // anyone not on this version gets notified
 
-    forceUpdate:   { type: Boolean, default: false },  // override — force all users regardless of version
-    updateMessage: { type: String,  default: null },   // custom alert message
-    storeUrl:      { type: String,  required: true },  // App Store / Play Store deep link
+    forceUpdate:   { type: Boolean, default: false }, // true = block app until updated; false = soft nudge
+    updateMessage: { type: String,  default: null },  // custom alert message (optional)
+    storeUrl:      { type: String,  default: null },  // App Store / Play Store deep link (optional)
 
     updatedBy: { type: String, default: null },        // admin email / id
   },
