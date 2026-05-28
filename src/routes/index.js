@@ -50,6 +50,7 @@ import mfCuratedBasketRoutes from "./mf/curatedBasket.routes.js";
 import mfSipRoutes       from "./mf/sip/mfSip.routes.js";
 import mfBasketSipRoutes  from "./mf/sip/mfBasketSip.routes.js";
 import mfRedemptionRoutes  from "./mf/redemption/mfRedemption.routes.js";
+import mfUserTransactionRoutes from "./mf/transactions.routes.js";
 import mfSmartSavingRoutes from "./mf/smartSaving/smartSaving.routes.js";
 import appVersionRoutes    from "./app/appVersion.routes.js";
 import goalRoutes          from "./goals/goal.routes.js";
@@ -127,6 +128,9 @@ router.use("/api/mf/basket-sip", mfBasketSipRoutes);
 
 // MF Redemption (Withdraw)
 router.use("/api/mf/redemption", mfRedemptionRoutes);
+
+// MF Transaction History (purchases + redemptions unified)
+router.use("/api/mf/transactions", mfUserTransactionRoutes);
 
 // MF Smart Saving (Instant Liquid Fund)
 router.use("/api/mf/smart-saving", mfSmartSavingRoutes);

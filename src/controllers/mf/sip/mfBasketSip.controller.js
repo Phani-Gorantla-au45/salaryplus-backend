@@ -222,9 +222,11 @@ export const createBasketSip = async (req, res) => {
           uniqueId,
           fpSipId: primaryFpSipId,
           isBasketSip: true,
-          basketFunds: sip_plans.map((p) => ({
-            isin: p.isin.toUpperCase().trim(),
-            amount: Number(p.amount),
+          basketFunds: sip_plans.map((p, i) => ({
+            isin:       p.isin.toUpperCase().trim(),
+            amount:     Number(p.amount),
+            schemeName: schemes[i]?.schemeName ?? null,
+            fundName:   schemes[i]?.fundName   ?? null,
           })),
           basketPlans,
           mfInvestmentAccountId: fpInvestmentAccountId,

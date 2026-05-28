@@ -199,11 +199,19 @@ export const sendInvestmentSuccessEmail = async ({ to, name, amount, isBasket, f
 
   let contentHtml;
 
+  const allotmentNote = `
+    <div style="background:#EFF6FF;border-left:4px solid #3B82F6;border-radius:4px;padding:12px 16px;margin:0 0 16px">
+      <p style="margin:0;color:#1E40AF;font-size:13px;line-height:1.7">
+        <strong>Note:</strong> Unit allotment typically takes 1–3 business days from the date of investment.
+        Once allotted, you can view your holdings in the <strong>Portfolio</strong> section of the app.
+      </p>
+    </div>`;
+
   if (isBasket && funds.length > 0) {
     const fundsRows = funds.map((f) => `
       <tr>
-        <td style="padding:10px 12px;border-bottom:1px solid #E8ECF4;color:#374151;font-size:14px">${f.isin}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #E8ECF4;text-align:right;font-weight:600;color:${BRAND_COLOR};font-size:14px">${fmt(f.amount)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #E8ECF4;color:#374151;font-size:14px">${f.schemeName || f.fundName || f.isin}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #E8ECF4;text-align:right;font-weight:600;color:${BRAND_COLOR};font-size:14px;white-space:nowrap">${fmt(f.amount)}</td>
       </tr>`).join("");
 
     contentHtml = `
@@ -216,7 +224,7 @@ export const sendInvestmentSuccessEmail = async ({ to, name, amount, isBasket, f
         </div>
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr style="background:#E8ECF4">
-            <th style="padding:8px 12px;text-align:left;font-size:12px;color:#6B7280;font-weight:600;text-transform:uppercase">ISIN</th>
+            <th style="padding:8px 12px;text-align:left;font-size:12px;color:#6B7280;font-weight:600;text-transform:uppercase">Fund</th>
             <th style="padding:8px 12px;text-align:right;font-size:12px;color:#6B7280;font-weight:600;text-transform:uppercase">Amount</th>
           </tr>
           ${fundsRows}
@@ -227,9 +235,7 @@ export const sendInvestmentSuccessEmail = async ({ to, name, amount, isBasket, f
         </div>
       </div>
 
-      <p style="color:#555;font-size:13px;line-height:1.7;margin:0 0 16px">
-        Units will be allotted at the applicable NAV. Keep investing consistently — you're building your ₹1 Crore portfolio one step at a time. 💪
-      </p>`;
+      ${allotmentNote}`;
   } else {
     contentHtml = `
       <h2 style="color:${BRAND_COLOR};font-size:20px;margin:0 0 6px">Investment Successful! 🎉</h2>
@@ -243,9 +249,7 @@ export const sendInvestmentSuccessEmail = async ({ to, name, amount, isBasket, f
         </div>
       </div>
 
-      <p style="color:#555;font-size:13px;line-height:1.7;margin:0 0 16px">
-        Units will be allotted at the applicable NAV. Every investment is a step closer to your goal. 🎯
-      </p>`;
+      ${allotmentNote}`;
   }
 
   const html = wrapEmail(contentHtml);

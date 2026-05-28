@@ -1,4 +1,5 @@
 import MfPurchase from "../../../../models/mf/purchase/mfPurchase.model.js";
+import MfSchemePlan from "../../../../models/mf/master/mfSchemePlan.model.js";
 import { resolveUserEmail, resolveUserName, sendInvestmentSuccessEmail } from "../notification.utils.js";
 
 const EVENT_TO_STATE = {
@@ -48,12 +49,30 @@ export const handleMfPurchaseEvent = async (eventType, fpObject) => {
 
   if (!email) return;
 
+  // Enrich basket funds with scheme names
+  let funds = purchase.basketFunds ?? [];
+  if (purchase.isBasketOrder && funds.length > 0) {
+    const isins = funds.map((f) => f.isin).filter(Boolean);
+    const schemes = await MfSchemePlan.find(
+      { isin: { $in: isins } },
+      { isin: 1, schemeName: 1, fundName: 1 }
+    ).lean();
+    const schemeMap = {};
+    for (const s of schemes) schemeMap[s.isin] = s;
+
+    funds = funds.map((f) => ({
+      ...f,
+      schemeName: schemeMap[f.isin]?.schemeName ?? null,
+      fundName:   schemeMap[f.isin]?.fundName   ?? null,
+    }));
+  }
+
   await sendInvestmentSuccessEmail({
     to:         email,
     name,
     amount:     purchase.amount,
     isBasket:   purchase.isBasketOrder,
-    funds:      purchase.basketFunds ?? [],
+    funds,
     schemeName: purchase.schemeName ?? null,
   });
 };
