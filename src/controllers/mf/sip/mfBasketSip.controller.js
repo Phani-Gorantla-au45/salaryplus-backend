@@ -77,16 +77,21 @@ export const createBasketSip = async (req, res) => {
       installment_day,
       payment_source,
       years,
-      generate_first_installment_now = false,
+      generate_first_installment_now = true,
       sip_plans,
       goal_id,
       folio_number,
     } = req.body;
     console.log("Create sip basket", req.body);
-    console.log(`  [FOLIO] folio_number received:`, folio_number ?? "not provided");
+    console.log(
+      `  [FOLIO] folio_number received:`,
+      folio_number ?? "not provided",
+    );
 
     const number_of_installments =
-      frequency === "daily" ? Number(years || 3) * 365 : Number(years || 25) * 12;
+      frequency === "daily"
+        ? Number(years || 3) * 365
+        : Number(years || 25) * 12;
 
     /* ---------- VALIDATE ---------- */
     if (!frequency || !["daily", "monthly"].includes(frequency)) {
@@ -183,7 +188,10 @@ export const createBasketSip = async (req, res) => {
       ...(folio_number && { folio_number }),
     }));
 
-    console.log(`  [FOLIO] fpPlans folio_number:`, fpPlans.map((p) => p.folio_number ?? "none"));
+    console.log(
+      `  [FOLIO] fpPlans folio_number:`,
+      fpPlans.map((p) => p.folio_number ?? "none"),
+    );
     const fpResults = await createFpBatchSip(fpPlans);
     const primaryFpSipId = fpResults[0]?.id;
     const basketPlans = fpResults.map((fp, i) => ({
@@ -223,10 +231,10 @@ export const createBasketSip = async (req, res) => {
           fpSipId: primaryFpSipId,
           isBasketSip: true,
           basketFunds: sip_plans.map((p, i) => ({
-            isin:       p.isin.toUpperCase().trim(),
-            amount:     Number(p.amount),
+            isin: p.isin.toUpperCase().trim(),
+            amount: Number(p.amount),
             schemeName: schemes[i]?.schemeName ?? null,
-            fundName:   schemes[i]?.fundName   ?? null,
+            fundName: schemes[i]?.fundName ?? null,
           })),
           basketPlans,
           mfInvestmentAccountId: fpInvestmentAccountId,

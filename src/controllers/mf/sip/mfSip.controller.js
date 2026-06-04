@@ -93,13 +93,15 @@ export const createSip = async (req, res) => {
       installment_day,
       payment_source,
       years,
-      generate_first_installment_now = false,
+      generate_first_installment_now = true,
       folio_number,
       goal_id,
     } = req.body;
 
     const number_of_installments =
-      frequency === "daily" ? Number(years || 3) * 365 : Number(years || 25) * 12;
+      frequency === "daily"
+        ? Number(years || 3) * 365
+        : Number(years || 25) * 12;
 
     /* ---------- VALIDATE ---------- */
     if (!isin)
