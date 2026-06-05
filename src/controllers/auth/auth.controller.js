@@ -127,7 +127,7 @@ export const verifyOtp = async (req, res) => {
       { expiresIn: "7d" },
     );
 
-    const isProfileComplete = user.First_name && user.Last_name && user.email;
+    const isProfileComplete = user.First_name && user.email;
 
     res.json({
       token,
