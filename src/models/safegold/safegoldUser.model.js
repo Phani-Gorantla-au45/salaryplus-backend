@@ -14,8 +14,10 @@ const safegoldUserSchema = new mongoose.Schema(
     email:    { type: String, default: null },
     pinCode:  { type: String, default: null },
 
-    // Gold balance in grams (updated on fetch)
-    goldBalance: { type: Number, default: 0 },
+    // Gold balance in grams (synced from SafeGold after every transaction)
+    goldBalance:      { type: Number, default: 0 },
+    sellableBalance:  { type: Number, default: 0 }, // may differ if holding period applies
+    balanceSyncedAt:  { type: Date,   default: null },
 
     // KYC requirement flags from SafeGold
     kyc: {

@@ -1,6 +1,7 @@
-import RegistrationUser from "../../models/user/user.model.js";
-import SafegoldUser     from "../../models/safegold/safegoldUser.model.js";
-import { safegoldPost } from "../../utils/safegold/client.utils.js";
+import RegistrationUser        from "../../models/user/user.model.js";
+import SafegoldUser             from "../../models/safegold/safegoldUser.model.js";
+import { safegoldPost }         from "../../utils/safegold/client.utils.js";
+import { syncSafegoldBalance }  from "../../utils/safegold/user.utils.js";
 
 /* ------------------------------------------------------------------ */
 /*  POST /api/safegold/user/register                                    */
@@ -140,6 +141,57 @@ export const getSafegoldProfile = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  GET /api/safegold/user/balance                                      */
+/*  Returns stored balance from our DB (fast — no SafeGold API call).  */
+/*  Per SafeGold docs, balance is synced after every transaction.       */
+/* ------------------------------------------------------------------ */
+export const getSafegoldBalance = async (req, res) => {
+  try {
+    const { uniqueId } = req.user;
+
+    const record = await SafegoldUser.findOne({ uniqueId });
+    if (!record?.isRegistered) {
+      return res.status(400).json({
+        success: false,
+        message: "User is not registered with SafeGold",
+      });
+    }
+
+    return res.status(200).json({
+      success:         true,
+      goldBalance:     record.goldBalance     ?? 0,
+      sellableBalance: record.sellableBalance ?? 0,
+      balanceSyncedAt: record.balanceSyncedAt ?? null,
+    });
+  } catch (err) {
+    console.error("❌ [SAFEGOLD BALANCE] Error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  POST /api/safegold/user/balance/sync                                */
+/*  Force-syncs balance from SafeGold and updates our DB.              */
+/*  Call this after any buy/sell/SIP transaction completes.            */
+/* ------------------------------------------------------------------ */
+export const syncBalance = async (req, res) => {
+  try {
+    const { uniqueId } = req.user;
+
+    const result = await syncSafegoldBalance(uniqueId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Balance synced from SafeGold",
+      ...result,
+    });
+  } catch (err) {
+    console.error("❌ [SAFEGOLD BALANCE SYNC] Error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  Internal — public response shape                                    */
 /* ------------------------------------------------------------------ */
 const safegoldPublicResponse = (r) => ({
@@ -147,7 +199,9 @@ const safegoldPublicResponse = (r) => ({
   name:              r.name,
   mobileNo:          r.mobileNo,
   email:             r.email,
-  goldBalance:       r.goldBalance,
+  goldBalance:       r.goldBalance     ?? 0,
+  sellableBalance:   r.sellableBalance ?? 0,
+  balanceSyncedAt:   r.balanceSyncedAt ?? null,
   kyc: {
     identityRequired: r.kyc?.identityRequired ?? false,
     panRequired:      r.kyc?.panRequired      ?? false,
