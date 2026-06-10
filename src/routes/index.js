@@ -54,6 +54,8 @@ import mfUserTransactionRoutes from "./mf/transactions.routes.js";
 import mfSmartSavingRoutes from "./mf/smartSaving/smartSaving.routes.js";
 import appVersionRoutes    from "./app/appVersion.routes.js";
 import goalRoutes          from "./goals/goal.routes.js";
+// SafeGold
+import safegoldUserRoutes from "./safegold/user.routes.js";
 // MF Webhooks
 import mfFpWebhookRoutes       from "./mf/webhook/fpWebhook.routes.js";
 import mfFpWebhookManageRoutes from "./mf/webhook/fpWebhookManage.routes.js";
@@ -144,5 +146,8 @@ router.use("/api/goals", goalRoutes);
 // MF Webhooks (FP → our server)
 router.use("/api/mf/webhook/fp",        mfFpWebhookRoutes);       // public — receives FP events
 router.use("/api/mf/admin/webhook/fp",  mfFpWebhookManageRoutes); // admin — manage + event log
+
+// SafeGold
+router.use("/api/safegold/user", safegoldUserRoutes);
 
 export default router;
