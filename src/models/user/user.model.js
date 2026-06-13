@@ -29,6 +29,19 @@ const registrationSchema = new mongoose.Schema(
     },
     panVerified: { type: Boolean, default: false },
 
+    // Bond (Bharat Wealth) fields
+    panNumber: {
+      type: String,
+      uppercase: true,
+      trim: true,
+      index: true,
+    },
+    bondKycStatus: {
+      type: String,
+      enum: ["PENDING", "SUBMITTED", "APPROVED", "REJECTED"],
+      default: "PENDING",
+    },
+
     // MF onboarding flags
     mfKycStatus: {
       type: String,
