@@ -15,6 +15,7 @@ import sbOnboardingRoutes from "./bonds/sbOnboarding.routes.js";
 import sbKycRoutes from "./bonds/sbKyc.routes.js";
 import bwBondKycRoutes from "./bonds/bwBondKyc.routes.js";
 import bwBondKycAdminRoutes from "./bonds/bwBondKycAdmin.routes.js";
+import bwBondUploadRoutes from "./bonds/bwBondUpload.routes.js";
 // MF KYC
 import mfKycRoutes             from "./mf/kyc/kyc.routes.js";
 import mfKycRequestRoutes      from "./mf/kyc/kycRequest.routes.js";
@@ -76,6 +77,7 @@ router.use("/api/bonddetails", bondDetailsRoutes);
 router.use("/api/book", bookBondRoutes);
 router.use("/api/sbOnboarding", sbOnboardingRoutes);
 router.use("/api/kyc", sbKycRoutes);
+router.use("/api/bw/bonds/kyc", bwBondUploadRoutes);
 router.use("/api/bw/bonds/kyc", bwBondKycRoutes);
 router.use("/api/bw/admin/bonds/kyc", bwBondKycAdminRoutes);
 router.use(augmontRoutes); // flat mount for /merchant/v1/buy and /sell
