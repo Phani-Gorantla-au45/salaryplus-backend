@@ -1,5 +1,6 @@
 import RegistrationUser from "../../models/user/user.model.js";
 import BwBondKyc from "../../models/bonds/bwBondKyc.model.js";
+import { getBondDetails } from "../../utils/bonds/bondDetails.utils.js";
 
 /* ================================================================
  * GET ALL BW USERS
@@ -94,6 +95,48 @@ export const getBwUser = async (req, res) => {
         ...user,
         bondKyc: bondKyc || null,
       },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ================================================================
+ * GET USER BOND PORTFOLIO (ADMIN)
+ * GET /api/bw/admin/users/:uniqueId/bond-portfolio
+ * ================================================================ */
+export const getBwUserBondPortfolio = async (req, res) => {
+  try {
+    const { uniqueId } = req.params;
+
+    const user = await RegistrationUser.findOne(
+      { uniqueId },
+      { _id: 0, panNumber: 1, First_name: 1, Last_name: 1, bondKycStatus: 1 },
+    ).lean();
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (!user.panNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "PAN not on record for this user",
+        bondKycStatus: user.bondKycStatus,
+      });
+    }
+
+    const portfolio = await getBondDetails(user.panNumber);
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        uniqueId,
+        name: [user.First_name, user.Last_name].filter(Boolean).join(" ") || "—",
+        panNumber: user.panNumber,
+        bondKycStatus: user.bondKycStatus,
+      },
+      data: portfolio,
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

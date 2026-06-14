@@ -17,6 +17,7 @@ import bwBondKycRoutes from "./bonds/bwBondKyc.routes.js";
 import bwBondKycAdminRoutes from "./bonds/bwBondKycAdmin.routes.js";
 import bwUsersAdminRoutes from "./admin/bwUsers.routes.js";
 import bwBondUploadRoutes from "./bonds/bwBondUpload.routes.js";
+import bwBondPortfolioRoutes from "./bonds/bwBondPortfolio.routes.js";
 // MF KYC
 import mfKycRoutes             from "./mf/kyc/kyc.routes.js";
 import mfKycRequestRoutes      from "./mf/kyc/kycRequest.routes.js";
@@ -79,6 +80,7 @@ router.use("/api/book", bookBondRoutes);
 router.use("/api/sbOnboarding", sbOnboardingRoutes);
 router.use("/api/kyc", sbKycRoutes);
 router.use("/api/bw/bonds/kyc", bwBondUploadRoutes);
+router.use("/api/bw/bonds", bwBondPortfolioRoutes);
 router.use("/api/bw/bonds/kyc", bwBondKycRoutes);
 router.use("/api/bw/admin/bonds/kyc", bwBondKycAdminRoutes);
 router.use("/api/bw/admin/users", bwUsersAdminRoutes);
