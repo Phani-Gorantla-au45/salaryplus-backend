@@ -1,5 +1,6 @@
 import BwBondKyc from "../../models/bonds/bwBondKyc.model.js";
 import RegistrationUser from "../../models/user/user.model.js";
+import { sendBondKycApprovedEmail } from "../../utils/notifications/email.utils.js";
 
 /* ================================================================
  * LIST ALL KYC SUBMISSIONS
@@ -93,10 +94,18 @@ export const adminUpdateBwBondKycStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: "KYC not found" });
     }
 
-    await RegistrationUser.updateOne(
+    const user = await RegistrationUser.findOneAndUpdate(
       { uniqueId },
       { $set: { bondKycStatus: status } },
-    );
+      { new: false },
+    ).lean();
+
+    if (status === "APPROVED" && user?.email) {
+      const userName = [user.First_name, user.Last_name].filter(Boolean).join(" ");
+      sendBondKycApprovedEmail({ to: user.email, userName }).catch((err) =>
+        console.error("❌ [BW Bond KYC] Approval email failed:", err.message),
+      );
+    }
 
     return res.status(200).json({
       success: true,

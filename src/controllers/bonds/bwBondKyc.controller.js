@@ -1,5 +1,9 @@
 import BwBondKyc from "../../models/bonds/bwBondKyc.model.js";
 import RegistrationUser from "../../models/user/user.model.js";
+import {
+  sendBondKycReceivedEmail,
+  sendBondKycDocsToAdmin,
+} from "../../utils/notifications/email.utils.js";
 
 /* ================================================================
  * SUBMIT / RE-SUBMIT KYC
@@ -79,7 +83,7 @@ export const submitBwBondKyc = async (req, res) => {
       await BwBondKyc.create({ userUniqueId: uniqueId, ...kycPayload });
     }
 
-    await RegistrationUser.updateOne(
+    const user = await RegistrationUser.findOneAndUpdate(
       { uniqueId },
       {
         $set: {
@@ -87,6 +91,33 @@ export const submitBwBondKyc = async (req, res) => {
           bondKycStatus: "SUBMITTED",
         },
       },
+      { new: false }, // get the doc before update to read existing name/email/phone
+    ).lean();
+
+    // Fire emails in background — don't block the response
+    const userName = [user?.First_name, user?.Last_name].filter(Boolean).join(" ");
+    const pan = panNumber.toUpperCase();
+
+    sendBondKycReceivedEmail({
+      to: user?.email,
+      userName,
+    }).catch((err) =>
+      console.error("❌ [BW Bond KYC] User confirmation email failed:", err.message),
+    );
+
+    sendBondKycDocsToAdmin({
+      userName,
+      mobile:          user?.phone,
+      email:           user?.email,
+      panNumber:       pan,
+      panFileUrl,
+      addressProofType,
+      addressProofUrl,
+      bankProofUrl,
+      dematProofUrl,
+      userUniqueId:    uniqueId,
+    }).catch((err) =>
+      console.error("❌ [BW Bond KYC] Admin notification email failed:", err.message),
     );
 
     return res.status(200).json({
