@@ -22,6 +22,7 @@ const ALLOWED_DOC_TYPES = ["pan", "address_proof", "bank_proof", "demat_proof"];
 export const uploadBwBondDocument = async (req, res) => {
   try {
     const file = req.file;
+    console.log(`📂 [BW Bond Upload] user=${req.user?.uniqueId} docType=${req.body?.docType} file=${file?.originalname ?? "none"} size=${file?.size ?? 0}`);
 
     if (!file) {
       return res.status(400).json({
