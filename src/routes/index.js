@@ -59,6 +59,7 @@ import mfUserTransactionRoutes from "./mf/transactions.routes.js";
 import mfSmartSavingRoutes from "./mf/smartSaving/smartSaving.routes.js";
 import appVersionRoutes    from "./app/appVersion.routes.js";
 import goalRoutes          from "./goals/goal.routes.js";
+import customGoalRoutes    from "./goals/userCustomGoal.routes.js";
 // SafeGold
 import safegoldUserRoutes from "./safegold/user.routes.js";
 // MF Webhooks
@@ -152,6 +153,7 @@ router.use("/api/app", appVersionRoutes);
 
 // Goal-based Financial Planning
 router.use("/api/goals", goalRoutes);
+router.use("/api/custom-goals", customGoalRoutes);
 
 // MF Webhooks (FP → our server)
 router.use("/api/mf/webhook/fp",        mfFpWebhookRoutes);       // public — receives FP events

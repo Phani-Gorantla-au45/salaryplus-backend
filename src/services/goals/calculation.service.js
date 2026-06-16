@@ -289,7 +289,120 @@ function calcEmergencyFundGoal(inputs, assumptions) {
 /* ------------------------------------------------------------------ */
 /*  Main entry point                                                    */
 /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/*  New goal-type calculators (matching goalTypes.config.js inputs)    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Retirement (new input shape from goalTypes.config.js)
+ * inputs: { monthly_expense, current_age, retirement_age,
+ *           pre_retirement_return=12, post_retirement_return=7,
+ *           existing_investment=0, existing_investment_return=12, step_up_rate=10 }
+ */
+function calcRetirementNew(inputs) {
+  const {
+    monthly_expense,
+    current_age,
+    retirement_age,
+    pre_retirement_return     = 12,
+    post_retirement_return    = 7,
+    existing_investment       = 0,
+    existing_investment_return= 12,
+    step_up_rate              = 10,
+  } = inputs;
+
+  if (!monthly_expense || !current_age || !retirement_age)
+    throw new Error("monthly_expense, current_age and retirement_age are required");
+
+  const yearsToRetirement = retirement_age - current_age;
+  if (yearsToRetirement <= 0) throw new Error("retirement_age must be greater than current_age");
+
+  const POST_RETIREMENT_YEARS = 25;
+  const INFLATION = 6;
+
+  // Inflation-adjusted annual expense at retirement
+  const annualExpenseAtRetirement = futureValue(monthly_expense * 12, INFLATION, yearsToRetirement);
+
+  // Corpus needed (present value of post-retirement annuity)
+  const r = post_retirement_return / 100;
+  const retirementCorpus = r === 0
+    ? annualExpenseAtRetirement * POST_RETIREMENT_YEARS
+    : annualExpenseAtRetirement * ((1 - Math.pow(1 + r, -POST_RETIREMENT_YEARS)) / r);
+
+  // Subtract future value of existing investment
+  const existingInvestmentFV = existing_investment > 0
+    ? futureValue(existing_investment, existing_investment_return, yearsToRetirement)
+    : 0;
+
+  const additionalCorpusNeeded = Math.max(0, Math.round(retirementCorpus) - Math.round(existingInvestmentFV));
+
+  return buildSipResult(additionalCorpusNeeded, pre_retirement_return, yearsToRetirement, step_up_rate);
+}
+
+/**
+ * Kids Education (new input shape)
+ * inputs: { kid_name, education_fee_today, timeline, inflation=10, return_expectation=12, step_up_rate=10 }
+ */
+function calcKidsEducation(inputs) {
+  const {
+    education_fee_today,
+    timeline,
+    inflation        = 10,
+    return_expectation = 12,
+    step_up_rate     = 10,
+  } = inputs;
+
+  if (!education_fee_today || !timeline)
+    throw new Error("education_fee_today and timeline are required");
+
+  const fv = futureValue(education_fee_today, inflation, timeline);
+  return buildSipResult(Math.round(fv), return_expectation, timeline, step_up_rate);
+}
+
+/**
+ * Standard cost-based goal (Car, Vacation, Marriage)
+ * inputs: { <cost_field>, timeline, inflation=6, return_expectation=12, step_up_rate=10 }
+ */
+function calcCostGoal(inputs) {
+  const {
+    car_cost, vacation_budget, wedding_budget,
+    timeline,
+    inflation          = 6,
+    return_expectation = 12,
+    step_up_rate       = 10,
+  } = inputs;
+
+  const currentCost = car_cost ?? vacation_budget ?? wedding_budget;
+  if (!currentCost || !timeline)
+    throw new Error("Cost and timeline are required");
+
+  const fv = futureValue(currentCost, inflation, timeline);
+  return buildSipResult(Math.round(fv), return_expectation, timeline, step_up_rate);
+}
+
+/**
+ * Emergency Fund (new input shape)
+ * inputs: { monthly_expenses, months_to_save=3, inflation=6, return_expectation=6 }
+ */
+function calcEmergencyNew(inputs) {
+  const {
+    monthly_expenses,
+    months_to_save     = 3,
+    inflation          = 6,
+    return_expectation = 6,
+  } = inputs;
+
+  if (!monthly_expenses) throw new Error("monthly_expenses is required");
+
+  // Target = inflation-adjusted monthly expense * months
+  const targetAmount = Math.round(futureValue(monthly_expenses, inflation, 1) * months_to_save);
+  const years = 1; // build emergency fund in 1 year
+
+  return buildSipResult(targetAmount, return_expectation, years, 0);
+}
+
 const CALCULATORS = {
+  // Legacy calculators (used by GoalTemplate system)
   health_insurance: calcHealthInsuranceGoal,
   term_insurance: calcTermInsuranceGoal,
   child_education: calcChildEducationGoal,
@@ -297,7 +410,14 @@ const CALCULATORS = {
   retirement: calcRetirementGoal,
   home_purchase: calcHomePurchaseGoal,
   emergency_fund: calcEmergencyFundGoal,
-  // Any unknown type falls back to standard goal
+
+  // New calculators (used by UserCustomGoal / goalTypes.config.js)
+  retirement_new:   calcRetirementNew,
+  kids_education:   calcKidsEducation,
+  car:              calcCostGoal,
+  vacation:         calcCostGoal,
+  marriage:         calcCostGoal,
+  emergency:        calcEmergencyNew,
 };
 
 /**
@@ -309,4 +429,43 @@ const CALCULATORS = {
 export function calculateGoal(goalType, inputs, assumptions) {
   const calculator = CALCULATORS[goalType] ?? calcStandardGoal;
   return calculator(inputs, assumptions);
+}
+
+/**
+ * Other / custom user-defined goal
+ * inputs: { target_amount_today, timeline, inflation=6, return_expectation=12, step_up_rate=10 }
+ */
+function calcOtherGoal(inputs) {
+  const {
+    target_amount_today,
+    timeline,
+    inflation          = 6,
+    return_expectation = 12,
+    step_up_rate       = 10,
+  } = inputs;
+
+  if (!target_amount_today || !timeline)
+    throw new Error("target_amount_today and timeline are required");
+
+  const fv = futureValue(target_amount_today, inflation, timeline);
+  return buildSipResult(Math.round(fv), return_expectation, timeline, step_up_rate);
+}
+
+/**
+ * Calculate for custom goal types (goalTypes.config.js).
+ * These calculators derive everything from inputs — no assumptions object needed.
+ */
+export function calculateCustomGoal(goalType, inputs) {
+  const CUSTOM_CALCULATORS = {
+    retirement:   calcRetirementNew,
+    kids_education: calcKidsEducation,
+    car:          calcCostGoal,
+    vacation:     calcCostGoal,
+    marriage:     calcCostGoal,
+    emergency:    calcEmergencyNew,
+    other:        calcOtherGoal,
+  };
+  const calc = CUSTOM_CALCULATORS[goalType];
+  if (!calc) throw new Error(`Unknown goal type: ${goalType}`);
+  return calc(inputs);
 }
