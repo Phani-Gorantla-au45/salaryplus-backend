@@ -292,6 +292,187 @@ export const sendBondKycDocsToAdmin = async ({
   });
 };
 
+/* ================================================================
+ * GOAL SAVED — USER CONFIRMATION EMAIL
+ * ================================================================ */
+export const sendGoalSavedEmail = async ({ to, userName, goalLabel, goalName, targetAmount, monthlySip, stepUpSip, chosenPlan }) => {
+  const displayName = userName?.trim() || "Investor";
+  const fmt = (n) => "₹" + Number(n).toLocaleString("en-IN");
+  const chosenSip   = chosenPlan === "step_up_sip" ? stepUpSip : monthlySip;
+  const sipLabel    = chosenPlan === "step_up_sip" ? "Step-up SIP (Starting)" : "Monthly SIP";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#F4F6FB;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FB;padding:32px 0">
+    <tr><td align="center">
+      <table width="540" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:${BRAND_COLOR};padding:24px 32px">
+            <p style="margin:0;font-size:22px;font-weight:800;color:#fff;letter-spacing:1px">${BRAND}</p>
+            <p style="margin:4px 0 0;font-size:12px;color:${GOLD};letter-spacing:2px;text-transform:uppercase">Wealth · Done Right</p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px">
+            <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 6px">Dear <strong>${displayName}</strong>,</p>
+            <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 24px">
+              Your <strong>${goalLabel}</strong> goal has been saved successfully. Here's a summary:
+            </p>
+
+            <!-- Goal Summary Card -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFF;border:1px solid #E0E7FF;border-radius:10px;margin:0 0 24px;overflow:hidden">
+              <tr>
+                <td style="background:${BRAND_COLOR};padding:12px 20px">
+                  <p style="margin:0;font-size:14px;font-weight:700;color:#fff;letter-spacing:0.5px">${goalName}</p>
+                  <p style="margin:2px 0 0;font-size:11px;color:${GOLD};text-transform:uppercase;letter-spacing:1px">${goalLabel}</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:0">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:16px 20px;border-bottom:1px solid #E0E7FF;width:50%">
+                        <p style="margin:0;font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:1px">Target Amount</p>
+                        <p style="margin:4px 0 0;font-size:20px;font-weight:800;color:${BRAND_COLOR}">${fmt(targetAmount)}</p>
+                      </td>
+                      <td style="padding:16px 20px;border-bottom:1px solid #E0E7FF;border-left:1px solid #E0E7FF">
+                        <p style="margin:0;font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:1px">${sipLabel}</p>
+                        <p style="margin:4px 0 0;font-size:20px;font-weight:800;color:#065F46">${fmt(chosenSip)}/mo</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Highlight: Next Step -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px">
+              <tr>
+                <td style="background:linear-gradient(135deg,#FFF9E6 0%,#FFFBF0 100%);border:2px solid ${GOLD};border-radius:10px;padding:20px 24px">
+                  <p style="margin:0 0 6px;font-size:13px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:1px">🎯 What's Next?</p>
+                  <p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#374151">Saving a goal is the first step.</p>
+                  <p style="margin:0 0 16px;font-size:14px;color:#4B5563;line-height:1.7">
+                    The <strong>most important step</strong> is building the right portfolio for this goal.
+                    Our experts can help you pick the best funds, set up a SIP, and keep you on track.
+                  </p>
+                  <p style="margin:0 0 16px;font-size:14px;color:#4B5563;line-height:1.7">
+                    <strong>Connect directly with our founder</strong> — get personalised guidance tailored to your financial goals.
+                  </p>
+                  <table cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="background:${BRAND_COLOR};border-radius:6px;padding:12px 24px">
+                        <a href="mailto:phanigorantla531@gmail.com?subject=Goal Portfolio Guidance — ${encodeURIComponent(goalName)}"
+                           style="color:#fff;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.3px">
+                          📩 Connect with the Founder
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <p style="color:#6B7280;font-size:13px;line-height:1.6;margin:0">
+              You can view and manage your goals anytime in the <strong>${BRAND}</strong> app.
+              Questions? Write to us at <a href="mailto:support@bharatwealth.app" style="color:${BRAND_COLOR}">support@bharatwealth.app</a>.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#F4F6FB;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:11px;color:#9CA3AF">© ${new Date().getFullYear()} ${BRAND}. All rights reserved.</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await getTransporter().sendMail({
+    from:    `"${BRAND}" <${process.env.SMTP_FROM}>`,
+    to,
+    subject: `Your ${goalLabel} Goal is Saved — ${BRAND}`,
+    text:    `Dear ${displayName}, your ${goalLabel} goal "${goalName}" has been saved. Target: ${fmt(targetAmount)} | ${sipLabel}: ${fmt(chosenSip)}/mo. Open the app to start building your portfolio.`,
+    html,
+  });
+};
+
+/* ================================================================
+ * GOAL SAVED — ADMIN NOTIFICATION
+ * ================================================================ */
+export const sendGoalSavedToAdmin = async ({ userName, mobile, email, goalLabel, goalName, targetAmount, monthlySip, stepUpSip, chosenPlan, userUniqueId }) => {
+  const fmt = (n) => "₹" + Number(n).toLocaleString("en-IN");
+  const chosenSip = chosenPlan === "step_up_sip" ? stepUpSip : monthlySip;
+  const sipLabel  = chosenPlan === "step_up_sip" ? "Step-up SIP" : "Monthly SIP";
+
+  const row = (label, value) => `
+    <tr>
+      <td style="padding:10px 16px;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #F3F4F6;width:180px;background:#F9FAFB">${label}</td>
+      <td style="padding:10px 16px;font-size:14px;color:#111827;border-bottom:1px solid #F3F4F6">${value}</td>
+    </tr>`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#F4F6FB;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FB;padding:32px 0">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+        <tr>
+          <td style="background:${BRAND_COLOR};padding:24px 32px">
+            <p style="margin:0;font-size:20px;font-weight:800;color:#fff">${BRAND} — Admin</p>
+            <p style="margin:4px 0 0;font-size:12px;color:${GOLD};letter-spacing:2px;text-transform:uppercase">New Goal Saved</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden">
+              ${row("Name",          userName   || "—")}
+              ${row("Mobile",        mobile     || "—")}
+              ${row("Email",         email      || "—")}
+              ${row("Goal Type",     goalLabel)}
+              ${row("Goal Name",     goalName)}
+              ${row("Target Amount", fmt(targetAmount))}
+              ${row(sipLabel,        fmt(chosenSip) + "/mo")}
+              ${row("Plan Chosen",   chosenPlan === "step_up_sip" ? "Step-up SIP" : "Flat SIP")}
+              ${row("User ID",       userUniqueId)}
+              ${row("Date",          new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST")}
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px 24px;text-align:center">
+            <p style="margin:0;font-size:11px;color:#9CA3AF">© ${new Date().getFullYear()} ${BRAND}</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await getTransporter().sendMail({
+    from:    `"${BRAND} Admin" <${process.env.SMTP_FROM}>`,
+    to:      process.env.SMTP_USER,
+    cc:      "phanigorantla531@gmail.com",
+    subject: `New Goal Saved — ${userName || "User"} | ${goalLabel} | ${fmt(targetAmount)}`,
+    text:    `${userName || "A user"} saved a ${goalLabel} goal "${goalName}". Target: ${fmt(targetAmount)} | ${sipLabel}: ${fmt(chosenSip)}/mo`,
+    html,
+  });
+};
+
 export const sendEmailOtp = async (to, otp) => {
   const html = `
 <!DOCTYPE html>

@@ -1,6 +1,8 @@
 import UserCustomGoal from "../../models/goals/userCustomGoal.model.js";
+import RegistrationUser from "../../models/user/user.model.js";
 import { GOAL_TYPES, getGoalType } from "../../config/goalTypes.config.js";
 import { calculateCustomGoal } from "../../services/goals/calculation.service.js";
+import { sendGoalSavedEmail, sendGoalSavedToAdmin } from "../../utils/notifications/email.utils.js";
 
 /* ================================================================
  * GET GOAL TYPES  (no auth — public)
@@ -80,17 +82,48 @@ export const createCustomGoal = async (req, res) => {
       return res.status(400).json({ success: false, message: "stepUpSip is required when chosenPlan is step_up_sip" });
     }
 
-    const goal = await UserCustomGoal.create({
-      uniqueId,
-      goalType,
-      name: name.trim(),
-      inputs:       inputs ?? {},
+    const [goal, user] = await Promise.all([
+      UserCustomGoal.create({
+        uniqueId,
+        goalType,
+        name: name.trim(),
+        inputs:       inputs ?? {},
+        targetAmount,
+        monthlySip,
+        stepUpSip:    stepUpSip  ?? null,
+        stepUpRate:   stepUpRate ?? null,
+        chosenPlan,
+      }),
+      RegistrationUser.findOne({ uniqueId }, { First_name: 1, Last_name: 1, email: 1, phone: 1 }).lean(),
+    ]);
+
+    const userName  = [user?.First_name, user?.Last_name].filter(Boolean).join(" ");
+    const goalLabel = getGoalType(goalType)?.label ?? goalType;
+
+    const emailPayload = {
+      userName,
+      goalLabel,
+      goalName:    name.trim(),
       targetAmount,
       monthlySip,
-      stepUpSip:    stepUpSip  ?? null,
-      stepUpRate:   stepUpRate ?? null,
+      stepUpSip:   stepUpSip  ?? null,
       chosenPlan,
-    });
+    };
+
+    if (user?.email) {
+      sendGoalSavedEmail({ to: user.email, ...emailPayload }).catch((err) =>
+        console.error("❌ [Goal] User email failed:", err.message),
+      );
+    }
+
+    sendGoalSavedToAdmin({
+      mobile:      user?.phone,
+      email:       user?.email,
+      userUniqueId: uniqueId,
+      ...emailPayload,
+    }).catch((err) =>
+      console.error("❌ [Goal] Admin email failed:", err.message),
+    );
 
     return res.status(201).json({ success: true, data: goal });
   } catch (error) {
