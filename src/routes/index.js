@@ -62,6 +62,8 @@ import goalRoutes          from "./goals/goal.routes.js";
 import customGoalRoutes    from "./goals/userCustomGoal.routes.js";
 // SafeGold
 import safegoldUserRoutes from "./safegold/user.routes.js";
+// Migration (BSE → platform bulk onboarding)
+import migrationRoutes from "./migration/migration.routes.js";
 // MF Webhooks
 import mfFpWebhookRoutes       from "./mf/webhook/fpWebhook.routes.js";
 import mfFpWebhookManageRoutes from "./mf/webhook/fpWebhookManage.routes.js";
@@ -161,5 +163,8 @@ router.use("/api/mf/admin/webhook/fp",  mfFpWebhookManageRoutes); // admin — m
 
 // SafeGold
 router.use("/api/safegold/user", safegoldUserRoutes);
+
+// Migration (BSE → platform bulk onboarding)
+router.use("/api/migration", migrationRoutes);
 
 export default router;

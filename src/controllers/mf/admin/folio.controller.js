@@ -1,4 +1,37 @@
 import { fetchFpFolios } from "../../../utils/mf/folio.utils.js";
+import MfUserData from "../../../models/mf/mfUserData.model.js";
+
+/* ------------------------------------------------------------------ */
+/*  Attach our user info to a list of FP folios via mf_investment_account */
+/* ------------------------------------------------------------------ */
+const attachUsers = async (folios) => {
+  const fpAccountIds = [...new Set(folios.map((f) => f.mf_investment_account).filter(Boolean))];
+
+  const users = await MfUserData.find(
+    { "investmentAccount.fpInvestmentAccountId": { $in: fpAccountIds } },
+    {
+      uniqueId: 1,
+      "investmentAccount.fpInvestmentAccountId": 1,
+      "investorProfile.name": 1,
+      "investorProfile.pan": 1,
+      "phone.number": 1,
+      "email.email": 1,
+    },
+  ).lean();
+
+  const userByFpAccount = {};
+  for (const u of users) {
+    userByFpAccount[u.investmentAccount?.fpInvestmentAccountId] = {
+      uniqueId: u.uniqueId,
+      name:     u.investorProfile?.name ?? null,
+      pan:      u.investorProfile?.pan  ?? null,
+      phone:    u.phone?.number ?? null,
+      email:    u.email?.email  ?? null,
+    };
+  }
+
+  return folios.map((f) => ({ ...f, user: userByFpAccount[f.mf_investment_account] ?? null }));
+};
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/admin/folios                                            */
@@ -16,10 +49,13 @@ export const listFolios = async (req, res) => {
     if (mf_investment_account) params.mf_investment_account = mf_investment_account;
 
     const fpResponse = await fetchFpFolios(params);
+    const folios = fpResponse?.data ?? [];
+    const enriched = await attachUsers(folios);
 
     return res.status(200).json({
       success: true,
-      data: fpResponse,
+      count: enriched.length,
+      data: enriched,
     });
   } catch (err) {
     console.error("❌ [ADMIN FOLIOS] Error:", err.message);
