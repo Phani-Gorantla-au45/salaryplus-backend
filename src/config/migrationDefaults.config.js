@@ -34,12 +34,4 @@ export const MIGRATION_ENUM_MAPS = {
     SAVINGS: "savings",
     CURRENT: "current",
   },
-
-  relationship: [
-    "father", "mother", "court_appointed_legal_guardian", "aunt",
-    "brother_in_law", "brother", "daughter", "daughter_in_law",
-    "father_in_law", "grand_daughter", "grand_father", "grand_mother",
-    "grand_son", "mother_in_law", "nephew", "niece", "sister",
-    "sister_in_law", "son", "son_in_law", "spouse", "uncle", "others",
-  ],
 };

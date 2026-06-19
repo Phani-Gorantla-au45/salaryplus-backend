@@ -67,13 +67,6 @@ export const mapOccupation = (value) => {
 export const mapAccountType = (value) =>
   MIGRATION_ENUM_MAPS.accountType[normalizeEnumKey(value)] ?? null;
 
-export const mapRelationship = (value) => {
-  const key = String(value ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  return MIGRATION_ENUM_MAPS.relationship.includes(key) ? key : "others";
-};
-
-const isYes = (value) => String(value ?? "").trim().toUpperCase() === "Y";
-
 /** Report uses "DD/MM/YYYY h:mm:ss AM/PM" for Bank{N} Created/Modified At columns. */
 const parseDateTime = (value) => {
   if (!value) return null;
@@ -190,38 +183,6 @@ export const mapExcelRowToMigrationInput = (row) => {
     };
   }
 
-  /* ---------- NOMINEE (Nominee 1 — only if adult + all required fields present) ---------- */
-  let nominee = null;
-  let nomineeSkipReason = null;
-  const nomineeName = row["Nominee 1 Name"];
-  if (nomineeName) {
-    if (isYes(row["Nominee 1 Minor Flag"])) {
-      nomineeSkipReason = "Nominee 1 is a minor — guardian data from this report is not reliably mappable, skipping nominee";
-    } else {
-      const nomineePan = row["NOM1_ID_TYP"] === "PAN" ? cleanPan(row["NOM1_IDNO"]) : null;
-      // FP docs list date_of_birth as optional for related parties — pass it
-      // through when the report has it, but don't require it to attempt creation.
-      const nomineeDob = parseDob(row["Nominee 1 DOB"]);
-      const hasAddress = row["NOM1_ADD1"] && row["NOM1_CITY"] && row["NOM1_PIN"];
-      if (nomineePan && row["NOM1_EMAIL"] && row["NOM1_MOB"] && hasAddress) {
-        nominee = {
-          name:         String(nomineeName).trim(),
-          relationship: mapRelationship(row["Nominee 1 Relationship"]),
-          pan:          nomineePan,
-          dob:          nomineeDob, // may be null — handled at FP call time
-          emailAddress: String(row["NOM1_EMAIL"]).trim().toLowerCase(),
-          phoneNumber:  cleanPhone(row["NOM1_MOB"]),
-          line1:        String(row["NOM1_ADD1"]).trim(),
-          line2:        row["NOM1_ADD2"] ? String(row["NOM1_ADD2"]).trim() : null,
-          city:         String(row["NOM1_CITY"]).trim(),
-          pincode:      String(row["NOM1_PIN"]).trim(),
-        };
-      } else {
-        nomineeSkipReason = "Nominee 1 present but missing required fields (PAN/email/mobile/address) — skipping nominee";
-      }
-    }
-  }
-
   return {
     data: {
       // Step 1 — registration
@@ -241,8 +202,6 @@ export const mapExcelRowToMigrationInput = (row) => {
         ? { line1: addressLine1, line2: addressLine2, postalCode: pincode }
         : null,
       bank,
-      nominee,
-      nomineeSkipReason,
     },
     manualReviewReason: null,
   };

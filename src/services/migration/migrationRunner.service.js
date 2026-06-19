@@ -13,7 +13,6 @@ import { createFpPhoneNumber } from "../../utils/mf/onboarding/phoneNumber.utils
 import { createFpEmailAddress } from "../../utils/mf/onboarding/emailAddress.utils.js";
 import { createFpAddress } from "../../utils/mf/onboarding/address.utils.js";
 import { createFpBankAccount } from "../../utils/mf/onboarding/bankAccount.utils.js";
-import { createFpRelatedParty } from "../../utils/mf/onboarding/relatedParty.utils.js";
 import {
   createFpMfInvestmentAccount,
   listFpMfInvestmentAccounts,
@@ -460,89 +459,16 @@ const runBankAccountStep = async (record, input) => {
 };
 
 /* ================================================================
- * STEP 3f — Nominee (blocking once attempted; skipped entirely if the
- * source data has no usable nominee — see fieldMapper.service.js)
+ * STEP 3f — Nominee
+ * Disabled for migrated users — FP's nominee/related-party API has proven
+ * inconsistent with its own documentation (rejects missing date_of_birth
+ * despite docs marking it optional), and the source report frequently
+ * doesn't carry nominee DOB. Always skipped; add nominees later via the
+ * app/admin nominee flow once a DOB is available.
  * ================================================================ */
-const runNomineeStep = async (record, input) => {
+const runNomineeStep = async (record) => {
   if (["success", "skipped"].includes(record.steps.nominee.status)) return;
-
-  if (!input.nominee) {
-    await markStep(record, "nominee", "skipped", input.nomineeSkipReason || "No nominee in source data");
-    return;
-  }
-
-  try {
-    const mfData = await MfUserData.findOne({ uniqueId: record.uniqueId });
-    if (mfData?.nominee?.fpRelatedPartyId) {
-      await markStep(record, "nominee", "success");
-      return;
-    }
-
-    const fpInvestorProfileId = mfData?.investorProfile?.fpInvestorProfileId;
-    if (!fpInvestorProfileId) throw new Error("Investor profile missing");
-
-    const payload = {
-      profile:       fpInvestorProfileId,
-      name:          input.nominee.name,
-      relationship:  input.nominee.relationship,
-      pan:           input.nominee.pan,
-      ...(input.nominee.dob && { date_of_birth: input.nominee.dob }), // optional per FP docs
-      email_address: input.nominee.emailAddress,
-      phone_number:  { isd: "+91", number: input.nominee.phoneNumber },
-      address: {
-        line1:       input.nominee.line1,
-        line2:       input.nominee.line2,
-        city:        input.nominee.city,
-        postal_code: input.nominee.pincode,
-        country:     "IN",
-      },
-    };
-
-    const fpData = await createFpRelatedParty(payload);
-
-    await MfUserData.findOneAndUpdate(
-      { uniqueId: record.uniqueId },
-      {
-        $set: {
-          nominee: {
-            fpRelatedPartyId:  fpData.id,
-            name:              fpData.name,
-            relationship:      fpData.relationship,
-            dob:               fpData.date_of_birth ?? null,
-            isMinor:           false,
-            pan:               fpData.pan ?? null,
-            identityProofType: "pan",
-            emailAddress:      fpData.email_address ?? null,
-            phoneNumber:       fpData.phone_number?.number ?? null,
-            address: {
-              line1:   fpData.address?.line1       ?? null,
-              line2:   fpData.address?.line2       ?? null,
-              city:    fpData.address?.city        ?? null,
-              pincode: fpData.address?.postal_code ?? null,
-              state:   fpData.address?.state       ?? null,
-              country: fpData.address?.country     ?? "IN",
-            },
-            rawResponse: fpData,
-          },
-        },
-      },
-    );
-
-    await markStep(record, "nominee", "success");
-  } catch (err) {
-    // FP docs list date_of_birth as optional, but it occasionally rejects
-    // a nominee for lacking one anyway. That's a known, unfixable source-data
-    // gap (the report often doesn't capture adult nominee DOB) — skip rather
-    // than blocking the whole migration. Any other nominee error still blocks.
-    const isDobMandatoryError = !input.nominee.dob && /date_of_birth/i.test(err.message) && /mandatory/i.test(err.message);
-    if (isDobMandatoryError) {
-      await markStep(record, "nominee", "skipped", `FP rejected nominee without date_of_birth (source data has none): ${err.message}`);
-      return;
-    }
-
-    await markStep(record, "nominee", "failed", err.message);
-    throw err;
-  }
+  await markStep(record, "nominee", "skipped", "Nominee creation disabled for migrated users — add manually later if needed");
 };
 
 /* ================================================================
@@ -690,7 +616,7 @@ export const processMigrationRecord = async (record, mappedInput) => {
     await runEmailStep(record, mappedInput);
     await runAddressStep(record, mappedInput);
     await runBankAccountStep(record, mappedInput);
-    await runNomineeStep(record, mappedInput);
+    await runNomineeStep(record);
     await runInvestmentAccountStep(record);
   } catch {
     // A required step already marked itself failed — stop here.
