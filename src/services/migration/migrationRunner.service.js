@@ -486,7 +486,7 @@ const runNomineeStep = async (record, input) => {
       name:          input.nominee.name,
       relationship:  input.nominee.relationship,
       pan:           input.nominee.pan,
-      date_of_birth: input.nominee.dob,
+      ...(input.nominee.dob && { date_of_birth: input.nominee.dob }), // optional per FP docs
       email_address: input.nominee.emailAddress,
       phone_number:  { isd: "+91", number: input.nominee.phoneNumber },
       address: {
@@ -530,6 +530,16 @@ const runNomineeStep = async (record, input) => {
 
     await markStep(record, "nominee", "success");
   } catch (err) {
+    // FP docs list date_of_birth as optional, but it occasionally rejects
+    // a nominee for lacking one anyway. That's a known, unfixable source-data
+    // gap (the report often doesn't capture adult nominee DOB) — skip rather
+    // than blocking the whole migration. Any other nominee error still blocks.
+    const isDobMandatoryError = !input.nominee.dob && /date_of_birth/i.test(err.message) && /mandatory/i.test(err.message);
+    if (isDobMandatoryError) {
+      await markStep(record, "nominee", "skipped", `FP rejected nominee without date_of_birth (source data has none): ${err.message}`);
+      return;
+    }
+
     await markStep(record, "nominee", "failed", err.message);
     throw err;
   }
