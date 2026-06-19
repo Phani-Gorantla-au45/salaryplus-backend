@@ -236,7 +236,7 @@ const runInvestorProfileStep = async (record, input) => {
 };
 
 /* ================================================================
- * STEP 3b — Phone (best-effort; failure doesn't block the pipeline)
+ * STEP 3b — Phone (blocking — failure stops the pipeline)
  * ================================================================ */
 const runPhoneStep = async (record, input) => {
   if (["success", "skipped"].includes(record.steps.phone.status)) return;
@@ -272,11 +272,12 @@ const runPhoneStep = async (record, input) => {
     await markStep(record, "phone", "success");
   } catch (err) {
     await markStep(record, "phone", "failed", err.message);
+    throw err;
   }
 };
 
 /* ================================================================
- * STEP 3c — Email (best-effort)
+ * STEP 3c — Email (blocking — failure stops the pipeline)
  * ================================================================ */
 const runEmailStep = async (record, input) => {
   if (["success", "skipped"].includes(record.steps.email.status)) return;
@@ -316,11 +317,12 @@ const runEmailStep = async (record, input) => {
     await markStep(record, "email", "success");
   } catch (err) {
     await markStep(record, "email", "failed", err.message);
+    throw err;
   }
 };
 
 /* ================================================================
- * STEP 3d — Address (best-effort)
+ * STEP 3d — Address (blocking — failure stops the pipeline)
  * ================================================================ */
 const runAddressStep = async (record, input) => {
   if (["success", "skipped"].includes(record.steps.address.status)) return;
@@ -373,11 +375,12 @@ const runAddressStep = async (record, input) => {
     await markStep(record, "address", "success");
   } catch (err) {
     await markStep(record, "address", "failed", err.message);
+    throw err;
   }
 };
 
 /* ================================================================
- * STEP 3e — Bank Account (best-effort; verify via Cybrilla, then create on FP)
+ * STEP 3e — Bank Account (blocking — verify via Cybrilla, then create on FP)
  * ================================================================ */
 const runBankAccountStep = async (record, input) => {
   if (["success", "skipped"].includes(record.steps.bankAccount.status)) return;
@@ -452,11 +455,13 @@ const runBankAccountStep = async (record, input) => {
     await markStep(record, "bankAccount", "success");
   } catch (err) {
     await markStep(record, "bankAccount", "failed", err.message);
+    throw err;
   }
 };
 
 /* ================================================================
- * STEP 3f — Nominee (best-effort; only attempted if mapper provided one)
+ * STEP 3f — Nominee (blocking once attempted; skipped entirely if the
+ * source data has no usable nominee — see fieldMapper.service.js)
  * ================================================================ */
 const runNomineeStep = async (record, input) => {
   if (["success", "skipped"].includes(record.steps.nominee.status)) return;
@@ -481,6 +486,7 @@ const runNomineeStep = async (record, input) => {
       name:          input.nominee.name,
       relationship:  input.nominee.relationship,
       pan:           input.nominee.pan,
+      date_of_birth: input.nominee.dob,
       email_address: input.nominee.emailAddress,
       phone_number:  { isd: "+91", number: input.nominee.phoneNumber },
       address: {
@@ -525,6 +531,7 @@ const runNomineeStep = async (record, input) => {
     await markStep(record, "nominee", "success");
   } catch (err) {
     await markStep(record, "nominee", "failed", err.message);
+    throw err;
   }
 };
 
@@ -633,8 +640,13 @@ const runInvestmentAccountStep = async (record) => {
 
 /* ================================================================
  * Orchestrator
+ *
+ * Every step is blocking — a single failure anywhere stops the whole
+ * pipeline (subsequent steps stay "pending") and the record is marked
+ * "failed". The only step that's allowed to not run is "nominee", and
+ * only when the source data has no usable nominee at all — that's a
+ * "skipped" step, not a failure, and does not block account creation.
  * ================================================================ */
-const REQUIRED_STEPS = ["registration", "panVerification", "investorProfile", "investmentAccount"];
 const ALL_STEPS = [
   "registration", "panVerification", "investorProfile",
   "phone", "email", "address", "bankAccount", "nominee",
@@ -642,16 +654,12 @@ const ALL_STEPS = [
 ];
 
 const recomputeOverallStatus = (record) => {
-  if (REQUIRED_STEPS.some((s) => record.steps[s].status === "failed")) {
+  if (ALL_STEPS.some((s) => record.steps[s].status === "failed")) {
     record.overallStatus = "failed";
     return;
   }
-  if (!REQUIRED_STEPS.every((s) => record.steps[s].status === "success")) {
-    record.overallStatus = "in_progress";
-    return;
-  }
   const allDone = ALL_STEPS.every((s) => ["success", "skipped"].includes(record.steps[s].status));
-  record.overallStatus = allDone ? "completed" : "partial";
+  record.overallStatus = allDone ? "completed" : "in_progress";
 };
 
 /**
