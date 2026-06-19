@@ -20,6 +20,7 @@ const migrationBatchSchema = new Schema(
       partial:       { type: Number, default: 0 },
       failed:        { type: Number, default: 0 },
       manualReview:  { type: Number, default: 0 },
+      alreadyExists: { type: Number, default: 0 },
     },
 
     startedAt:   { type: Date, default: null },

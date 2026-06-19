@@ -25,7 +25,7 @@ const migrationRecordSchema = new Schema(
 
     overallStatus: {
       type: String,
-      enum: ["pending", "in_progress", "completed", "partial", "failed", "manual_review"],
+      enum: ["pending", "in_progress", "completed", "partial", "failed", "manual_review", "already_exists"],
       default: "pending",
       index: true,
     },

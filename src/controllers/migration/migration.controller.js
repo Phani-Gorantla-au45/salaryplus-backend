@@ -3,6 +3,7 @@ import xlsx from "xlsx";
 
 import MigrationBatch from "../../models/migration/migrationBatch.model.js";
 import MigrationRecord from "../../models/migration/migrationRecord.model.js";
+import RegistrationUser from "../../models/user/user.model.js";
 import { mapExcelRowToMigrationInput } from "../../services/migration/fieldMapper.service.js";
 import { processMigrationRecord } from "../../services/migration/migrationRunner.service.js";
 
@@ -15,9 +16,10 @@ const computeBatchCounts = async (batchId) => {
     { $group: { _id: "$overallStatus", count: { $sum: 1 } } },
   ]);
 
-  const counts = { pending: 0, completed: 0, partial: 0, failed: 0, manualReview: 0 };
+  const counts = { pending: 0, completed: 0, partial: 0, failed: 0, manualReview: 0, alreadyExists: 0 };
   for (const a of agg) {
     if (a._id === "manual_review")      counts.manualReview = a.count;
+    else if (a._id === "already_exists") counts.alreadyExists = a.count;
     else if (a._id === "in_progress")   counts.pending += a.count;
     else if (counts[a._id] !== undefined) counts[a._id] = a.count;
     else counts.pending += a.count;
@@ -101,9 +103,31 @@ export const uploadMigrationFile = async (req, res) => {
       };
     });
 
+    // Skip rows whose phone is already a registered user — one bulk lookup,
+    // not per-row, so this stays fast even on large sheets.
+    const phonesToCheck = recordDocs
+      .filter((r) => r.overallStatus === "pending" && r.phone)
+      .map((r) => r.phone);
+
+    if (phonesToCheck.length > 0) {
+      const existingUsers = await RegistrationUser.find(
+        { phone: { $in: phonesToCheck } },
+        { phone: 1 },
+      ).lean();
+      const existingPhones = new Set(existingUsers.map((u) => u.phone));
+
+      for (const r of recordDocs) {
+        if (r.overallStatus === "pending" && existingPhones.has(r.phone)) {
+          r.overallStatus = "already_exists";
+        }
+      }
+    }
+
     await MigrationRecord.insertMany(recordDocs);
 
-    // Kick off background processing — response returns immediately
+    // Kick off background processing — response returns immediately.
+    // processBatch only picks up pending/in_progress/partial/failed rows,
+    // so manual_review and already_exists rows are never touched.
     processBatch(batch._id).catch((err) =>
       console.error(`❌ [MIGRATION] Batch ${batch._id} processing crashed:`, err.message),
     );
@@ -113,7 +137,8 @@ export const uploadMigrationFile = async (req, res) => {
       message: "File uploaded. Migration is processing in the background.",
       batchId: batch._id,
       totalRows: rows.length,
-      manualReviewCount: recordDocs.filter((r) => r.overallStatus === "manual_review").length,
+      manualReviewCount:  recordDocs.filter((r) => r.overallStatus === "manual_review").length,
+      alreadyExistsCount: recordDocs.filter((r) => r.overallStatus === "already_exists").length,
     });
   } catch (err) {
     console.error("❌ [MIGRATION] Upload error:", err.message);
