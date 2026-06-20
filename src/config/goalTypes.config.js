@@ -86,6 +86,7 @@ export const GOAL_TYPES = [
       { key: "investment_horizon", label: "Time to Build This Fund",      type: "number", unit: "years",  required: true  },
       { key: "inflation",          label: "Inflation Rate",               type: "number", unit: "%",      required: false, default: 6  },
       { key: "return_expectation", label: "Return Expectation",           type: "number", unit: "%",      required: false, default: 6  },
+      { key: "step_up_rate",       label: "Annual Step-up Rate",          type: "number", unit: "%",      required: false, default: 10 },
     ],
   },
   {

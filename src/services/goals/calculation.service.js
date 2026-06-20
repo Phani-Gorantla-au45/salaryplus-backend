@@ -395,6 +395,7 @@ function calcEmergencyNew(inputs) {
     investment_horizon,
     inflation          = 6,
     return_expectation = 6,
+    step_up_rate       = 10,
   } = inputs;
 
   if (!monthly_expenses) throw new Error("monthly_expenses is required");
@@ -403,7 +404,7 @@ function calcEmergencyNew(inputs) {
   // Target = monthly expense inflated to the end of the horizon, × months to save
   const targetAmount = Math.round(futureValue(monthly_expenses, inflation, investment_horizon) * months_to_save);
 
-  return buildSipResult(targetAmount, return_expectation, investment_horizon, 0);
+  return buildSipResult(targetAmount, return_expectation, investment_horizon, step_up_rate);
 }
 
 const CALCULATORS = {
