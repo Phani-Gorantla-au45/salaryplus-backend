@@ -317,17 +317,21 @@ function calcRetirementNew(inputs) {
   const yearsToRetirement = retirement_age - current_age;
   if (yearsToRetirement <= 0) throw new Error("retirement_age must be greater than current_age");
 
-  const POST_RETIREMENT_YEARS = 25;
+  const LIFE_EXPECTANCY_AGE = 80;
+  const postRetirementYears = LIFE_EXPECTANCY_AGE - retirement_age;
+  if (postRetirementYears <= 0) throw new Error(`retirement_age must be less than ${LIFE_EXPECTANCY_AGE}`);
+
   const INFLATION = 6;
 
   // Inflation-adjusted annual expense at retirement
   const annualExpenseAtRetirement = futureValue(monthly_expense * 12, INFLATION, yearsToRetirement);
 
-  // Corpus needed (present value of post-retirement annuity)
+  // Corpus needed (present value of post-retirement annuity) — sized to last
+  // until age 80, regardless of the chosen retirement age.
   const r = post_retirement_return / 100;
   const retirementCorpus = r === 0
-    ? annualExpenseAtRetirement * POST_RETIREMENT_YEARS
-    : annualExpenseAtRetirement * ((1 - Math.pow(1 + r, -POST_RETIREMENT_YEARS)) / r);
+    ? annualExpenseAtRetirement * postRetirementYears
+    : annualExpenseAtRetirement * ((1 - Math.pow(1 + r, -postRetirementYears)) / r);
 
   // Subtract future value of existing investment
   const existingInvestmentFV = existing_investment > 0
