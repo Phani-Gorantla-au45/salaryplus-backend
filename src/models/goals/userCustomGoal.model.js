@@ -23,6 +23,10 @@ const userCustomGoalSchema = new mongoose.Schema(
     stepUpSip:    { type: Number, default: null },
     stepUpRate:   { type: Number, default: null },
 
+    // Calendar year the goal is due — derived server-side from inputs at
+    // save time (currentYear + duration), used for tracking/sorting/alerts.
+    targetYear: { type: Number, required: true },
+
     // Which plan the user chose to save
     chosenPlan: {
       type: String,

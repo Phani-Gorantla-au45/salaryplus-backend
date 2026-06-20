@@ -83,6 +83,7 @@ export const GOAL_TYPES = [
     fields: [
       { key: "monthly_expenses",   label: "Current Monthly Expenses",     type: "number", unit: "₹",      required: true  },
       { key: "months_to_save",     label: "Months of Expenses to Save",   type: "number", unit: "months", required: false, default: 3  },
+      { key: "investment_horizon", label: "Time to Build This Fund",      type: "number", unit: "years",  required: true  },
       { key: "inflation",          label: "Inflation Rate",               type: "number", unit: "%",      required: false, default: 6  },
       { key: "return_expectation", label: "Return Expectation",           type: "number", unit: "%",      required: false, default: 6  },
     ],

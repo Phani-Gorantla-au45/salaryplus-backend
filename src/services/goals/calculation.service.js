@@ -392,17 +392,18 @@ function calcEmergencyNew(inputs) {
   const {
     monthly_expenses,
     months_to_save     = 3,
+    investment_horizon,
     inflation          = 6,
     return_expectation = 6,
   } = inputs;
 
   if (!monthly_expenses) throw new Error("monthly_expenses is required");
+  if (!investment_horizon) throw new Error("investment_horizon is required");
 
-  // Target = inflation-adjusted monthly expense * months
-  const targetAmount = Math.round(futureValue(monthly_expenses, inflation, 1) * months_to_save);
-  const years = 1; // build emergency fund in 1 year
+  // Target = monthly expense inflated to the end of the horizon, × months to save
+  const targetAmount = Math.round(futureValue(monthly_expenses, inflation, investment_horizon) * months_to_save);
 
-  return buildSipResult(targetAmount, return_expectation, years, 0);
+  return buildSipResult(targetAmount, return_expectation, investment_horizon, 0);
 }
 
 const CALCULATORS = {

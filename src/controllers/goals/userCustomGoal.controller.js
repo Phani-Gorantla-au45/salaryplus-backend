@@ -1,17 +1,52 @@
 import UserCustomGoal from "../../models/goals/userCustomGoal.model.js";
 import RegistrationUser from "../../models/user/user.model.js";
-import { GOAL_TYPES, getGoalType } from "../../config/goalTypes.config.js";
+import MfBasket from "../../models/mf/mfBasket.model.js";
+import { GOAL_TYPES, GOAL_TYPE_KEYS, getGoalType } from "../../config/goalTypes.config.js";
 import { calculateCustomGoal } from "../../services/goals/calculation.service.js";
 import { sendGoalSavedEmail, sendGoalSavedToAdmin } from "../../utils/notifications/email.utils.js";
+
+/* ------------------------------------------------------------------ */
+/*  Internal — recommended-basket lookup (reuses the existing curated  */
+/*  MfBasket system; admin assigns a basket to a goal type by setting  */
+/*  MfBasket.goalType to one of the keys in goalTypes.config.js via    */
+/*  the existing /api/mf/admin/basket endpoints — no new model needed) */
+/* ------------------------------------------------------------------ */
+const basketSummary = (b) => ({
+  id: b._id,
+  name: b.name,
+  riskProfile: b.riskProfile,
+  fundCount: b.funds?.length ?? 0,
+});
+
+const getBasketMapForGoalTypes = async (goalTypes, uniqueId = null) => {
+  const filter = uniqueId
+    ? { goalType: { $in: goalTypes }, active: true, $or: [{ assignedUserId: uniqueId }, { assignedUserId: null }] }
+    : { goalType: { $in: goalTypes }, active: true, assignedUserId: null };
+
+  const baskets = await MfBasket.find(filter, { name: 1, riskProfile: 1, goalType: 1, assignedUserId: 1, funds: 1 }).lean();
+
+  const map = {};
+  for (const b of baskets) {
+    const isUserOverride = uniqueId && b.assignedUserId === uniqueId;
+    if (!map[b.goalType] || isUserOverride) map[b.goalType] = b;
+  }
+  return map;
+};
 
 /* ================================================================
  * GET GOAL TYPES  (no auth — public)
  * GET /api/custom-goals/types
  * Returns all predefined goal types with their field definitions
- * so the frontend can render the form dynamically.
+ * so the frontend can render the form dynamically. Each type includes
+ * its recommendedBasket (set by admin via /api/mf/admin/basket), if any.
  * ================================================================ */
 export const listGoalTypes = async (req, res) => {
-  return res.status(200).json({ success: true, data: GOAL_TYPES });
+  const basketMap = await getBasketMapForGoalTypes(GOAL_TYPE_KEYS);
+  const data = GOAL_TYPES.map((g) => ({
+    ...g,
+    recommendedBasket: basketMap[g.key] ? basketSummary(basketMap[g.key]) : null,
+  }));
+  return res.status(200).json({ success: true, data });
 };
 
 /* ================================================================
@@ -82,6 +117,16 @@ export const createCustomGoal = async (req, res) => {
       return res.status(400).json({ success: false, message: "stepUpSip is required when chosenPlan is step_up_sip" });
     }
 
+    // Derive targetYear server-side from the goal's own inputs — don't trust
+    // the frontend for this, it's used for tracking/sorting/alerts.
+    let duration;
+    try {
+      duration = calculateCustomGoal(goalType, inputs ?? {}).duration;
+    } catch (calcErr) {
+      return res.status(400).json({ success: false, message: `Could not derive target year: ${calcErr.message}` });
+    }
+    const targetYear = new Date().getFullYear() + duration;
+
     const [goal, user] = await Promise.all([
       UserCustomGoal.create({
         uniqueId,
@@ -93,6 +138,7 @@ export const createCustomGoal = async (req, res) => {
         stepUpSip:    stepUpSip  ?? null,
         stepUpRate:   stepUpRate ?? null,
         chosenPlan,
+        targetYear,
       }),
       RegistrationUser.findOne({ uniqueId }, { First_name: 1, Last_name: 1, email: 1, phone: 1 }).lean(),
     ]);
@@ -143,7 +189,15 @@ export const listCustomGoals = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    return res.status(200).json({ success: true, count: goals.length, data: goals });
+    const goalTypesPresent = [...new Set(goals.map((g) => g.goalType))];
+    const basketMap = await getBasketMapForGoalTypes(goalTypesPresent, uniqueId);
+
+    const data = goals.map((g) => ({
+      ...g,
+      recommendedBasket: basketMap[g.goalType] ? basketSummary(basketMap[g.goalType]) : null,
+    }));
+
+    return res.status(200).json({ success: true, count: data.length, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -158,7 +212,11 @@ export const getCustomGoal = async (req, res) => {
     const { uniqueId } = req.user;
     const goal = await UserCustomGoal.findOne({ _id: req.params.id, uniqueId }).lean();
     if (!goal) return res.status(404).json({ success: false, message: "Goal not found" });
-    return res.status(200).json({ success: true, data: goal });
+
+    const basketMap = await getBasketMapForGoalTypes([goal.goalType], uniqueId);
+    const recommendedBasket = basketMap[goal.goalType] ? basketSummary(basketMap[goal.goalType]) : null;
+
+    return res.status(200).json({ success: true, data: { ...goal, recommendedBasket } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -178,6 +236,16 @@ export const updateCustomGoal = async (req, res) => {
     const fields = ["name", "inputs", "targetAmount", "monthlySip", "stepUpSip", "stepUpRate", "chosenPlan", "status"];
     for (const f of fields) {
       if (req.body[f] !== undefined) goal[f] = req.body[f];
+    }
+
+    // Inputs changed — recompute targetYear from the updated inputs.
+    if (req.body.inputs !== undefined) {
+      try {
+        const duration = calculateCustomGoal(goal.goalType, goal.inputs).duration;
+        goal.targetYear = new Date().getFullYear() + duration;
+      } catch (calcErr) {
+        return res.status(400).json({ success: false, message: `Could not derive target year: ${calcErr.message}` });
+      }
     }
 
     await goal.save();
