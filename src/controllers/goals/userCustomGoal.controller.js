@@ -300,3 +300,114 @@ export const linkFundsToGoal = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+/* ================================================================
+ * ADMIN — LIST ALL USERS' CUSTOM GOALS
+ * GET /api/custom-goals/admin
+ *
+ * Query params (all optional):
+ *   goalType — filter by goal type (e.g. "retirement")
+ *   status   — filter by status (active/completed/paused/abandoned)
+ *   search   — matches goal name, user name, or phone
+ *   page, limit
+ * ================================================================ */
+export const listAllCustomGoalsAdmin = async (req, res) => {
+  try {
+    const { goalType, status, search, page = 1, limit = 20 } = req.query;
+
+    const filter = {};
+    if (goalType) filter.goalType = goalType;
+    if (status)   filter.status   = status;
+
+    const goals = await UserCustomGoal.find(filter).sort({ createdAt: -1 }).lean();
+
+    const uniqueIds = [...new Set(goals.map((g) => g.uniqueId))];
+    const users = await RegistrationUser.find(
+      { uniqueId: { $in: uniqueIds } },
+      { uniqueId: 1, First_name: 1, Last_name: 1, phone: 1, email: 1 },
+    ).lean();
+    const userMap = Object.fromEntries(users.map((u) => [u.uniqueId, u]));
+
+    let enriched = goals.map((g) => {
+      const u = userMap[g.uniqueId];
+      return {
+        ...g,
+        user: u
+          ? {
+              uniqueId: u.uniqueId,
+              name: [u.First_name, u.Last_name].filter(Boolean).join(" ") || null,
+              phone: u.phone ?? null,
+              email: u.email ?? null,
+            }
+          : null,
+      };
+    });
+
+    if (search) {
+      const regex = new RegExp(search, "i");
+      enriched = enriched.filter(
+        (g) => regex.test(g.name) || regex.test(g.user?.name ?? "") || regex.test(g.user?.phone ?? ""),
+      );
+    }
+
+    const pageNum  = Math.max(1, Number(page));
+    const limitNum = Math.min(100, Math.max(1, Number(limit)));
+    const skip     = (pageNum - 1) * limitNum;
+    const total    = enriched.length;
+    const paged    = enriched.slice(skip, skip + limitNum);
+
+    return res.status(200).json({
+      success: true,
+      total,
+      page:  pageNum,
+      limit: limitNum,
+      pages: Math.ceil(total / limitNum),
+      data:  paged,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ================================================================
+ * ADMIN — ONE USER'S CUSTOM GOALS
+ * GET /api/custom-goals/admin/user/:uniqueId
+ * Includes recommendedBasket per goal so admin can see at a glance
+ * whether a basket is already assigned for that goal type.
+ * ================================================================ */
+export const getUserCustomGoalsAdmin = async (req, res) => {
+  try {
+    const { uniqueId } = req.params;
+
+    const [user, goals] = await Promise.all([
+      RegistrationUser.findOne({ uniqueId }, { First_name: 1, Last_name: 1, phone: 1, email: 1 }).lean(),
+      UserCustomGoal.find({ uniqueId }).sort({ createdAt: -1 }).lean(),
+    ]);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const goalTypesPresent = [...new Set(goals.map((g) => g.goalType))];
+    const basketMap = await getBasketMapForGoalTypes(goalTypesPresent, uniqueId);
+
+    const data = goals.map((g) => ({
+      ...g,
+      recommendedBasket: basketMap[g.goalType] ? basketSummary(basketMap[g.goalType]) : null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        uniqueId,
+        name:  [user.First_name, user.Last_name].filter(Boolean).join(" ") || null,
+        phone: user.phone ?? null,
+        email: user.email ?? null,
+      },
+      count: data.length,
+      data,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
