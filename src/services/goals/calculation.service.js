@@ -55,6 +55,32 @@ function stepUpSipNeeded(targetCorpus, annualReturnRate, years, annualStepUpRate
 }
 
 /**
+ * Monthly SIP needed, annuity-due convention (deposit at START of each
+ * month — matches real SIP debit timing). The last deposit still earns one
+ * month of growth before the target date, unlike the ordinary-annuity
+ * monthlySipNeeded() above (deposit at END of month, last deposit earns none).
+ */
+function monthlySipNeededDue(targetCorpus, annualReturnRate, years) {
+  const months = years * 12;
+  const r = annualReturnRate / 100 / 12;
+  if (r === 0) return targetCorpus / months;
+  return (targetCorpus * r) / ((Math.pow(1 + r, months) - 1) * (1 + r));
+}
+
+/**
+ * Present value of a growing annuity-due: N cashflows W_1..W_N where
+ * W_k = W1 × (1+g)^(k-1), each discounted at rate r, with W_1 undiscounted.
+ * This is exactly the "withdraw first, then earn return on what remains"
+ * depletion convention — the corpus exactly reaches zero after N withdrawals.
+ */
+function pvGrowingAnnuityDue(W1, g, r, n) {
+  if (n <= 0) return 0;
+  if (Math.abs(r - g) < 1e-9) return W1 * n;
+  const q = (1 + g) / (1 + r);
+  return (W1 * (1 - Math.pow(q, n))) / (1 - q);
+}
+
+/**
  * Build the SIP result object — always includes flat SIP.
  * If stepUpRate > 0, also includes stepUpSip (lower initial amount).
  */
@@ -299,16 +325,37 @@ function calcEmergencyFundGoal(inputs, assumptions) {
  *           pre_retirement_return=12, post_retirement_return=7,
  *           existing_investment=0, existing_investment_return=12, step_up_rate=10 }
  */
+/**
+ * Retirement — timing-aware cashflow model.
+ *
+ * Conventions (matches standard retirement-planning portal methodology):
+ *  - You retire at the END of retirement_age; first withdrawal is at the
+ *    START of (retirement_age + 1).
+ *  - Expenses are entered in today's value, inflated for
+ *    (retirement_age - current_age) years to reach the first-withdrawal value,
+ *    then continue inflating every year through retirement.
+ *  - Corpus required = NPV of all retirement withdrawals, "withdraw first,
+ *    then earn return on what remains" each year (growing annuity-due).
+ *  - Post-tax retirement return = post_retirement_return × (1 - capital_gains_tax_rate).
+ *  - SIP assumes deposits at the START of every month from age
+ *    (current_age+1) through the last month of retirement_age —
+ *    (retirement_age - current_age) × 12 deposits, annuity-due timing.
+ *  - You're assumed to live till LIFE_EXPECTANCY_AGE (fixed at 80) regardless
+ *    of the chosen retirement age — so the withdrawal period is
+ *    (80 - retirement_age) years.
+ */
 function calcRetirementNew(inputs) {
   const {
     monthly_expense,
     current_age,
     retirement_age,
-    pre_retirement_return     = 12,
-    post_retirement_return    = 7,
-    existing_investment       = 0,
-    existing_investment_return= 12,
-    step_up_rate              = 10,
+    inflation                  = 6,
+    pre_retirement_return      = 12,
+    post_retirement_return     = 7,
+    capital_gains_tax_rate     = 12.5,
+    existing_investment        = 0,
+    existing_investment_return = 12,
+    step_up_rate                = 10,
   } = inputs;
 
   if (!monthly_expense || !current_age || !retirement_age)
@@ -318,20 +365,28 @@ function calcRetirementNew(inputs) {
   if (yearsToRetirement <= 0) throw new Error("retirement_age must be greater than current_age");
 
   const LIFE_EXPECTANCY_AGE = 80;
-  const postRetirementYears = LIFE_EXPECTANCY_AGE - retirement_age;
-  if (postRetirementYears <= 0) throw new Error(`retirement_age must be less than ${LIFE_EXPECTANCY_AGE}`);
+  const withdrawalYears = LIFE_EXPECTANCY_AGE - retirement_age;
+  if (withdrawalYears <= 0) throw new Error(`retirement_age must be less than ${LIFE_EXPECTANCY_AGE}`);
 
-  const INFLATION = 6;
+  const inflationDecimal = inflation / 100;
 
-  // Inflation-adjusted annual expense at retirement
-  const annualExpenseAtRetirement = futureValue(monthly_expense * 12, INFLATION, yearsToRetirement);
+  // Annual expense at the first withdrawal (start of retirement_age + 1),
+  // inflated from today's value for (retirement_age - current_age) years.
+  const annualExpenseAtFirstWithdrawal =
+    monthly_expense * 12 * Math.pow(1 + inflationDecimal, yearsToRetirement);
 
-  // Corpus needed (present value of post-retirement annuity) — sized to last
-  // until age 80, regardless of the chosen retirement age.
-  const r = post_retirement_return / 100;
-  const retirementCorpus = r === 0
-    ? annualExpenseAtRetirement * postRetirementYears
-    : annualExpenseAtRetirement * ((1 - Math.pow(1 + r, -postRetirementYears)) / r);
+  // Post-tax retirement return — discount rate for the withdrawal phase.
+  const postTaxReturn = (post_retirement_return / 100) * (1 - capital_gains_tax_rate / 100);
+
+  // Corpus required at retirement = NPV of withdrawalYears annual
+  // withdrawals (each year's expense grows with inflation), using the
+  // "withdraw first, then grow" convention — a growing annuity-due.
+  const retirementCorpus = pvGrowingAnnuityDue(
+    annualExpenseAtFirstWithdrawal,
+    inflationDecimal,
+    postTaxReturn,
+    withdrawalYears,
+  );
 
   // Subtract future value of existing investment
   const existingInvestmentFV = existing_investment > 0
@@ -340,7 +395,22 @@ function calcRetirementNew(inputs) {
 
   const additionalCorpusNeeded = Math.max(0, Math.round(retirementCorpus) - Math.round(existingInvestmentFV));
 
-  return buildSipResult(additionalCorpusNeeded, pre_retirement_return, yearsToRetirement, step_up_rate);
+  // SIP — deposits at the start of every month (annuity-due), for
+  // (retirement_age - current_age) × 12 months.
+  const monthlySip = monthlySipNeededDue(additionalCorpusNeeded, pre_retirement_return, yearsToRetirement);
+
+  const result = {
+    targetAmount: additionalCorpusNeeded,
+    monthlySip: Math.round(monthlySip),
+    duration: yearsToRetirement,
+  };
+
+  if (step_up_rate > 0) {
+    result.stepUpSip  = Math.round(stepUpSipNeeded(additionalCorpusNeeded, pre_retirement_return, yearsToRetirement, step_up_rate));
+    result.stepUpRate = step_up_rate;
+  }
+
+  return result;
 }
 
 /**
