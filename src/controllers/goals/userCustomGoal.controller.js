@@ -216,7 +216,16 @@ export const getCustomGoal = async (req, res) => {
     const basketMap = await getBasketMapForGoalTypes([goal.goalType], uniqueId);
     const recommendedBasket = basketMap[goal.goalType] ? basketSummary(basketMap[goal.goalType]) : null;
 
-    return res.status(200).json({ success: true, data: { ...goal, recommendedBasket } });
+    // Re-derive the detailed breakdown (years, ages, amortization schedule etc.)
+    // from the goal's saved inputs — not persisted, always fresh and consistent.
+    let breakdown = null;
+    try {
+      breakdown = calculateCustomGoal(goal.goalType, goal.inputs ?? {}).breakdown ?? null;
+    } catch {
+      breakdown = null; // older goals saved before a field was required, etc.
+    }
+
+    return res.status(200).json({ success: true, data: { ...goal, recommendedBasket, breakdown } });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

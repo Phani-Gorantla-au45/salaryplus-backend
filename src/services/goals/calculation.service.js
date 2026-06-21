@@ -393,16 +393,51 @@ function calcRetirementNew(inputs) {
     ? futureValue(existing_investment, existing_investment_return, yearsToRetirement)
     : 0;
 
-  const additionalCorpusNeeded = Math.max(0, Math.round(retirementCorpus) - Math.round(existingInvestmentFV));
+  const grossCorpusRequired   = Math.round(retirementCorpus);
+  const existingCorpusFV      = Math.round(existingInvestmentFV);
+  const additionalCorpusNeeded = Math.max(0, grossCorpusRequired - existingCorpusFV);
 
-  // SIP — deposits at the start of every month (annuity-due), for
-  // (retirement_age - current_age) × 12 months.
+  // SIP — sized to the additional (net) corpus, deposits at the start of
+  // every month (annuity-due), for (retirement_age - current_age) × 12 months.
   const monthlySip = monthlySipNeededDue(additionalCorpusNeeded, pre_retirement_return, yearsToRetirement);
 
+  // Year-by-year withdrawal schedule — "withdraw first, then earn return".
+  const amortizationSchedule = [];
+  let corpusAtBeginning = retirementCorpus;
+  let withdrawal = annualExpenseAtFirstWithdrawal;
+  for (let i = 0; i < withdrawalYears; i++) {
+    const afterWithdrawal = corpusAtBeginning - withdrawal;
+    const returnEarned    = afterWithdrawal * postTaxReturn;
+    const corpusAtEnd     = afterWithdrawal + returnEarned;
+    amortizationSchedule.push({
+      age:               retirement_age + 1 + i,
+      corpusAtBeginning: Math.round(corpusAtBeginning),
+      withdrawal:        Math.round(withdrawal),
+      returnEarned:       Math.round(returnEarned),
+      corpusAtEnd:        Math.round(corpusAtEnd),
+    });
+    corpusAtBeginning = corpusAtEnd;
+    withdrawal *= (1 + inflationDecimal);
+  }
+
   const result = {
-    targetAmount: additionalCorpusNeeded,
-    monthlySip: Math.round(monthlySip),
-    duration: yearsToRetirement,
+    // targetAmount = gross corpus required at retirement (the headline number)
+    targetAmount: grossCorpusRequired,
+    monthlySip:   Math.round(monthlySip),
+    duration:     yearsToRetirement,
+
+    // Breakdown — mirrors a standard retirement-planning portal's result page
+    breakdown: {
+      yearsToRetirement,
+      yearsInRetirement:             withdrawalYears,
+      firstWithdrawalAge:            retirement_age + 1,
+      annualExpenseAtFirstWithdrawal: Math.round(annualExpenseAtFirstWithdrawal),
+      postTaxReturnInRetirement:      Math.round(postTaxReturn * 10000) / 100, // %, 2dp
+      existingCorpusFutureValue:      existingCorpusFV,
+      grossCorpusRequired,
+      additionalCorpusNeeded,
+      amortizationSchedule,
+    },
   };
 
   if (step_up_rate > 0) {
