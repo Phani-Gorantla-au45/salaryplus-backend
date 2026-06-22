@@ -50,6 +50,7 @@ import mfAdminPaymentRoutes            from "./mf/admin/payment.routes.js";
 import mfAdminHoldingsRoutes           from "./mf/admin/holdings.routes.js";
 import mfAdminReturnsRoutes            from "./mf/admin/returns.routes.js";
 import mfAdminTransactionsRoutes       from "./mf/admin/transactions.routes.js";
+import mfAdminAumRoutes                from "./mf/admin/aum.routes.js";
 import mfHoldingsRoutes    from "./mf/reports/holdings.routes.js";
 import mfReturnsRoutes       from "./mf/reports/returns.routes.js";
 import mfTransactionsRoutes  from "./mf/reports/transactions.routes.js";
@@ -127,6 +128,7 @@ router.use("/api/mf/admin/payments",            mfAdminPaymentRoutes);
 router.use("/api/mf/admin/holdings",            mfAdminHoldingsRoutes);
 router.use("/api/mf/admin/returns",             mfAdminReturnsRoutes);
 router.use("/api/mf/admin/transactions",        mfAdminTransactionsRoutes);
+router.use("/api/mf/admin/aum",                 mfAdminAumRoutes);
 
 // MF Curated Baskets — public user-facing view
 router.use("/api/mf/curated-basket", mfCuratedBasketRoutes);
