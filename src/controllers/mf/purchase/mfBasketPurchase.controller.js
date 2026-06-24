@@ -21,7 +21,9 @@ const autoLinkGoal = async ({ uniqueId, basketId, folioNumbers }) => {
   const template = await GoalTemplate.findOne({ type: basket.goalType }).lean();
   if (!template) return; // no matching goal template
 
-  // Upsert the goal — idempotent, only sets basketId on creation
+  // Upsert the goal — idempotent. basketId only goes in $set (always kept in
+  // sync); having it in $setOnInsert too caused a Mongo path-conflict error
+  // on every basket purchase since both operators targeted the same field.
   const goal = await UserGoal.findOneAndUpdate(
     { uniqueId, templateType: basket.goalType },
     {
@@ -31,9 +33,7 @@ const autoLinkGoal = async ({ uniqueId, basketId, folioNumbers }) => {
         uniqueId,
         inputs:       {},
         status:       "active",
-        basketId,
       },
-      // Always keep basketId in sync in case it was null
       $set: { basketId },
     },
     { upsert: true, new: true }
