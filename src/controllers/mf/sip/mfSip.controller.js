@@ -79,7 +79,7 @@ const resolveUserIp = (req) => {
 /*    installment_day?,          (required for monthly)                 */
 /*    payment_source,            (fpMandateId numeric)                  */
 /*    number_of_installments?,   (default 120)                          */
-/*    generate_first_installment_now?, (default false)                  */
+/*    generate_first_installment_now?, (default true)                   */
 /*    folio_number?                                                     */
 /*  }                                                                   */
 /* ------------------------------------------------------------------ */
