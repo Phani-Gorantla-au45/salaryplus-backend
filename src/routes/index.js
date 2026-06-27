@@ -54,6 +54,7 @@ import mfAdminAumRoutes                from "./mf/admin/aum.routes.js";
 import mfAdminPurchaseRoutes           from "./mf/admin/purchase.routes.js";
 import mfAdminOrderLinkRoutes          from "./mf/admin/orderLink.routes.js";
 import mfPublicOrderLinkRoutes         from "./mf/public/orderLink.routes.js";
+import mfAdminListReportsRoutes        from "./mf/admin/listReports.routes.js";
 import mfHoldingsRoutes    from "./mf/reports/holdings.routes.js";
 import mfReturnsRoutes       from "./mf/reports/returns.routes.js";
 import mfTransactionsRoutes  from "./mf/reports/transactions.routes.js";
@@ -138,6 +139,9 @@ router.use("/api/mf/admin/purchase",            mfAdminPurchaseRoutes);
 // existing user-facing purchase flow, does not modify it)
 router.use("/api/mf/admin/order-links",         mfAdminOrderLinkRoutes);
 router.use("/api/mf/pay",                       mfPublicOrderLinkRoutes); // public, token-secured
+
+// Admin — FP transaction/purchase/redemption list reports
+router.use("/api/mf/admin/reports",             mfAdminListReportsRoutes);
 
 // MF Curated Baskets — public user-facing view
 router.use("/api/mf/curated-basket", mfCuratedBasketRoutes);
