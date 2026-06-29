@@ -55,6 +55,8 @@ import mfAdminPurchaseRoutes           from "./mf/admin/purchase.routes.js";
 import mfAdminOrderLinkRoutes          from "./mf/admin/orderLink.routes.js";
 import mfPublicOrderLinkRoutes         from "./mf/public/orderLink.routes.js";
 import mfAdminListReportsRoutes        from "./mf/admin/listReports.routes.js";
+import mfAdminBrokerageRoutes          from "./mf/admin/brokerage/brokerage.routes.js";
+import mfAdminKycRequestRoutes         from "./mf/admin/kycRequest.routes.js";
 import mfHoldingsRoutes    from "./mf/reports/holdings.routes.js";
 import mfReturnsRoutes       from "./mf/reports/returns.routes.js";
 import mfTransactionsRoutes  from "./mf/reports/transactions.routes.js";
@@ -142,6 +144,12 @@ router.use("/api/mf/pay",                       mfPublicOrderLinkRoutes); // pub
 
 // Admin — FP transaction/purchase/redemption list reports
 router.use("/api/mf/admin/reports",             mfAdminListReportsRoutes);
+
+// Admin — monthly brokerage/commission reports (CAMS DBF + KARVY CSV uploads)
+router.use("/api/mf/admin/brokerage",           mfAdminBrokerageRoutes);
+
+// Admin — fetch any investor's KYC request by id (no ownership check)
+router.use("/api/mf/admin/kyc-request",         mfAdminKycRequestRoutes);
 
 // MF Curated Baskets — public user-facing view
 router.use("/api/mf/curated-basket", mfCuratedBasketRoutes);
