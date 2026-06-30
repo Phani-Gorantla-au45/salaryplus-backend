@@ -7,6 +7,7 @@ import {
   listFpMfInvestmentAccounts,
 } from "../../../utils/mf/onboarding/mfInvestmentAccount.utils.js";
 import { sendWebhookNotification } from "../../../utils/mf/webhook/notification.utils.js";
+import { syncFolioDefaultsToFp } from "../../../utils/mf/onboarding/investmentAccountSync.utils.js";
 
 const ADMIN_EMAIL = "phanigorantla531@gmail.com";
 
@@ -220,60 +221,14 @@ export const updateMfInvestmentAccount = async (req, res) => {
   try {
     const { uniqueId } = req.user;
 
-    /* ---------- SINGLE READ ---------- */
-    const mfData = await MfUserData.findOne({ uniqueId });
-
-    if (!mfData?.investmentAccount?.fpInvestmentAccountId) {
+    const acc = await syncFolioDefaultsToFp(uniqueId);
+    if (!acc) {
       return res.status(404).json({
         success: false,
         message: "No MF investment account found. Create one first.",
       });
     }
 
-    const { phone, email, address, bankAccount, nominee } = mfData;
-
-    /* ---------- BUILD FOLIO DEFAULTS ---------- */
-    const folio_defaults = {
-      nominations_info_visibility: "show_all_nominee_names",
-    };
-
-    if (email?.fpEmailAddressId)
-      folio_defaults.communication_email_address = email.fpEmailAddressId;
-
-    if (phone?.fpPhoneNumberId)
-      folio_defaults.communication_mobile_number = phone.fpPhoneNumberId;
-
-    if (address?.fpAddressId)
-      folio_defaults.communication_address = address.fpAddressId;
-
-    if (bankAccount?.fpBankAccountId)
-      folio_defaults.payout_bank_account = bankAccount.fpBankAccountId;
-
-    if (nominee?.fpRelatedPartyId) {
-      folio_defaults.nominee1                       = nominee.fpRelatedPartyId;
-      folio_defaults.nominee1_allocation_percentage = 100;
-
-      if (nominee.identityProofType) {
-        folio_defaults.nominee1_identity_proof_type = nominee.identityProofType;
-      }
-      if (nominee.isMinor && nominee.guardianIdentityProofType) {
-        folio_defaults.nominee1_guardian_identity_proof_type = nominee.guardianIdentityProofType;
-      }
-    }
-
-    /* ---------- PATCH FP + SYNC DB ---------- */
-    const fpData = await updateFpMfInvestmentAccount(
-      mfData.investmentAccount.fpInvestmentAccountId,
-      { folio_defaults }
-    );
-
-    const record = await MfUserData.findOneAndUpdate(
-      { uniqueId },
-      { $set: { investmentAccount: accountFromFp(fpData) } },
-      { new: true }
-    );
-
-    const acc = record.investmentAccount;
     return res.status(200).json({
       success: true,
       message: "MF investment account updated successfully",

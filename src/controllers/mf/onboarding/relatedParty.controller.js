@@ -3,6 +3,7 @@ import {
   createFpRelatedParty,
   fetchFpRelatedParty,
 } from "../../../utils/mf/onboarding/relatedParty.utils.js";
+import { syncFolioDefaultsToFp } from "../../../utils/mf/onboarding/investmentAccountSync.utils.js";
 
 const RELATIONSHIP_VALUES = [
   "father", "mother", "court_appointed_legal_guardian", "aunt",
@@ -236,9 +237,26 @@ export const createRelatedParty = async (req, res) => {
       { upsert: true, new: true }
     );
 
+    /* ---------- LINK TO INVESTMENT ACCOUNT, IF ONE ALREADY EXISTS ----------
+     * If the investor hasn't completed onboarding yet, there's no account
+     * to link to — createMfInvestmentAccount will pick up this nominee on
+     * its own when that step happens (normal, not an error). If an account
+     * already exists (this is a user adding a nominee after onboarding),
+     * push the link now so the frontend doesn't need a second call. */
+    let linkFailed = false;
+    try {
+      await syncFolioDefaultsToFp(uniqueId);
+    } catch (syncErr) {
+      console.error("⚠️ [RELATED PARTY] Nominee saved but FP account link failed:", syncErr.message);
+      linkFailed = true;
+    }
+
     return res.status(201).json({
       success: true,
-      message: "Nominee added successfully",
+      message: linkFailed
+        ? "Nominee saved, but linking to your investment account failed — please retry"
+        : "Nominee added successfully",
+      linkFailed,
       data: formatNominee(record.nominee),
     });
   } catch (err) {
@@ -249,8 +267,9 @@ export const createRelatedParty = async (req, res) => {
 
 /* ------------------------------------------------------------------ */
 /*  PATCH /api/mf/related-party/:fpRelatedPartyId                       */
-/*  FP does not support PATCH — creates a new party with merged data.  */
-/*  Call PATCH /api/mf/investment-account afterward to re-link.        */
+/*  FP won't let an already-set field be edited in place, so this        */
+/*  creates a new party with merged data and re-links the investment     */
+/*  account to it internally — caller does this in a single request.   */
 /* ------------------------------------------------------------------ */
 export const updateRelatedParty = async (req, res) => {
   try {
@@ -299,9 +318,23 @@ export const updateRelatedParty = async (req, res) => {
       { new: true }
     );
 
+    /* FP has no real in-place edit for already-set fields, so this creates
+     * a new related_party object under the hood — re-link it to the
+     * investment account now so the frontend doesn't need a second call. */
+    let linkFailed = false;
+    try {
+      await syncFolioDefaultsToFp(uniqueId);
+    } catch (syncErr) {
+      console.error("⚠️ [RELATED PARTY] Nominee updated but FP account re-link failed:", syncErr.message);
+      linkFailed = true;
+    }
+
     return res.status(200).json({
       success: true,
-      message: "Nominee re-created with updated data. Call PATCH /api/mf/investment-account to re-link.",
+      message: linkFailed
+        ? "Nominee updated, but re-linking to your investment account failed — please retry"
+        : "Nominee updated successfully",
+      linkFailed,
       data: formatNominee(record.nominee),
     });
   } catch (err) {
