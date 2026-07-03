@@ -12,6 +12,7 @@ const accountFromFp = (fpData) => {
       communication_email_address:           fd.communication_email_address           ?? null,
       communication_mobile_number:           fd.communication_mobile_number           ?? null,
       communication_address:                 fd.communication_address                 ?? null,
+      overseas_communication_address:        fd.overseas_communication_address        ?? null,
       payout_bank_account:                   fd.payout_bank_account                   ?? null,
       nominee1:                              fd.nominee1                              ?? null,
       nominee1_allocation_percentage:        fd.nominee1_allocation_percentage        ?? null,
@@ -38,7 +39,7 @@ export const syncFolioDefaultsToFp = async (uniqueId) => {
     return null;
   }
 
-  const { phone, email, address, bankAccount, nominee } = mfData;
+  const { phone, email, address, overseasAddress, bankAccount, nominee } = mfData;
 
   const folio_defaults = {
     nominations_info_visibility: "show_all_nominee_names",
@@ -52,6 +53,9 @@ export const syncFolioDefaultsToFp = async (uniqueId) => {
 
   if (address?.fpAddressId)
     folio_defaults.communication_address = address.fpAddressId;
+
+  if (overseasAddress?.fpAddressId)
+    folio_defaults.overseas_communication_address = overseasAddress.fpAddressId;
 
   if (bankAccount?.fpBankAccountId)
     folio_defaults.payout_bank_account = bankAccount.fpBankAccountId;

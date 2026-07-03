@@ -178,6 +178,7 @@ const folioDefaultsSchema = new Schema({
   communication_email_address:              { type: String, default: null },
   communication_mobile_number:              { type: String, default: null },
   communication_address:                    { type: String, default: null },
+  overseas_communication_address:           { type: String, default: null }, // NRI only
   payout_bank_account:                      { type: String, default: null },
   nominee1:                                 { type: String, default: null },
   nominee1_allocation_percentage:           { type: Number, default: null },
@@ -208,6 +209,7 @@ const mfUserDataSchema = new Schema(
     phone:             { type: phoneSchema,              default: () => ({}) },
     email:             { type: emailSchema,              default: () => ({}) },
     address:           { type: addressSchema,            default: () => ({}) },
+    overseasAddress:   { type: addressSchema,            default: () => ({}) }, // NRI only
     bankAccount:       { type: bankAccountSchema,        default: () => ({}) },
     nominee:           { type: nomineeSchema,            default: () => ({}) },
     investmentAccount: { type: investmentAccountSchema,  default: () => ({}) },

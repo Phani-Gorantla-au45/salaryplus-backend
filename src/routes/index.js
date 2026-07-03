@@ -38,6 +38,7 @@ import mfJourneyStatusRoutes    from "./mf/onboarding/journeyStatus.routes.js";
 import mfAmcRoutes          from "./mf/master/amc.routes.js";
 import mfSchemePlanRoutes   from "./mf/master/schemePlan.routes.js";
 import mfDailySipFundRoutes from "./mf/master/dailySipFund.routes.js";
+import mfCountryRoutes      from "./mf/master/country.routes.js";
 import mfPurchaseRoutes       from "./mf/purchase/mfPurchase.routes.js";
 import mfBasketPurchaseRoutes from "./mf/purchase/mfBasketPurchase.routes.js";
 import mfBasketRoutes from "./mf/mfBasket.routes.js";
@@ -122,6 +123,7 @@ router.use("/api/mf/account", mfAccountPrefillRoutes);
 router.use("/api/mf/master/amcs",           mfAmcRoutes);
 router.use("/api/mf/master/scheme-plans",   mfSchemePlanRoutes);
 router.use("/api/mf/master/daily-sip-funds", mfDailySipFundRoutes);
+router.use("/api/mf/master/countries",      mfCountryRoutes);
 
 // MF Basket (fund listing for frontend)
 router.use("/api/mf/basket", mfBasketRoutes);

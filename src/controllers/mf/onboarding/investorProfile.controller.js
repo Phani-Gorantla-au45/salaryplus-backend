@@ -96,6 +96,8 @@ export const createInvestorProfile = async (req, res) => {
     const {
       name, dob, gender, occupation, pan, tax_status,
       source_of_wealth, income_slab, pep_details, signature,
+      tin_number,
+      tax_residency_country,
     } = req.body;
 
     if (!name || !dob || !gender || !occupation || !pan || !tax_status ||
@@ -103,6 +105,20 @@ export const createInvestorProfile = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "name, dob, gender, occupation, pan, tax_status, source_of_wealth, income_slab, pep_details are required",
+      });
+    }
+
+    if (tax_status === "nri" && !tin_number) {
+      return res.status(400).json({
+        success: false,
+        message: "tin_number is required for NRI investors",
+      });
+    }
+
+    if (tax_status === "nri" && !tax_residency_country) {
+      return res.status(400).json({
+        success: false,
+        message: "tax_residency_country is required for NRI investors",
       });
     }
 
@@ -132,9 +148,9 @@ export const createInvestorProfile = async (req, res) => {
       place_of_birth:             "IN",
       use_default_tax_residences: false,
       first_tax_residency: {
-        country:      "IN",
-        taxid_type:   "pan",
-        taxid_number: pan.toUpperCase().trim(),
+        country:      tax_status === "nri" ? tax_residency_country.toUpperCase().trim() : "IN",
+        taxid_type:   tax_status === "nri" ? "tin" : "pan",
+        taxid_number: tax_status === "nri" ? tin_number.trim() : pan.toUpperCase().trim(),
       },
       source_of_wealth,
       income_slab,

@@ -25,6 +25,7 @@ const accountFromFp = (fpData) => {
       communication_email_address:           fd.communication_email_address           ?? null,
       communication_mobile_number:           fd.communication_mobile_number           ?? null,
       communication_address:                 fd.communication_address                 ?? null,
+      overseas_communication_address:        fd.overseas_communication_address        ?? null,
       payout_bank_account:                   fd.payout_bank_account                   ?? null,
       nominee1:                              fd.nominee1                              ?? null,
       nominee1_allocation_percentage:        fd.nominee1_allocation_percentage        ?? null,
@@ -56,12 +57,13 @@ export const createMfInvestmentAccount = async (req, res) => {
     }
 
     /* ---------- INVESTOR PROFILE IS MANDATORY ---------- */
-    const profile     = mfData?.investorProfile;
-    const phone       = mfData?.phone;
-    const email       = mfData?.email;
-    const address     = mfData?.address;
-    const bankAccount = mfData?.bankAccount;
-    const nominee     = mfData?.nominee;
+    const profile         = mfData?.investorProfile;
+    const phone           = mfData?.phone;
+    const email           = mfData?.email;
+    const address         = mfData?.address;
+    const overseasAddress = mfData?.overseasAddress;
+    const bankAccount     = mfData?.bankAccount;
+    const nominee         = mfData?.nominee;
 
     if (!profile?.fpInvestorProfileId) {
       return res.status(400).json({
@@ -73,10 +75,12 @@ export const createMfInvestmentAccount = async (req, res) => {
 
     /* ---------- LOG MISSING OPTIONAL ITEMS ---------- */
     const missing = [];
-    if (!phone?.fpPhoneNumberId)    missing.push("phone_number");
-    if (!email?.fpEmailAddressId)   missing.push("email_address");
-    if (!address?.fpAddressId)      missing.push("address");
+    if (!phone?.fpPhoneNumberId)       missing.push("phone_number");
+    if (!email?.fpEmailAddressId)      missing.push("email_address");
+    if (!address?.fpAddressId)         missing.push("address");
     if (!bankAccount?.fpBankAccountId) missing.push("bank_account");
+    const isNri = profile?.taxStatus === "nri";
+    if (isNri && !overseasAddress?.fpAddressId) missing.push("overseas_address(nri)");
     if (missing.length > 0) {
       console.warn(`⚠️  [MF ACCOUNT] Creating without: ${missing.join(", ")}`);
     }
@@ -94,6 +98,9 @@ export const createMfInvestmentAccount = async (req, res) => {
 
     if (address?.fpAddressId)
       folio_defaults.communication_address = address.fpAddressId;
+
+    if (overseasAddress?.fpAddressId)
+      folio_defaults.overseas_communication_address = overseasAddress.fpAddressId;
 
     if (bankAccount?.fpBankAccountId)
       folio_defaults.payout_bank_account = bankAccount.fpBankAccountId;
