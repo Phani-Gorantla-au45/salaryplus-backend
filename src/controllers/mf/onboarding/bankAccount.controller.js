@@ -10,10 +10,12 @@ import {
 
 const ACCOUNT_TYPES = ["savings", "current", "nre", "nro"];
 
-// Cybrilla only supports savings/current as-is; nre/nro not handled
+// Map our account types to Cybrilla's expected account_type values
 const CYBRILLA_ACCOUNT_TYPE = {
   savings: "savings",
   current: "current",
+  nre:     "nre_savings",
+  nro:     "nro_savings",
 };
 
 const VERIFY_POLL_MS = 3000;
@@ -118,7 +120,7 @@ export const createBankAccount = async (req, res) => {
     /* ---------- STEP 1: VERIFY FIRST via Cybrilla ---------- */
     let bankResult;
     try {
-      const cybrillaAccountType = CYBRILLA_ACCOUNT_TYPE[type] ?? type;
+      const cybrillaAccountType = CYBRILLA_ACCOUNT_TYPE[type];
       const pvInitial = await createBankPreVerification(
         profile.pan,
         profile.name,
@@ -141,7 +143,6 @@ export const createBankAccount = async (req, res) => {
     if (bankResult.status === "failed") {
       console.warn(`⚠️  [BANK VERIFY] Failed — code: ${bankResult.code}, reason: ${bankResult.reason}`);
 
-      // Attempt limit hit — not a wrong-details error, advise user to contact support
       if (bankResult.code === "verification_attempt_limit_exceeded") {
         return res.status(429).json({
           success: false,
