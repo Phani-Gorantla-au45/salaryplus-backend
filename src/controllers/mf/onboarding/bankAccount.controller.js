@@ -63,7 +63,7 @@ const extractBankResult = (pv) => {
 export const createBankAccount = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { account_number, primary_account_holder_name, type, ifsc_code } =
+    const { account_number, primary_account_holder_name, type, ifsc_code, cancelled_cheque } =
       req.body;
 
     if (
@@ -83,6 +83,14 @@ export const createBankAccount = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `type must be one of: ${ACCOUNT_TYPES.join(", ")}`,
+      });
+    }
+
+    const NRI_TYPES = ["nre", "nro"];
+    if (NRI_TYPES.includes(type) && !cancelled_cheque) {
+      return res.status(400).json({
+        success: false,
+        message: "cancelled_cheque (fpFileId) is required for NRE/NRO accounts. Upload via POST /api/mf/file/upload first.",
       });
     }
 
@@ -185,6 +193,7 @@ export const createBankAccount = async (req, res) => {
       primary_account_holder_name: primary_account_holder_name.trim(),
       type,
       ifsc_code: ifsc_code.toUpperCase().trim(),
+      ...(cancelled_cheque && { cancelled_cheque }),
     });
 
     /* ---------- STEP 4: SAVE TO DB ---------- */
