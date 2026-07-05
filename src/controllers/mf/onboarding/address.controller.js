@@ -143,7 +143,7 @@ export const getAddress = async (req, res) => {
 export const createOverseasAddress = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { line1, line2, postal_code, country } = req.body;
+    const { line1, line2, city, postal_code, country } = req.body;
 
     if (!line1 || !postal_code || !country) {
       return res.status(400).json({
@@ -181,6 +181,7 @@ export const createOverseasAddress = async (req, res) => {
       profile:     fpInvestorProfileId,
       line1:       line1.trim(),
       ...(line2 && { line2: line2.trim() }),
+      ...(city   && { city: city.trim() }),
       country:     country.toUpperCase().trim(),
       postal_code: String(postal_code),
       nature:      "residential",
