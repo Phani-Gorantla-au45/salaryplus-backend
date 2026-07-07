@@ -6,6 +6,7 @@ import {
 import {
   createBankPreVerification,
   fetchPreVerification,
+  uploadPoaFile,
 } from "../../../utils/mf/kyc/preVerification.utils.js";
 
 const ACCOUNT_TYPES = ["savings", "current", "nre", "nro"];
@@ -58,12 +59,47 @@ const extractBankResult = (pv) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  POST /api/mf/bank-account/upload-proof  (NRI only)                 */
+/*  Uploads bank proof to Cybrilla's POA file store.                   */
+/*  Returns a cybrilla_file_id to pass as bank_proof_id when           */
+/*  creating an NRE/NRO bank account.                                   */
+/* ------------------------------------------------------------------ */
+const POA_ALLOWED_MIME = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
+const POA_MAX_BYTES    = 10 * 1024 * 1024;
+
+export const uploadBankProof = async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, message: "No file uploaded. Use field name 'file'" });
+    }
+    if (!POA_ALLOWED_MIME.includes(file.mimetype)) {
+      return res.status(400).json({ success: false, message: `Invalid file type. Allowed: jpg, png, pdf` });
+    }
+    if (file.size > POA_MAX_BYTES) {
+      return res.status(400).json({ success: false, message: "File size exceeds 10MB limit" });
+    }
+
+    const poaData = await uploadPoaFile(file.buffer, file.originalname, file.mimetype);
+
+    return res.status(201).json({
+      success: true,
+      message: "Bank proof uploaded successfully",
+      cybrilla_file_id: poaData.id,
+    });
+  } catch (err) {
+    console.error("❌ [BANK PROOF UPLOAD] Error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  POST /api/mf/bank-account                                           */
 /* ------------------------------------------------------------------ */
 export const createBankAccount = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { account_number, primary_account_holder_name, type, ifsc_code, cancelled_cheque } =
+    const { account_number, primary_account_holder_name, type, ifsc_code, bank_proof_id } =
       req.body;
 
     if (
@@ -87,10 +123,10 @@ export const createBankAccount = async (req, res) => {
     }
 
     const NRI_TYPES = ["nre", "nro"];
-    if (NRI_TYPES.includes(type) && !cancelled_cheque) {
+    if (NRI_TYPES.includes(type) && !bank_proof_id) {
       return res.status(400).json({
         success: false,
-        message: "cancelled_cheque (fpFileId) is required for NRE/NRO accounts. Upload via POST /api/mf/file/upload first.",
+        message: "bank_proof_id (Cybrilla file ID) is required for NRE/NRO accounts. Upload via POST /api/mf/bank-account/upload-proof first.",
       });
     }
 
@@ -135,7 +171,8 @@ export const createBankAccount = async (req, res) => {
         profile.dob,
         String(account_number),
         ifsc_code.toUpperCase().trim(),
-        cybrillaAccountType
+        cybrillaAccountType,
+        bank_proof_id ?? null   // NRE/NRO only; null for savings/current
       );
       const pvFinal = await pollVerification(pvInitial.id);
       bankResult = extractBankResult(pvFinal);
@@ -193,7 +230,6 @@ export const createBankAccount = async (req, res) => {
       primary_account_holder_name: primary_account_holder_name.trim(),
       type,
       ifsc_code: ifsc_code.toUpperCase().trim(),
-      ...(cancelled_cheque && { cancelled_cheque }),
     });
 
     /* ---------- STEP 4: SAVE TO DB ---------- */

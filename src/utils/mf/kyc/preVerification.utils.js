@@ -1,4 +1,5 @@
 import axios from "axios";
+import FormData from "form-data";
 import { getCybrillaToken } from "../cybrillaToken.utils.js";
 
 const CYBRILLA_API_URL = () => process.env.CYBRILLA_API_URL;
@@ -52,15 +53,52 @@ export const createPreVerification = async (pan, name, date_of_birth) => {
 };
 
 /**
+ * Uploads a file to Cybrilla's POA file store.
+ * Used for NRE/NRO bank account proof — different from FP's /files endpoint.
+ *
+ * @param {Buffer} buffer       - File buffer
+ * @param {string} originalname - Original filename
+ * @param {string} mimetype     - MIME type
+ * @returns {object} - { id, created_at }
+ */
+export const uploadPoaFile = async (buffer, originalname, mimetype) => {
+  console.log(`🔄 [CYBRILLA POA FILE] Uploading bank proof: ${originalname}`);
+
+  const token = await getCybrillaToken();
+  const form = new FormData();
+  form.append("purpose", "bank account proof");
+  form.append("file", buffer, { filename: originalname, contentType: mimetype });
+
+  try {
+    const response = await axios.post(
+      `${CYBRILLA_API_URL()}/poa/files`,
+      form,
+      {
+        headers: {
+          ...form.getHeaders(),
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log(`✅ [CYBRILLA POA FILE] Uploaded — id: ${response.data?.id}`);
+    return response.data;
+  } catch (err) {
+    console.error("❌ [CYBRILLA POA FILE] Upload failed:", err.response?.data || err.message);
+    throw new Error(err.response?.data?.message || "Failed to upload bank proof to POA");
+  }
+};
+
+/**
  * Creates a Pre-Verification request that includes bank account verification.
  * Reuses the same /poa/pre_verifications endpoint with bank_accounts payload.
  *
- * @param {string} pan           - Investor's PAN
- * @param {string} name          - Investor's name
- * @param {string} date_of_birth - YYYY-MM-DD
- * @param {string} accountNumber - Bank account number
- * @param {string} ifscCode      - IFSC code
- * @param {string} accountType   - "savings" | "current"
+ * @param {string} pan              - Investor's PAN
+ * @param {string} name             - Investor's name
+ * @param {string} date_of_birth    - YYYY-MM-DD
+ * @param {string} accountNumber    - Bank account number
+ * @param {string} ifscCode         - IFSC code
+ * @param {string} accountType      - "savings" | "current" | "nre_savings" | "nro_savings"
+ * @param {string} [bankAccountProof] - Cybrilla POA file ID (required for NRE/NRO)
  * @returns {object} - Cybrilla pre-verification object
  */
 export const createBankPreVerification = async (
@@ -69,7 +107,8 @@ export const createBankPreVerification = async (
   date_of_birth,
   accountNumber,
   ifscCode,
-  accountType
+  accountType,
+  bankAccountProof = null
 ) => {
   console.log(
     `🔄 [CYBRILLA BANK VERIFY] Creating bank pre-verification for PAN: ${pan}, account: ${accountNumber}`
@@ -77,28 +116,26 @@ export const createBankPreVerification = async (
 
   const token = await getCybrillaToken();
 
+  const bankAccountValue = {
+    account_number: accountNumber,
+    ifsc_code:      ifscCode,
+    account_type:   accountType,
+    ...(bankAccountProof && { bank_account_proof: bankAccountProof }),
+  };
+
   try {
     const response = await axios.post(
       `${CYBRILLA_API_URL()}/poa/pre_verifications`,
       {
         investor_identifier: pan,
-        pan: { value: pan },
-        name: { value: name },
+        pan:           { value: pan },
+        name:          { value: name },
         date_of_birth: { value: date_of_birth },
-        bank_accounts: [
-          {
-            value: {
-              account_number: accountNumber,
-              ifsc_code: ifscCode,
-              account_type: accountType, // savings | current
-            },
-            // verify_manually_if_required: true,
-          },
-        ],
+        bank_accounts: [{ value: bankAccountValue }],
       },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization:  `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       }
