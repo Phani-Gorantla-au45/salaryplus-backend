@@ -174,7 +174,13 @@ export const createBankAccount = async (req, res) => {
         cybrillaAccountType,
         bank_proof_id ?? null   // NRE/NRO only; null for savings/current
       );
-      const pvFinal = await pollVerification(pvInitial.id);
+
+      // NRE/NRO with proof: Cybrilla returns "accepted" (manual review) — skip polling
+      const isManualApproval = NRI_TYPES.includes(type) && pvInitial.status === "accepted";
+      const pvFinal = isManualApproval ? pvInitial : await pollVerification(pvInitial.id);
+      if (isManualApproval) {
+        console.log(`ℹ️  [BANK VERIFY] NRI manual approval — pv status: accepted. Skipping poll, proceeding to FP.`);
+      }
       bankResult = extractBankResult(pvFinal);
     } catch (verifyErr) {
       console.error("❌ [BANK VERIFY] Cybrilla verification failed:", verifyErr.message);
@@ -211,7 +217,10 @@ export const createBankAccount = async (req, res) => {
       });
     }
 
-    if (bankResult.pvStatus !== "completed" || bankResult.status !== "verified") {
+    // NRI manual approval: "accepted" + bank not "failed" → allow through
+    const isNriManualApproval = NRI_TYPES.includes(type) && bankResult.pvStatus === "accepted" && bankResult.status !== "failed";
+
+    if (!isNriManualApproval && (bankResult.pvStatus !== "completed" || bankResult.status !== "verified")) {
       console.warn(`⚠️  [BANK VERIFY] Did not complete in time — status: ${bankResult.status}`);
       return res.status(422).json({
         success: false,
