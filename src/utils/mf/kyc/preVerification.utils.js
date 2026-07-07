@@ -111,7 +111,7 @@ export const createBankPreVerification = async (
   bankAccountProof = null
 ) => {
   console.log(
-    `🔄 [CYBRILLA BANK VERIFY] Creating bank pre-verification for PAN: ${pan}, account: ${accountNumber}`
+    `🔄 [CYBRILLA BANK VERIFY] Creating bank pre-verification for PAN: ${pan}, account: ${accountNumber}, type: ${accountType}`
   );
 
   const token = await getCybrillaToken();
@@ -123,16 +123,20 @@ export const createBankPreVerification = async (
     ...(bankAccountProof && { bank_account_proof: bankAccountProof }),
   };
 
+  const requestPayload = {
+    investor_identifier: pan,
+    pan:           { value: pan },
+    name:          { value: name },
+    date_of_birth: { value: date_of_birth },
+    bank_accounts: [{ value: bankAccountValue }],
+  };
+
+  console.log("📤 [CYBRILLA BANK VERIFY] Request payload:", JSON.stringify(requestPayload, null, 2));
+
   try {
     const response = await axios.post(
       `${CYBRILLA_API_URL()}/poa/pre_verifications`,
-      {
-        investor_identifier: pan,
-        pan:           { value: pan },
-        name:          { value: name },
-        date_of_birth: { value: date_of_birth },
-        bank_accounts: [{ value: bankAccountValue }],
-      },
+      requestPayload,
       {
         headers: {
           Authorization:  `Bearer ${token}`,
@@ -148,7 +152,7 @@ export const createBankPreVerification = async (
   } catch (err) {
     console.error(
       "❌ [CYBRILLA BANK VERIFY] Failed to create bank pre-verification:",
-      err.response?.data || err.message
+      JSON.stringify(err.response?.data || err.message, null, 2)
     );
     throw new Error(
       err.response?.data?.message ||
