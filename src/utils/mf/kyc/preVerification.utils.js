@@ -128,7 +128,12 @@ export const createBankPreVerification = async (
     pan:           { value: pan },
     name:          { value: name },
     date_of_birth: { value: date_of_birth },
-    bank_accounts: [{ value: bankAccountValue }],
+    bank_accounts: [
+      {
+        value: bankAccountValue,
+        ...(bankAccountProof && { verify_manually_if_required: true }),
+      },
+    ],
   };
 
   console.log("📤 [CYBRILLA BANK VERIFY] Request payload:", JSON.stringify(requestPayload, null, 2));
