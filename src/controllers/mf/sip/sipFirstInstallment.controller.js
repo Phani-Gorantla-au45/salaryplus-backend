@@ -65,14 +65,16 @@ export const payFirstInstallment = async (req, res) => {
 
     for (const planId of planIds) {
       const purchases = await listFpPurchasesByPlan(planId);
-      const pending = purchases.filter((p) => p.state === "pending");
+      const payable = purchases.filter(
+        (p) => p.old_id && !["confirmed", "succeeded", "failed", "cancelled", "reversed"].includes(p.state)
+      );
 
-      if (pending.length === 0) {
-        console.warn(`⚠️  [SIP FIRST INSTALL] No pending purchase for plan ${planId}`);
+      if (payable.length === 0) {
+        console.warn(`⚠️  [SIP FIRST INSTALL] No payable purchase for plan ${planId} (states: ${purchases.map(p => p.state).join(",")})`);
         continue;
       }
 
-      const oldId = pending[0].old_id;
+      const oldId = payable[0].old_id;
       if (!oldId) {
         return res.status(502).json({
           success: false,
@@ -115,7 +117,7 @@ export const payFirstInstallment = async (req, res) => {
     const fpPayment = await createFpPaymentNetbanking(paymentPayload);
 
     /* ---------- STORE PAYMENT ID IN SIP ---------- */
-    await MfSip.findByIdAndUpdate(sipId, {
+    await MfSip.findByIdAndUpdate(sip._id, {
       $set: { fpFirstInstallmentPaymentId: fpPayment.id },
     });
 
