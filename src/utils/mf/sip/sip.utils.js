@@ -121,6 +121,28 @@ export const fetchFpSip = async (fpSipId) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  POST /v2/mf_purchase_plans/cancel                                   */
+/*  Cancels a single SIP plan by FP id.                                 */
+/* ------------------------------------------------------------------ */
+export const cancelFpSip = async (fpSipId, cancellationCode, cancellationReason = null) => {
+  try {
+    const payload = { id: fpSipId, cancellation_code: cancellationCode };
+    if (cancellationReason) payload.cancellation_reason = cancellationReason;
+    console.log(`\n🚫 [FP SIP] Cancel id=${fpSipId} code=${cancellationCode}`);
+    const response = await axios.post(
+      `${FP_API_URL()}/v2/mf_purchase_plans/cancel`,
+      payload,
+      { headers: await fpHeaders() }
+    );
+    console.log(`✅ [FP SIP] Cancelled — state=${response.data?.state}`);
+    return response.data;
+  } catch (err) {
+    console.error("❌ [FP SIP] Cancel failed:", JSON.stringify(err.response?.data || err.message, null, 2));
+    throw new Error(err.response?.data?.message || "Failed to cancel SIP on FP");
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  GET /v2/mf_purchase_plans                                           */
 /*  Lists SIP plans with optional filters.                              */
 /*  params: { mf_investment_account, states }                          */

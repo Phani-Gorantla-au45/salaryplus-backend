@@ -27,15 +27,15 @@ export const checkVersion = async (req, res) => {
 
     const config = await AppVersion.findOne({ platform });
 
-    // No config set yet — let app through with no update prompt
-    if (!config) {
+    // No config set yet, or check explicitly disabled — let all users through
+    if (!config || config.disabled) {
       return res.status(200).json({
         success:        true,
         updateRequired: false,
         forceUpdate:    false,
         softUpdate:     false,
-        latestVersion:  null,
-        storeUrl:       null,
+        latestVersion:  config?.latestVersion ?? null,
+        storeUrl:       config?.storeUrl ?? null,
         message:        null,
       });
     }
@@ -80,7 +80,7 @@ export const checkVersion = async (req, res) => {
 /* ------------------------------------------------------------------ */
 export const upsertVersionConfig = async (req, res) => {
   try {
-    const { platform, version, forceUpdate, storeUrl, updateMessage } = req.body;
+    const { platform, version, forceUpdate, storeUrl, updateMessage, disabled } = req.body;
 
     if (!platform || !["ios", "android"].includes(platform)) {
       return res.status(400).json({
@@ -110,6 +110,7 @@ export const upsertVersionConfig = async (req, res) => {
     };
     if (updateMessage !== undefined) setFields.updateMessage = updateMessage ?? null;
     if (storeUrl      !== undefined) setFields.storeUrl      = storeUrl      ?? null;
+    if (disabled      !== undefined) setFields.disabled      = Boolean(disabled);
 
     const config = await AppVersion.findOneAndUpdate(
       { platform },
@@ -123,6 +124,7 @@ export const upsertVersionConfig = async (req, res) => {
       data: {
         platform:      config.platform,
         latestVersion: config.latestVersion,
+        disabled:      config.disabled,
         forceUpdate:   config.forceUpdate,
         storeUrl:      config.storeUrl,
         updateMessage: config.updateMessage,
