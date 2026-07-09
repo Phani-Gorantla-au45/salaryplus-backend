@@ -24,23 +24,14 @@ const getPlanIds = (sip) => {
 /*  the SIP plan(s) and initiates netbanking payment for all of them   */
 /*  in a single payment call (single and basket both handled).         */
 /*                                                                     */
-/*  Body: { bank_account_id, payment_method, payment_postback_url }   */
-/*    bank_account_id      – numeric fpBankAccountOldId                */
-/*    payment_method       – "NETBANKING" | "UPI"                      */
-/*    payment_postback_url – frontend redirect URL after payment       */
+/*  Body: { payment_method }                                           */
+/*    payment_method – "NETBANKING" | "UPI"                            */
 /* ------------------------------------------------------------------ */
 export const payFirstInstallment = async (req, res) => {
   try {
     const { uniqueId } = req.user;
     const { sipId } = req.params;
-    const { bank_account_id, payment_method, payment_postback_url } = req.body;
-
-    if (!bank_account_id || isNaN(Number(bank_account_id))) {
-      return res.status(400).json({
-        success: false,
-        message: "bank_account_id is required (numeric FP bank old_id from GET /api/mf/bank-account → fpBankAccountOldId)",
-      });
-    }
+    const { payment_method } = req.body;
 
     if (!payment_method || !["NETBANKING", "UPI"].includes(payment_method)) {
       return res.status(400).json({
@@ -95,10 +86,17 @@ export const payFirstInstallment = async (req, res) => {
 
     console.log(`📋 [SIP FIRST INSTALL] sipId=${sipId} planIds=${planIds.join(",")} amcOrderIds=${amcOrderIds.join(",")}`);
 
-    /* ---------- GET BANK OLD_ID ---------- */
+    /* ---------- GET BANK OLD_ID FROM DB ---------- */
     const mfData = await MfUserData.findOne({ uniqueId });
-    const postbackUrl = payment_postback_url
-      || `${process.env.APP_URL}/api/mf/purchase/payment-callback`;
+    const bank_account_id = mfData?.bankAccount?.fpBankAccountOldId;
+    if (!bank_account_id) {
+      return res.status(400).json({
+        success: false,
+        message: "No linked bank account found. Complete bank account setup first.",
+      });
+    }
+
+    const postbackUrl = `${process.env.APP_URL}/api/mf/purchase/payment-callback`;
 
     /* ---------- CREATE PAYMENT ---------- */
     const paymentPayload = {
