@@ -77,6 +77,9 @@ const mfSipSchema = new mongoose.Schema(
     // Optional linked goal
     linkedGoalId: { type: mongoose.Schema.Types.ObjectId, ref: "UserGoal", default: null },
 
+    // First installment payment (only when paid separately via netbanking)
+    fpFirstInstallmentPaymentId: { type: String, default: null },
+
     // Raw FP responses
     rawSipResponse: { type: mongoose.Schema.Types.Mixed, select: false },
   },

@@ -66,6 +66,26 @@ export const fetchFpPurchase = async (fpPurchaseId) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  GET /v2/mf_purchases?plan=<planId>                                  */
+/*  Lists purchase orders linked to a SIP plan (first installment).     */
+/* ------------------------------------------------------------------ */
+export const listFpPurchasesByPlan = async (planId) => {
+  try {
+    const response = await axios.get(
+      `${FP_API_URL()}/v2/mf_purchases`,
+      { headers: await fpHeaders(), params: { plan: planId } }
+    );
+    return response.data?.data ?? [];
+  } catch (err) {
+    console.error(
+      `❌ [FP PURCHASE] List by plan failed for ${planId}:`,
+      err.response?.data || err.message
+    );
+    throw new Error(err.response?.data?.message || "Failed to list purchases from FP");
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  PATCH /v2/mf_purchases/:id                                          */
 /*  Update a purchase (add consent OR set state=confirmed).             */
 /* ------------------------------------------------------------------ */
