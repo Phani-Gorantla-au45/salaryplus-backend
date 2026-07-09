@@ -18,7 +18,7 @@ export const createFpAddress = async (payload) => {
   try {
     console.log("\n📤 [FP ADDRESS] Create payload:", JSON.stringify(payload, null, 2));
     const response = await axios.post(
-      `${FP_API_URL()}/v2/addresses`,
+      `${FP_API_URL()}/v2/x`,
       payload,
       { headers: await fpHeaders() }
     );

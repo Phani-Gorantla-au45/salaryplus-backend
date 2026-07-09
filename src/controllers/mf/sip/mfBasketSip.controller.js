@@ -81,6 +81,7 @@ export const createBasketSip = async (req, res) => {
       sip_plans,
       goal_id,
       folio_number,
+      basket_name,
     } = req.body;
     console.log("Create sip basket", req.body);
     console.log(
@@ -230,6 +231,7 @@ export const createBasketSip = async (req, res) => {
           uniqueId,
           fpSipId: primaryFpSipId,
           isBasketSip: true,
+          basketName: basket_name ?? null,
           basketFunds: sip_plans.map((p, i) => ({
             isin: p.isin.toUpperCase().trim(),
             amount: Number(p.amount),

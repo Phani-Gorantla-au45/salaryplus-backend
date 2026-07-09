@@ -469,9 +469,10 @@ export const getSip = async (req, res) => {
     }
 
     const updated = await MfSip.findById(record._id);
+    const goalMap = await enrichWithGoals([updated]);
     return res
       .status(200)
-      .json({ success: true, data: sipPublicResponse(updated) });
+      .json({ success: true, data: sipPublicResponse(updated, { goalName: goalMap[updated.linkedGoalId] ?? null }) });
   } catch (err) {
     console.error("❌ [SIP] Get error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -493,10 +494,11 @@ export const listSips = async (req, res) => {
     if (frequency) filter.frequency = frequency;
 
     const sips = await MfSip.find(filter).sort({ createdAt: -1 });
+    const goalMap = await enrichWithGoals(sips);
     return res.status(200).json({
       success: true,
       count: sips.length,
-      data: sips.map(sipPublicResponse),
+      data: sips.map((s) => sipPublicResponse(s, { goalName: goalMap[s.linkedGoalId] ?? null })),
     });
   } catch (err) {
     console.error("❌ [SIP] List error:", err.message);
@@ -547,11 +549,13 @@ export const cancelSip = async (req, res) => {
 
 /* ------------------------------------------------------------------ */
 /*  Internal — public response shape                                    */
+/*  extras: { goalName? }                                               */
 /* ------------------------------------------------------------------ */
-export const sipPublicResponse = (s) => ({
+export const sipPublicResponse = (s, extras = {}) => ({
   sipId: s._id,
   fpSipId: s.fpSipId,
   isBasketSip: s.isBasketSip,
+  basketName: s.basketName ?? null,
   isin: s.isin,
   schemeName: s.schemeName,
   fundName: s.fundName,
@@ -565,10 +569,27 @@ export const sipPublicResponse = (s) => ({
   paymentSource: s.paymentSource,
   fpState: s.fpState,
   consentGiven: s.consentGiven,
+  generateFirstInstallmentNow: s.generateFirstInstallmentNow ?? false,
+  fpFirstInstallmentPaymentId: s.fpFirstInstallmentPaymentId ?? null,
   startDate: s.startDate,
   nextInstallmentDate: s.nextInstallmentDate,
   remainingInstallments: s.remainingInstallments,
   otpExpiresAt: s.otpExpiresAt,
   linkedGoalId: s.linkedGoalId ?? null,
+  goalName: extras.goalName ?? null,
   createdAt: s.createdAt,
 });
+
+const formatGoalType = (type) =>
+  type ? type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : null;
+
+const enrichWithGoals = async (sips) => {
+  const goalIds = sips.map((s) => s.linkedGoalId).filter(Boolean);
+  if (!goalIds.length) return {};
+  const goals = await UserGoal.find({ _id: { $in: goalIds } }).lean();
+  const goalMap = {};
+  for (const g of goals) {
+    goalMap[g._id.toString()] = g.inputs?.name || formatGoalType(g.templateType);
+  }
+  return goalMap;
+};

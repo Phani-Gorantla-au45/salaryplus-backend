@@ -27,6 +27,7 @@ const mfSipSchema = new mongoose.Schema(
 
     // Basket SIP fields
     isBasketSip:  { type: Boolean, default: false },
+    basketName:   { type: String, default: null },
     basketFunds:  {
       type: [{
         isin:       String,
