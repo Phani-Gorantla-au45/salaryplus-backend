@@ -40,8 +40,14 @@ export const payFirstInstallment = async (req, res) => {
       });
     }
 
-    /* ---------- LOAD SIP ---------- */
-    const sip = await MfSip.findOne({ _id: sipId, uniqueId });
+    /* ---------- LOAD SIP — accept MongoDB _id or fpSipId ---------- */
+    const mongoose = (await import("mongoose")).default;
+    const isObjectId = mongoose.Types.ObjectId.isValid(sipId) && String(new mongoose.Types.ObjectId(sipId)) === sipId;
+    const sipQuery = isObjectId
+      ? { _id: sipId, uniqueId }
+      : { fpSipId: sipId, uniqueId };
+
+    const sip = await MfSip.findOne(sipQuery);
     if (!sip) {
       return res.status(404).json({ success: false, message: "SIP not found" });
     }
@@ -140,7 +146,13 @@ export const getFirstInstallmentStatus = async (req, res) => {
     const { uniqueId } = req.user;
     const { sipId } = req.params;
 
-    const sip = await MfSip.findOne({ _id: sipId, uniqueId });
+    const mongoose = (await import("mongoose")).default;
+    const isObjectId = mongoose.Types.ObjectId.isValid(sipId) && String(new mongoose.Types.ObjectId(sipId)) === sipId;
+    const sipQuery = isObjectId
+      ? { _id: sipId, uniqueId }
+      : { fpSipId: sipId, uniqueId };
+
+    const sip = await MfSip.findOne(sipQuery);
     if (!sip) {
       return res.status(404).json({ success: false, message: "SIP not found" });
     }
