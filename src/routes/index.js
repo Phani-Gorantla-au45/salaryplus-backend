@@ -55,6 +55,7 @@ import mfAdminTransactionsRoutes       from "./mf/admin/transactions.routes.js";
 import mfAdminAumRoutes                from "./mf/admin/aum.routes.js";
 import mfAdminPurchaseRoutes           from "./mf/admin/purchase.routes.js";
 import mfAdminOrderLinkRoutes          from "./mf/admin/orderLink.routes.js";
+import mfAdminBankAccountRoutes         from "./mf/admin/bankAccount.routes.js";
 import mfPublicOrderLinkRoutes         from "./mf/public/orderLink.routes.js";
 import mfAdminListReportsRoutes        from "./mf/admin/listReports.routes.js";
 import mfAdminBrokerageRoutes          from "./mf/admin/brokerage/brokerage.routes.js";
@@ -142,6 +143,7 @@ router.use("/api/mf/admin/returns",             mfAdminReturnsRoutes);
 router.use("/api/mf/admin/transactions",        mfAdminTransactionsRoutes);
 router.use("/api/mf/admin/aum",                 mfAdminAumRoutes);
 router.use("/api/mf/admin/purchase",            mfAdminPurchaseRoutes);
+router.use("/api/mf/admin/bank-account",        mfAdminBankAccountRoutes);
 
 // Admin-initiated order payment links (NEW feature — separate from the
 // existing user-facing purchase flow, does not modify it)

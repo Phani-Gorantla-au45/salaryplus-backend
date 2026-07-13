@@ -156,9 +156,11 @@ export const createBasketPurchase = async (req, res) => {
 
     /* ---------- STEP 3: SEND CONSENT OTP ---------- */
     let phone = mfData?.phone?.number;
-    if (!phone) {
+    let email = mfData?.email?.email;
+    if (!phone || !email) {
       const user = await User.findOne({ uniqueId });
-      phone = user?.phone;
+      if (!phone) phone = user?.phone;
+      if (!email) email = user?.email;
     }
     if (!phone) {
       return res.status(400).json({
@@ -171,7 +173,7 @@ export const createBasketPurchase = async (req, res) => {
     console.log(
       `  [3/4] Sending OTP to ${phone.slice(0, 3)}****${phone.slice(-3)}...`,
     );
-    await sendConsentOtp(phone, otp);
+    await sendConsentOtp(phone, otp, email);
     console.log(`  [3/4] ✅ OTP sent`);
 
     /* ---------- STEP 4: SAVE AS SINGLE MfPurchase ---------- */

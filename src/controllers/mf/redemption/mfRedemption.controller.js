@@ -86,9 +86,11 @@ export const createRedemption = async (req, res) => {
 
     /* ---------- STEP 3: SEND CONSENT OTP ---------- */
     let phone = mfData?.phone?.number;
-    if (!phone) {
+    let email = mfData?.email?.email;
+    if (!phone || !email) {
       const user = await User.findOne({ uniqueId });
-      phone = user?.phone;
+      if (!phone) phone = user?.phone;
+      if (!email) email = user?.email;
     }
     if (!phone) {
       return res.status(400).json({
@@ -99,7 +101,7 @@ export const createRedemption = async (req, res) => {
     const otp = generateOtp();
     const expiry = otpExpiresAt();
     console.log(`  [3/4] Sending OTP to ${phone.slice(0, 3)}****${phone.slice(-3)}...`);
-    await sendConsentOtp(phone, otp);
+    await sendConsentOtp(phone, otp, email);
     console.log(`  [3/4] ✅ OTP sent`);
 
     /* ---------- STEP 4: SAVE TO DB ---------- */
@@ -265,9 +267,11 @@ export const resendRedemptionOtp = async (req, res) => {
 
     const mfData = await MfUserData.findOne({ uniqueId });
     let phone = mfData?.phone?.number;
-    if (!phone) {
+    let email = mfData?.email?.email;
+    if (!phone || !email) {
       const user = await User.findOne({ uniqueId });
-      phone = user?.phone;
+      if (!phone) phone = user?.phone;
+      if (!email) email = user?.email;
     }
     if (!phone) {
       return res.status(400).json({ success: false, message: "No phone number found" });
@@ -275,7 +279,7 @@ export const resendRedemptionOtp = async (req, res) => {
 
     const otp = generateOtp();
     const expiry = otpExpiresAt();
-    await sendConsentOtp(phone, otp);
+    await sendConsentOtp(phone, otp, email);
 
     await MfRedemption.updateOne(
       { _id: record._id },

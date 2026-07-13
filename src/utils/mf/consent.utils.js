@@ -1,4 +1,5 @@
 import axios from "axios";
+import { sendEmailOtp } from "../notifications/email.utils.js";
 
 /**
  * Generates a cryptographically random 6-digit OTP.
@@ -21,27 +22,33 @@ export const otpExpiresAt = () => new Date(Date.now() + 5 * 60 * 1000);
  * @param {string} phone - 10-digit mobile number (no ISD prefix)
  * @param {string} otp   - 6-digit OTP string
  */
-export const sendConsentOtp = async (phone, otp) => {
-  try {
-    console.log(`📲 [CONSENT OTP] Sending OTP to ${phone.slice(0, 4)}****${phone.slice(-2)}`);
-    await axios.post(
-      process.env.FAST2SMS_API_URL,
-      {
-        route:            "dlt",
-        sender_id:        "SPENDI",
-        message:          "181034",
-        variables_values: `Your OTP is ${otp}`,
-        numbers:          phone,
-      },
-      {
-        headers: { authorization: process.env.FAST2SMS_API_KEY },
-      }
-    );
-    console.log(`✅ [CONSENT OTP] OTP sent successfully`);
-  } catch (err) {
-    console.error("❌ [CONSENT OTP] Failed to send OTP:", err.message);
+export const sendConsentOtp = async (phone, otp, email = null) => {
+  const smsPromise = axios.post(
+    process.env.FAST2SMS_API_URL,
+    {
+      route:            "dlt",
+      sender_id:        "SPENDI",
+      message:          "181034",
+      variables_values: `Your OTP is ${otp}`,
+      numbers:          phone,
+    },
+    { headers: { authorization: process.env.FAST2SMS_API_KEY } }
+  );
+
+  const emailPromise = email
+    ? sendEmailOtp(email, otp).catch((err) => {
+        console.error("❌ [CONSENT OTP] Email send failed (non-fatal):", err.message);
+      })
+    : Promise.resolve();
+
+  console.log(`📲 [CONSENT OTP] Sending OTP via SMS${email ? " + email" : ""}`);
+  const [smsResult] = await Promise.allSettled([smsPromise, emailPromise]);
+
+  if (smsResult.status === "rejected") {
+    console.error("❌ [CONSENT OTP] SMS send failed:", smsResult.reason?.message);
     throw new Error("Failed to send consent OTP");
   }
+  console.log(`✅ [CONSENT OTP] OTP sent successfully`);
 };
 
 /**

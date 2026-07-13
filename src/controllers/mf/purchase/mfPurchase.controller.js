@@ -168,9 +168,11 @@ export const createPurchase = async (req, res) => {
 
     /* ---------- STEP 4: SEND OTP ---------- */
     let phone = mfData?.phone?.number;
-    if (!phone) {
+    let email = mfData?.email?.email;
+    if (!phone || !email) {
       const user = await User.findOne({ uniqueId });
-      phone = user?.phone;
+      if (!phone) phone = user?.phone;
+      if (!email) email = user?.email;
     }
     if (!phone) {
       console.warn(`  [4/5] ❌ No phone found`);
@@ -186,7 +188,7 @@ export const createPurchase = async (req, res) => {
         -3
       )}...`
     );
-    await sendConsentOtp(phone, otp);
+    await sendConsentOtp(phone, otp, email);
     console.log(`  [4/5] ✅ OTP sent`);
 
     /* ---------- STEP 5: STORE IN DB ---------- */
@@ -507,9 +509,11 @@ export const resendOtp = async (req, res) => {
     /* ---------- GET PHONE ---------- */
     const mfData = await MfUserData.findOne({ uniqueId });
     let phone = mfData?.phone?.number;
-    if (!phone) {
+    let email = mfData?.email?.email;
+    if (!phone || !email) {
       const user = await User.findOne({ uniqueId });
-      phone = user?.phone;
+      if (!phone) phone = user?.phone;
+      if (!email) email = user?.email;
     }
 
     if (!phone) {
@@ -521,7 +525,7 @@ export const resendOtp = async (req, res) => {
     const otp = generateOtp();
     const expiry = otpExpiresAt();
 
-    await sendConsentOtp(phone, otp);
+    await sendConsentOtp(phone, otp, email);
 
     await MfPurchase.updateOne(
       { _id: record._id },

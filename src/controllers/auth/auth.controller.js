@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { sendFounderNote } from "../../utils/mf/webhook/notification.utils.js";
+import { sendEmailOtp } from "../../utils/notifications/email.utils.js";
 
 /* 🔐 HASH OTP */
 const hashOTP = (otp) => crypto.createHash("sha256").update(otp).digest("hex");
@@ -73,6 +74,13 @@ export const sendOtp = async (req, res) => {
       );
     } else {
       await sendOTP(phone, otp);
+    }
+
+    // Also send to email if the user has one registered
+    if (user.email) {
+      sendEmailOtp(user.email, otp).catch((err) =>
+        console.error("❌ [SEND OTP] Email send failed (non-fatal):", err.message)
+      );
     }
 
     res.json({ message: "OTP sent successfully" });

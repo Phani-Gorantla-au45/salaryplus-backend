@@ -7,6 +7,37 @@ import {
 } from "../../../utils/mf/purchase/purchase.utils.js";
 
 /* ------------------------------------------------------------------ */
+/*  Internal — poll FP until purchase record for a plan appears         */
+/*  FP creates first-installment purchases asynchronously after SIP     */
+/*  confirmation, so the record may not exist for a few seconds.        */
+/* ------------------------------------------------------------------ */
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_MS      = 12000; // 6 attempts × 2s
+
+const pollPayablePurchases = async (planId) => {
+  const start = Date.now();
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    const purchases = await listFpPurchasesByPlan(planId);
+    const payable = purchases.filter(
+      (p) => p.old_id && !["confirmed", "succeeded", "failed", "cancelled", "reversed"].includes(p.state)
+    );
+    if (payable.length > 0) {
+      console.log(`✅ [SIP FIRST INSTALL] Plan ${planId} — purchase found on attempt #${attempt}`);
+      return payable;
+    }
+    const elapsed = Date.now() - start;
+    if (elapsed + POLL_INTERVAL_MS > POLL_MAX_MS) {
+      console.warn(`⚠️  [SIP FIRST INSTALL] Plan ${planId} — no payable purchase after ${attempt} attempt(s) (${elapsed}ms). States: [${purchases.map(p => p.state).join(", ")}]`);
+      return [];
+    }
+    console.log(`⏳ [SIP FIRST INSTALL] Plan ${planId} — attempt #${attempt}, no purchase yet. Retrying in ${POLL_INTERVAL_MS}ms...`);
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  Internal — collect all FP plan IDs for a SIP (single or basket)    */
 /* ------------------------------------------------------------------ */
 const getPlanIds = (sip) => {
@@ -64,13 +95,9 @@ export const payFirstInstallment = async (req, res) => {
     const amcOrderIds = [];
 
     for (const planId of planIds) {
-      const purchases = await listFpPurchasesByPlan(planId);
-      const payable = purchases.filter(
-        (p) => p.old_id && !["confirmed", "succeeded", "failed", "cancelled", "reversed"].includes(p.state)
-      );
+      const payable = await pollPayablePurchases(planId);
 
       if (payable.length === 0) {
-        console.warn(`⚠️  [SIP FIRST INSTALL] No payable purchase for plan ${planId} (states: ${purchases.map(p => p.state).join(",")})`);
         continue;
       }
 
