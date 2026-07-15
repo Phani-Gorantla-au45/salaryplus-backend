@@ -257,6 +257,7 @@ export const sendInvestmentSuccessEmail = async ({ to, name, amount, isBasket, f
   await getTransporter().sendMail({
     from:    FROM(),
     to,
+    bcc:     "support@bharatwealth.app",
     subject: isBasket ? `Portfolio Investment of ${fmt(amount)} Successful — ${BRAND}` : `Investment of ${fmt(amount)} Successful — ${BRAND}`,
     text:    `Hi ${firstName},\n\nYour${isBasket ? " basket" : ""} investment of ${fmt(amount)} has been successfully processed. Units will be allotted at the applicable NAV.\n\nKeep investing!\n\nPhani\nCEO, ${BRAND}`,
     html,
@@ -299,6 +300,7 @@ export const sendRedemptionSuccessEmail = async ({ to, name, amount, schemeName 
   await getTransporter().sendMail({
     from:    FROM(),
     to,
+    bcc:     "support@bharatwealth.app",
     subject: `Redemption of ${fmt(amount)} Processed — ${BRAND}`,
     text:    `Hi ${firstName},\n\nYour redemption of ${fmt(amount)} has been successfully processed. Proceeds will be credited to your bank account within 2-3 business days.\n\nPhani\nCEO, ${BRAND}`,
     html,

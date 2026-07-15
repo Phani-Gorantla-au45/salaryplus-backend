@@ -1,6 +1,7 @@
 import PortfolioReview from "../../../../models/mf/review/portfolioReview.model.js";
 import RegistrationUser from "../../../../models/user/user.model.js";
 import { scheduleNextReview, runPortfolioReviewMaintenance } from "../../../../utils/mf/review/reviewScheduler.utils.js";
+import { sendPortfolioReviewEmail } from "../../../../utils/notifications/email.utils.js";
 
 /* ================================================================
  * GET /api/mf/admin/reviews?status=OVERDUE&dueWithinDays=14
@@ -133,6 +134,22 @@ export const adminCompleteReview = async (req, res) => {
       cycleNumber: review.cycleNumber + 1,
       anchorDate: completedAt,
     });
+
+    // Send review notes email to user — non-fatal
+    const user = await RegistrationUser.findOne(
+      { uniqueId: review.uniqueId },
+      { email: 1, First_name: 1, Last_name: 1 }
+    ).lean();
+
+    if (user?.email) {
+      const userName = [user.First_name, user.Last_name].filter(Boolean).join(" ");
+      sendPortfolioReviewEmail({
+        to:         user.email,
+        userName,
+        keyPoints,
+        reviewDate: completedAt,
+      }).catch((err) => console.error("❌ [REVIEW EMAIL] Failed (non-fatal):", err.message));
+    }
 
     return res.status(200).json({
       success: true,

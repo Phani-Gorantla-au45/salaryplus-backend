@@ -473,6 +473,137 @@ export const sendGoalSavedToAdmin = async ({ userName, mobile, email, goalLabel,
   });
 };
 
+/* ================================================================
+ * PORTFOLIO REVIEW COMPLETED — EMAIL TO USER
+ * keyPoints: string[] — each item = one review point (one line from advisor)
+ * ================================================================ */
+export const sendPortfolioReviewEmail = async ({ to, userName, keyPoints, reviewDate }) => {
+  const displayName = userName?.trim() || "Investor";
+  const dateStr     = reviewDate
+    ? new Date(reviewDate).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric", timeZone: "Asia/Kolkata" })
+    : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
+
+  const pointsHtml = keyPoints
+    .map((point) => point.trim())
+    .filter(Boolean)
+    .map(
+      (point) => `
+        <tr>
+          <td style="padding:0 0 0 12px;vertical-align:top;color:${GOLD};font-size:18px;line-height:1.6;width:20px">•</td>
+          <td style="padding:10px 0 10px 10px;font-size:15px;color:#374151;line-height:1.7;border-bottom:1px solid #F3F4F6">${point}</td>
+        </tr>`
+    )
+    .join("");
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#F4F6FB;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FB;padding:32px 0">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:${BRAND_COLOR};padding:24px 32px">
+            <p style="margin:0;font-size:22px;font-weight:800;color:#fff;letter-spacing:1px">${BRAND}</p>
+            <p style="margin:4px 0 0;font-size:12px;color:${GOLD};letter-spacing:2px;text-transform:uppercase">Wealth · Done Right</p>
+          </td>
+        </tr>
+
+        <!-- Title Banner -->
+        <tr>
+          <td style="background:#EFF6FF;padding:20px 32px;border-bottom:2px solid #DBEAFE">
+            <p style="margin:0;font-size:13px;color:#6B7280;text-transform:uppercase;letter-spacing:1px">Portfolio Review</p>
+            <p style="margin:4px 0 0;font-size:20px;font-weight:800;color:${BRAND_COLOR}">Your Review Notes — ${dateStr}</p>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px">
+            <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 8px">Dear <strong>${displayName}</strong>,</p>
+            <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 28px">
+              Your portfolio review has been completed. Below are the key action points and observations from your advisor:
+            </p>
+
+            <!-- Review Points -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFF;border:1px solid #DBEAFE;border-radius:10px;padding:4px 16px;margin:0 0 28px">
+              <thead>
+                <tr>
+                  <td colspan="2" style="padding:14px 0 10px;font-size:13px;font-weight:700;color:${BRAND_COLOR};text-transform:uppercase;letter-spacing:1px">Action Points</td>
+                </tr>
+              </thead>
+              <tbody>
+                ${pointsHtml}
+              </tbody>
+            </table>
+
+            <!-- Next Step -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px">
+              <tr>
+                <td style="background:linear-gradient(135deg,#FFF9E6 0%,#FFFBF0 100%);border:2px solid ${GOLD};border-radius:10px;padding:18px 22px">
+                  <p style="margin:0 0 8px;font-size:13px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:1px">Questions or need clarity?</p>
+                  <p style="margin:0 0 14px;font-size:14px;color:#4B5563;line-height:1.7">
+                    Connect directly with our team — we're here to help you take the next step on each of these points.
+                  </p>
+                  <table cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="background:${BRAND_COLOR};border-radius:6px;padding:10px 22px">
+                        <a href="https://wa.me/918801648801"
+                           style="color:#fff;font-size:14px;font-weight:700;text-decoration:none">
+                          💬 WhatsApp Us
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <p style="color:#6B7280;font-size:13px;line-height:1.6;margin:0">
+              Your next portfolio review will be scheduled in 6 months. If you have questions before then, feel free to reach out at
+              <a href="mailto:support@bharatwealth.app" style="color:${BRAND_COLOR}">support@bharatwealth.app</a>.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#F4F6FB;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:11px;color:#9CA3AF">© ${new Date().getFullYear()} ${BRAND}. All rights reserved.</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const plainText = [
+    `Dear ${displayName},`,
+    ``,
+    `Your portfolio review (${dateStr}) has been completed. Here are your action points:`,
+    ``,
+    ...keyPoints.filter(Boolean).map((p, i) => `${i + 1}. ${p}`),
+    ``,
+    `Questions? WhatsApp us at +91 88016 48801 or email support@bharatwealth.app`,
+    ``,
+    `— ${BRAND} Team`,
+  ].join("\n");
+
+  await getTransporter().sendMail({
+    from:    `"${BRAND}" <${process.env.SMTP_FROM}>`,
+    to,
+    cc:      process.env.SUPPORT_EMAIL || "support@bharatwealth.app",
+    subject: `Your Portfolio Review Notes — ${BRAND} (${dateStr})`,
+    text:    plainText,
+    html,
+  });
+};
+
 export const sendEmailOtp = async (to, otp) => {
   const html = `
 <!DOCTYPE html>
