@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { adminAuth } from "../../../../middlewares/adminAuth.middleware.js";
-import { uploadBrokerageFile, listBrokerageUploads } from "../../../../controllers/mf/admin/brokerage/brokerageUpload.controller.js";
+import { uploadBrokerageFile, listBrokerageUploads, deleteBrokerageUpload } from "../../../../controllers/mf/admin/brokerage/brokerageUpload.controller.js";
 import {
   listAvailableMonths,
   getMonthlyBrokerageReport,
@@ -12,8 +12,9 @@ import { listAmcCodeMaps, updateAmcCodeMap } from "../../../../controllers/mf/ad
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB, CAMS files run large
 
-router.post("/upload",          adminAuth, upload.single("file"), uploadBrokerageFile);
-router.get("/uploads",          adminAuth, listBrokerageUploads);
+router.post("/upload",              adminAuth, upload.single("file"), uploadBrokerageFile);
+router.get("/uploads",              adminAuth, listBrokerageUploads);
+router.delete("/uploads/:uploadId", adminAuth, deleteBrokerageUpload);
 
 router.get("/months",           adminAuth, listAvailableMonths);
 router.get("/report",           adminAuth, getMonthlyBrokerageReport);

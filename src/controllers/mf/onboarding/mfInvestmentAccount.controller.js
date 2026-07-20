@@ -118,13 +118,13 @@ export const createMfInvestmentAccount = async (req, res) => {
     }
 
     /* ---------- CHECK FP FOR EXISTING ACCOUNT (migration support) ---------- */
-    // If FP already has an account for this PAN (migrated users), PATCH it with
-    // the freshly collected folio_defaults instead of creating a duplicate.
+    // NRI users always get a fresh account — their NRE/NRO folios are separate
+    // from any resident account that may exist under the same PAN on FP.
     let fpData;
     const pan = profile.pan ?? mfData?.kycStatus?.pan ?? null;
     let isExistingFpAccount = false;
 
-    if (pan) {
+    if (!isNri && pan) {
       try {
         const fpList = await listFpMfInvestmentAccounts({
           primary_investor_pan: pan.toUpperCase().trim(),
@@ -146,6 +146,8 @@ export const createMfInvestmentAccount = async (req, res) => {
         // FP may return 404 or error when no account exists — treat as "not found" and proceed to create
         console.warn(`  [MF ACCOUNT] FP account check failed (${listErr.message}) — proceeding with new account creation`);
       }
+    } else if (isNri) {
+      console.log(`  [MF ACCOUNT] NRI user — skipping existing account check, creating new account`);
     }
 
     /* ---------- CREATE ON FP IF NO EXISTING ACCOUNT ---------- */

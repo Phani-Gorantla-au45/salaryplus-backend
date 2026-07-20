@@ -71,12 +71,14 @@ const resolveAmcNames = async (source, records) => {
 /* ================================================================
  * POST /api/mf/admin/brokerage/upload
  * Form fields: file (multipart), source ("CAMS" | "KARVY")
+ * Optional query: ?force=true  — skip duplicate-month guard
  * ================================================================ */
 export const uploadBrokerageFile = async (req, res) => {
   let upload;
   try {
     const file = req.file;
     const { source } = req.body;
+    const force = req.query.force === "true";
 
     if (!file) {
       return res.status(400).json({ success: false, message: "No file uploaded. Use field name 'file'" });
@@ -103,12 +105,33 @@ export const uploadBrokerageFile = async (req, res) => {
       return res.status(400).json({ success: false, message: "No commission rows found in this file" });
     }
 
+    const months = [...new Set(parsed.map((r) => r.month))].sort();
+
+    // Duplicate guard — block if any month+source already has records from a prior upload
+    if (!force) {
+      const existing = await BrokerageRecord.find(
+        { source, month: { $in: months }, uploadId: { $ne: upload._id } },
+        { month: 1, uploadId: 1 },
+      ).lean();
+
+      if (existing.length > 0) {
+        const dupMonths = [...new Set(existing.map((r) => r.month))].sort();
+        await BrokerageUpload.findByIdAndUpdate(upload._id, {
+          $set: { status: "failed", error: `Duplicate months: ${dupMonths.join(", ")}` },
+        });
+        return res.status(409).json({
+          success: false,
+          message: `${source} data for month(s) ${dupMonths.join(", ")} already uploaded. Delete the previous upload first, or re-upload with ?force=true to overwrite.`,
+          duplicateMonths: dupMonths,
+        });
+      }
+    }
+
     const [folioToUniqueId, amcCodeToName] = await Promise.all([
       resolveUniqueIds(parsed),
       resolveAmcNames(source, parsed),
     ]);
 
-    const months = [...new Set(parsed.map((r) => r.month))].sort();
     const totalBrokerage = parsed.reduce((sum, r) => sum + r.brokerageAmount, 0);
 
     const docs = parsed.map((r) => ({
@@ -130,6 +153,18 @@ export const uploadBrokerageFile = async (req, res) => {
       arnCode: r.arnCode,
       uniqueId: r.folioNumber ? folioToUniqueId[r.folioNumber] ?? null : null,
     }));
+
+    // If force=true and months overlap, delete old records for those months first
+    if (force && months.length > 0) {
+      const deleted = await BrokerageRecord.deleteMany({
+        source,
+        month: { $in: months },
+        uploadId: { $ne: upload._id },
+      });
+      if (deleted.deletedCount > 0) {
+        console.log(`⚠️  [BROKERAGE UPLOAD] force=true — deleted ${deleted.deletedCount} old records for months: ${months.join(", ")}`);
+      }
+    }
 
     await BrokerageRecord.insertMany(docs, { ordered: false });
 
@@ -156,6 +191,42 @@ export const uploadBrokerageFile = async (req, res) => {
     if (upload) {
       await BrokerageUpload.findByIdAndUpdate(upload._id, { $set: { status: "failed", error: err.message } });
     }
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ================================================================
+ * DELETE /api/mf/admin/brokerage/uploads/:uploadId
+ * Deletes an upload and all its BrokerageRecords — rollback for a
+ * bad file upload.
+ * ================================================================ */
+export const deleteBrokerageUpload = async (req, res) => {
+  try {
+    const { uploadId } = req.params;
+
+    const upload = await BrokerageUpload.findById(uploadId);
+    if (!upload) {
+      return res.status(404).json({ success: false, message: "Upload not found" });
+    }
+
+    const { deletedCount } = await BrokerageRecord.deleteMany({ uploadId: upload._id });
+    await BrokerageUpload.findByIdAndDelete(upload._id);
+
+    console.log(`🗑️  [BROKERAGE UPLOAD] Deleted upload ${uploadId} + ${deletedCount} records (${upload.source}, months: ${upload.months?.join(", ") ?? "—"})`);
+
+    return res.status(200).json({
+      success: true,
+      message: `Upload deleted along with ${deletedCount} commission record(s)`,
+      deleted: {
+        uploadId,
+        source: upload.source,
+        fileName: upload.fileName,
+        months: upload.months,
+        recordsDeleted: deletedCount,
+      },
+    });
+  } catch (err) {
+    console.error("❌ [BROKERAGE DELETE] Error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
