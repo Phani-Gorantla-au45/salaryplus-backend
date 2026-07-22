@@ -83,6 +83,9 @@ export const createRedemption = async (req, res) => {
       fpPayload.gateway         = "rta";
     }
 
+    if (fpPayload.redemption_mode === "instant") {
+      console.log(`  [2/4] ⚡ INSTANT REDEMPTION — FP payload:`, JSON.stringify(fpPayload, null, 2));
+    }
     console.log(`  [2/4] Creating redemption on FP...`);
     const fpData = await createFpRedemption(fpPayload);
     console.log(`  [2/4] ✅ fpRedemptionId=${fpData.id} state=${fpData.state}`);
