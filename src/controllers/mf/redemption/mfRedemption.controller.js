@@ -78,7 +78,10 @@ export const createRedemption = async (req, res) => {
     };
     if (amount)                       fpPayload.amount           = Number(amount);
     if (units)                        fpPayload.units            = Number(units);
-    if (redemption_mode === "instant") fpPayload.redemption_mode = "instant";
+    if (redemption_mode === "instant") {
+      fpPayload.redemption_mode = "instant";
+      fpPayload.gateway         = "rta";
+    }
 
     console.log(`  [2/4] Creating redemption on FP...`);
     const fpData = await createFpRedemption(fpPayload);
