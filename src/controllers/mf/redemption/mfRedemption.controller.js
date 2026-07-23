@@ -214,11 +214,15 @@ export const confirmRedemption = async (req, res) => {
     }
 
     const isd = mfData?.phone?.isd || "91";
+    const consent = { email, isd_code: isd, mobile: phone };
+    if (record.redemptionMode === "instant") {
+      consent.otp = otp; // RTA gateway requires the raw OTP in the consent payload
+    }
     console.log(`  [3/4] Patching consent + confirmed on FP...`);
     const fpData = await patchFpRedemption({
       id:      record.fpRedemptionId,
       state:   "confirmed",
-      consent: { email, isd_code: isd, mobile: phone },
+      consent,
     });
     console.log(`  [3/4] ✅ FP state=${fpData.state}`);
 
