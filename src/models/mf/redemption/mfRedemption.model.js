@@ -24,8 +24,12 @@ const mfRedemptionSchema = new mongoose.Schema(
     isin:                  { type: String, uppercase: true, trim: true, default: null },
     amount:                { type: Number, default: null }, // null if units-based
     units:                 { type: Number, default: null }, // null if amount-based
+    redemptionMode:        { type: String, enum: ["normal", "instant"], default: "normal" },
+    gateway:               { type: String, default: null }, // "rta" for instant redemptions
 
-    // FP order state: under_review → pending → confirmed → submitted → succeeded | failed
+    // FP order state:
+    //   normal:  under_review → pending → confirmed → submitted → succeeded | failed
+    //   instant: pending → confirmed → submitted (via RTA gateway)
     fpState: { type: String, default: "under_review" },
 
     // Consent
