@@ -12,20 +12,25 @@ const fpHeaders = async () => {
   };
 };
 
-/* GET /v2/mf_scheme_plans/cybrillapoa/:isin?expand=mf_scheme,mf_fund */
+/* GET /v2/mf_scheme_plans?isin=:isin&expand=mf_scheme,mf_fund */
 export const fetchFpSchemePlan = async (isin) => {
   try {
     const response = await axios.get(
-      `${FP_API_URL()}/v2/mf_scheme_plans/cybrillapoa/${isin}`,
+      `${FP_API_URL()}/v2/mf_scheme_plans`,
       {
         headers: await fpHeaders(),
-        params:  { expand: "mf_scheme,mf_fund" },
+        params:  { isin, expand: "mf_scheme,mf_fund" },
+        timeout: 30000,
       }
     );
     console.log(`\n📦 [FP SCHEME] Raw response for ISIN ${isin}:`, JSON.stringify(response.data, null, 2));
-    return response.data;
+    // FP returns paginated list; grab the first matching plan
+    const data = response.data;
+    const plan = Array.isArray(data?.data) ? data.data[0] : data;
+    if (!plan) throw new Error(`No scheme plan found on FP for ISIN: ${isin}`);
+    return plan;
   } catch (err) {
     console.error(`❌ [FP SCHEME] Fetch failed for ISIN ${isin}:`, err.response?.data || err.message);
-    throw new Error(err.response?.data?.message || "Failed to fetch scheme plan from FP");
+    throw new Error(err.response?.data?.message || err.message || "Failed to fetch scheme plan from FP");
   }
 };

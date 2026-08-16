@@ -132,7 +132,7 @@ export const verifyOtp = async (req, res) => {
     const token = jwt.sign(
       { uniqueId: user.uniqueId },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" },
+      { expiresIn: "90d" },
     );
 
     const isProfileComplete = user.First_name && user.email;

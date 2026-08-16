@@ -55,13 +55,25 @@ export const getSchemePlan = async (req, res) => {
       || (Date.now() - new Date(cached.syncedAt).getTime()) > CACHE_TTL_HOURS * 3600 * 1000;
 
     let record = cached;
+    let fpError = null;
+
     if (!cached || isStale) {
       console.log(`🔄 [SCHEME] ${cached ? "Stale — re-fetching" : "Not in cache — fetching"} ISIN: ${isin}`);
-      record = await syncSchemeFromFp(isin);
+      try {
+        record = await syncSchemeFromFp(isin);
+      } catch (fpErr) {
+        fpError = fpErr.message;
+        console.error("❌ [SCHEME] FP fetch failed:", fpErr.message);
+        // Fall back to stale cache if available; otherwise propagate
+        if (!cached) throw fpErr;
+        console.warn(`⚠️  [SCHEME] Serving stale cache for ISIN ${isin} (FP unavailable)`);
+        record = cached;
+      }
     }
 
     return res.status(200).json({
       success: true,
+      stale:   !!fpError,
       data: {
         isin:        record.isin,
         schemeName:  record.schemeName,
@@ -76,7 +88,7 @@ export const getSchemePlan = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ [SCHEME] Fetch error:", err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(502).json({ success: false, message: err.message });
   }
 };
 
