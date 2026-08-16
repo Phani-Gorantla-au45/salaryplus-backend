@@ -196,6 +196,45 @@ export const uploadBrokerageFile = async (req, res) => {
 };
 
 /* ================================================================
+ * DELETE /api/mf/admin/brokerage/records?source=CAMS&month=2026-05
+ * Purges all BrokerageRecord rows (+ their upload docs) for a given
+ * source + month — use this to clear orphaned records before re-upload.
+ * ================================================================ */
+export const purgeRecordsByMonth = async (req, res) => {
+  try {
+    const { source, month } = req.query;
+
+    if (!source || !["CAMS", "KARVY"].includes(source)) {
+      return res.status(400).json({ success: false, message: "source must be CAMS or KARVY" });
+    }
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ success: false, message: "month is required, format YYYY-MM" });
+    }
+
+    const { deletedCount } = await BrokerageRecord.deleteMany({ source, month });
+
+    // Also clean up any upload docs that only covered this month
+    const uploadIds = await BrokerageRecord.distinct("uploadId", { source });
+    await BrokerageUpload.deleteMany({
+      source,
+      months: [month],
+      _id: { $nin: uploadIds },
+    });
+
+    console.log(`🗑️  [BROKERAGE PURGE] Deleted ${deletedCount} records for ${source} / ${month}`);
+
+    return res.status(200).json({
+      success: true,
+      message: `Purged ${deletedCount} record(s) for ${source} / ${month}. You can now re-upload.`,
+      deleted: { source, month, recordsDeleted: deletedCount },
+    });
+  } catch (err) {
+    console.error("❌ [BROKERAGE PURGE] Error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ================================================================
  * DELETE /api/mf/admin/brokerage/uploads/:uploadId
  * Deletes an upload and all its BrokerageRecords — rollback for a
  * bad file upload.

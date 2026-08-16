@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { adminAuth } from "../../../../middlewares/adminAuth.middleware.js";
-import { uploadBrokerageFile, listBrokerageUploads, deleteBrokerageUpload } from "../../../../controllers/mf/admin/brokerage/brokerageUpload.controller.js";
+import { uploadBrokerageFile, listBrokerageUploads, deleteBrokerageUpload, purgeRecordsByMonth } from "../../../../controllers/mf/admin/brokerage/brokerageUpload.controller.js";
 import {
   listAvailableMonths,
   getMonthlyBrokerageReport,
@@ -15,6 +15,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100
 router.post("/upload",              adminAuth, upload.single("file"), uploadBrokerageFile);
 router.get("/uploads",              adminAuth, listBrokerageUploads);
 router.delete("/uploads/:uploadId", adminAuth, deleteBrokerageUpload);
+router.delete("/records",           adminAuth, purgeRecordsByMonth);
 
 router.get("/months",           adminAuth, listAvailableMonths);
 router.get("/report",           adminAuth, getMonthlyBrokerageReport);

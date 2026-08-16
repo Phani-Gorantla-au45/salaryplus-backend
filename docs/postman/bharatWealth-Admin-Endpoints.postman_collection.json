@@ -1,0 +1,576 @@
+{
+  "info": {
+    "name": "bharatWealth-Admin-Endpoints",
+    "_postman_id": "bw-admin-collection-v1",
+    "description": "All BharatWealth admin endpoints. Set {{baseUrl}} and {{adminToken}} in your environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",     "value": "http://localhost:3000" },
+    { "key": "adminSecret", "value": "BSGghghgsjds-shwhagdjhsju" },
+    { "key": "adminToken",  "value": "" }
+  ],
+  "item": [
+
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Admin Login",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const r = pm.response.json();",
+            "if (r.token) pm.collectionVariables.set('adminToken', r.token);"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/registration/admin/login", "host": ["{{baseUrl}}"], "path": ["api","registration","admin","login"] },
+            "body": { "mode": "raw", "raw": "{\n  \"secret\": \"{{adminSecret}}\"\n}" }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Email Broadcast",
+      "item": [
+        {
+          "name": "Preview Email (Test Send)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/email/preview", "host": ["{{baseUrl}}"], "path": ["api","admin","email","preview"] },
+            "body": { "mode": "raw", "raw": "{\n  \"subject\": \"Test Email Subject\",\n  \"body\": \"<p>Hello <strong>Investor</strong>,</p><p>This is a test email from BharatWealth.</p>\",\n  \"testEmail\": \"phanigorantla531@gmail.com\"\n}" }
+          }
+        },
+        {
+          "name": "Send Campaign — All Users",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/email/send", "host": ["{{baseUrl}}"], "path": ["api","admin","email","send"] },
+            "body": { "mode": "raw", "raw": "{\n  \"subject\": \"Important Update from BharatWealth\",\n  \"body\": \"<p>Dear Investor,</p><p>We have an exciting update for you.</p><p>Your wealth journey continues!</p>\",\n  \"recipients\": \"all\"\n}" }
+          }
+        },
+        {
+          "name": "Send Campaign — Selected Users",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/email/send", "host": ["{{baseUrl}}"], "path": ["api","admin","email","send"] },
+            "body": { "mode": "raw", "raw": "{\n  \"subject\": \"Exclusive Update for You\",\n  \"body\": \"<p>Dear Investor,</p><p>This message is specifically for you.</p>\",\n  \"recipients\": [\"uniqueId1\", \"uniqueId2\"]\n}" }
+          }
+        },
+        {
+          "name": "List Campaigns",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/email/campaigns?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api","admin","email","campaigns"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "includeTests", "value": "true", "disabled": true }] }
+          }
+        },
+        {
+          "name": "Get Campaign Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/email/campaigns/:id", "host": ["{{baseUrl}}"], "path": ["api","admin","email","campaigns",":id"],
+              "variable": [{ "key": "id", "value": "" }] }
+          }
+        },
+        {
+          "name": "List Emailable Users (Recipient Picker)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/email/users?search=", "host": ["{{baseUrl}}"], "path": ["api","admin","email","users"],
+              "query": [{ "key": "search", "value": "", "description": "optional — filter by name, email or phone" }] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "App Version",
+      "item": [
+        {
+          "name": "Get Version Config",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/app/admin/version", "host": ["{{baseUrl}}"], "path": ["api","app","admin","version"] } }
+        },
+        {
+          "name": "Upsert Version Config",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/app/admin/version", "host": ["{{baseUrl}}"], "path": ["api","app","admin","version"] },
+            "body": { "mode": "raw", "raw": "{\n  \"minVersion\": \"1.0.13\",\n  \"latestVersion\": \"1.0.14\",\n  \"disabled\": false\n}" } }
+        }
+      ]
+    },
+
+    {
+      "name": "BW Users",
+      "item": [
+        {
+          "name": "List All BW Users",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/bw/admin/users", "host": ["{{baseUrl}}"], "path": ["api","bw","admin","users"] } }
+        },
+        {
+          "name": "Get BW User",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/bw/admin/users/:uniqueId", "host": ["{{baseUrl}}"], "path": ["api","bw","admin","users",":uniqueId"],
+              "variable": [{ "key": "uniqueId", "value": "" }] } }
+        },
+        {
+          "name": "Get BW User Bond Portfolio",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/bw/admin/users/:uniqueId/bond-portfolio", "host": ["{{baseUrl}}"], "path": ["api","bw","admin","users",":uniqueId","bond-portfolio"],
+              "variable": [{ "key": "uniqueId", "value": "" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "Bond Maturity Report",
+      "item": [
+        {
+          "name": "Get Bond Maturity Report",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/bw/admin/bonds/maturity-report?within_days=90", "host": ["{{baseUrl}}"], "path": ["api","bw","admin","bonds","maturity-report"],
+              "query": [{ "key": "within_days", "value": "90", "description": "optional" }, { "key": "status", "value": "maturing_30d", "description": "matured | maturing_30d | maturing_60d | maturing_90d | active", "disabled": true }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "BW Bond KYC (Admin)",
+      "item": [
+        {
+          "name": "List All BW Bond KYC",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/bw/admin/bonds/kyc", "host": ["{{baseUrl}}"], "path": ["api","bw","admin","bonds","kyc"] } }
+        },
+        {
+          "name": "Get BW Bond KYC — User",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/bw/admin/bonds/kyc/:uniqueId", "host": ["{{baseUrl}}"], "path": ["api","bw","admin","bonds","kyc",":uniqueId"],
+              "variable": [{ "key": "uniqueId", "value": "" }] } }
+        },
+        {
+          "name": "Add BW Bond KYC",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/bw/admin/bonds/kyc/:uniqueId", "host": ["{{baseUrl}}"], "path": ["api","bw","admin","bonds","kyc",":uniqueId"],
+              "variable": [{ "key": "uniqueId", "value": "" }] },
+            "body": { "mode": "raw", "raw": "{}" } }
+        },
+        {
+          "name": "Update BW Bond KYC Status",
+          "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/bw/admin/bonds/kyc/:uniqueId/status", "host": ["{{baseUrl}}"], "path": ["api","bw","admin","bonds","kyc",":uniqueId","status"],
+              "variable": [{ "key": "uniqueId", "value": "" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"approved\"\n}" } }
+        },
+        {
+          "name": "Delete BW Bond KYC",
+          "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/bw/admin/bonds/kyc/:uniqueId", "host": ["{{baseUrl}}"], "path": ["api","bw","admin","bonds","kyc",":uniqueId"],
+              "variable": [{ "key": "uniqueId", "value": "" }] } }
+        },
+        {
+          "name": "Upload BW Bond Document",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/bw/admin/bonds/kyc/:uniqueId/upload", "host": ["{{baseUrl}}"], "path": ["api","bw","admin","bonds","kyc",":uniqueId","upload"],
+              "variable": [{ "key": "uniqueId", "value": "" }] },
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Basket",
+      "item": [
+        {
+          "name": "List Baskets",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/basket", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","basket"] } }
+        },
+        {
+          "name": "Get Basket",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/basket/:id", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","basket",":id"],
+              "variable": [{ "key": "id", "value": "" }] } }
+        },
+        {
+          "name": "Create Basket",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/basket", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","basket"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Balanced Growth Portfolio\",\n  \"description\": \"60% equity, 40% debt\",\n  \"funds\": [\n    { \"isin\": \"INF209K01RU9\", \"allocation\": 60 },\n    { \"isin\": \"INF205K01FD4\", \"allocation\": 40 }\n  ]\n}" } }
+        },
+        {
+          "name": "Update Basket",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/basket/:id", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","basket",":id"],
+              "variable": [{ "key": "id", "value": "" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Portfolio Name\"\n}" } }
+        },
+        {
+          "name": "Delete Basket",
+          "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/basket/:id", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","basket",":id"],
+              "variable": [{ "key": "id", "value": "" }] } }
+        },
+        {
+          "name": "Assign Basket to User",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/basket/:id/assign", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","basket",":id","assign"],
+              "variable": [{ "key": "id", "value": "" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"uniqueId\": \"\"\n}" } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Folios",
+      "item": [
+        {
+          "name": "List Folios",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/folios", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","folios"] } }
+        },
+        {
+          "name": "Folios by PAN",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/folios/by-pan?pan=ABCDE1234F", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","folios","by-pan"],
+              "query": [{ "key": "pan", "value": "ABCDE1234F" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF SIP",
+      "item": [
+        {
+          "name": "List SIPs",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/sip", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","sip"] } }
+        },
+        {
+          "name": "Get SIP",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/sip/:fpSipId", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","sip",":fpSipId"],
+              "variable": [{ "key": "fpSipId", "value": "" }] } }
+        },
+        {
+          "name": "Cancel SIP",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/sip/:fpSipId/cancel", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","sip",":fpSipId","cancel"],
+              "variable": [{ "key": "fpSipId", "value": "" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"cancellation_code\": \"investor_request\",\n  \"cancellation_reason\": null\n}" } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Investor Profiles",
+      "item": [
+        {
+          "name": "List Investor Profiles",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/investor-profiles", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","investor-profiles"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Investment Accounts",
+      "item": [
+        {
+          "name": "List Investment Accounts",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/investment-accounts", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","investment-accounts"] } }
+        },
+        {
+          "name": "Get Investment Account — by uniqueId",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/investment-accounts?uniqueId=", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","investment-accounts"],
+              "query": [{ "key": "uniqueId", "value": "" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Bank Account",
+      "item": [
+        {
+          "name": "Get User Bank Account",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/bank-account?uniqueId=", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","bank-account"],
+              "query": [{ "key": "uniqueId", "value": "" }] } }
+        },
+        {
+          "name": "Update User Bank Account",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/bank-account", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","bank-account"] },
+            "body": { "mode": "raw", "raw": "{\n  \"uniqueId\": \"\",\n  \"account_number\": \"\",\n  \"primary_account_holder_name\": \"\",\n  \"type\": \"savings\",\n  \"ifsc_code\": \"\"\n}" } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Payments",
+      "item": [
+        {
+          "name": "Get Payment",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/payments/:id", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","payments",":id"],
+              "variable": [{ "key": "id", "value": "" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Holdings",
+      "item": [
+        {
+          "name": "Get Holdings — User",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/holdings/:uniqueId", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","holdings",":uniqueId"],
+              "variable": [{ "key": "uniqueId", "value": "" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Returns",
+      "item": [
+        {
+          "name": "Get Investment Returns — User",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/returns/:uniqueId", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","returns",":uniqueId"],
+              "variable": [{ "key": "uniqueId", "value": "" }] } }
+        },
+        {
+          "name": "Get Scheme Returns — User",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/returns/:uniqueId/schemes", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","returns",":uniqueId","schemes"],
+              "variable": [{ "key": "uniqueId", "value": "" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Transactions",
+      "item": [
+        {
+          "name": "List Transactions — User",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/transactions/:uniqueId", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","transactions",":uniqueId"],
+              "variable": [{ "key": "uniqueId", "value": "" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF AUM",
+      "item": [
+        {
+          "name": "Get AUM Summary",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/aum", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","aum"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Purchase",
+      "item": [
+        {
+          "name": "Get Purchase",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/purchase/:id", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","purchase",":id"],
+              "variable": [{ "key": "id", "value": "" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Order Links",
+      "item": [
+        {
+          "name": "List Order Links",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/order-links", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","order-links"] } }
+        },
+        {
+          "name": "Get Order Link",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/order-links/:id", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","order-links",":id"],
+              "variable": [{ "key": "id", "value": "" }] } }
+        },
+        {
+          "name": "Create Single Order Link",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/order-links/single", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","order-links","single"] },
+            "body": { "mode": "raw", "raw": "{\n  \"uniqueId\": \"\",\n  \"isin\": \"\",\n  \"amount\": 5000\n}" } }
+        },
+        {
+          "name": "Create Basket Order Link",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/order-links/basket", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","order-links","basket"] },
+            "body": { "mode": "raw", "raw": "{\n  \"uniqueId\": \"\",\n  \"basketId\": \"\",\n  \"amount\": 10000\n}" } }
+        },
+        {
+          "name": "Cancel Order Link",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/order-links/:id/cancel", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","order-links",":id","cancel"],
+              "variable": [{ "key": "id", "value": "" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Reports",
+      "item": [
+        {
+          "name": "Transaction List Report",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/reports/transactions?pan_number=ABCDE1234F", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","reports","transactions"],
+              "query": [{ "key": "pan_number", "value": "ABCDE1234F" }] } }
+        },
+        {
+          "name": "Purchase List Report",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/reports/purchases", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","reports","purchases"] } }
+        },
+        {
+          "name": "Redemption List Report",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/reports/redemptions", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","reports","redemptions"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Brokerage Commission",
+      "item": [
+        {
+          "name": "Upload Brokerage File",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/brokerage/upload", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","brokerage","upload"] },
+            "body": { "mode": "formdata", "formdata": [
+              { "key": "file", "type": "file" },
+              { "key": "source", "value": "CAMS", "type": "text", "description": "CAMS or KARVY" }
+            ]} }
+        },
+        {
+          "name": "Upload Brokerage File (force overwrite)",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/brokerage/upload?force=true", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","brokerage","upload"],
+              "query": [{ "key": "force", "value": "true" }] },
+            "body": { "mode": "formdata", "formdata": [
+              { "key": "file", "type": "file" },
+              { "key": "source", "value": "CAMS", "type": "text" }
+            ]} }
+        },
+        {
+          "name": "List Uploads",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/brokerage/uploads", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","brokerage","uploads"] } }
+        },
+        {
+          "name": "Delete Upload",
+          "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/brokerage/uploads/:uploadId", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","brokerage","uploads",":uploadId"],
+              "variable": [{ "key": "uploadId", "value": "" }] } }
+        },
+        {
+          "name": "Purge Records by Month",
+          "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/brokerage/records?source=CAMS&month=2026-05", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","brokerage","records"],
+              "query": [{ "key": "source", "value": "CAMS" }, { "key": "month", "value": "2026-05" }] } }
+        },
+        {
+          "name": "Available Months",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/brokerage/months", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","brokerage","months"] } }
+        },
+        {
+          "name": "Monthly Report",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/brokerage/report?month=2026-05", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","brokerage","report"],
+              "query": [{ "key": "month", "value": "2026-05" }, { "key": "source", "value": "CAMS", "disabled": true }] } }
+        },
+        {
+          "name": "Report — Drill Down (by AMC)",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/brokerage/report/details?month=2026-05&amcCode=&page=1&limit=50", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","brokerage","report","details"],
+              "query": [{ "key": "month", "value": "2026-05" }, { "key": "amcCode", "value": "" }, { "key": "source", "value": "CAMS", "disabled": true }, { "key": "page", "value": "1" }, { "key": "limit", "value": "50" }] } }
+        },
+        {
+          "name": "List AMC Code Mappings",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/brokerage/amc-codes?unmapped=true", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","brokerage","amc-codes"],
+              "query": [{ "key": "unmapped", "value": "true", "disabled": true }, { "key": "source", "value": "CAMS", "disabled": true }] } }
+        },
+        {
+          "name": "Update AMC Code Mapping",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/brokerage/amc-codes/:id", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","brokerage","amc-codes",":id"],
+              "variable": [{ "key": "id", "value": "" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"amcName\": \"Mirae Asset Mutual Fund\"\n}" } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF KYC Request",
+      "item": [
+        {
+          "name": "Get KYC Request",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/kyc-request/:fpKycRequestId", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","kyc-request",":fpKycRequestId"],
+              "variable": [{ "key": "fpKycRequestId", "value": "" }] } }
+        }
+      ]
+    },
+
+    {
+      "name": "MF Portfolio Reviews",
+      "item": [
+        {
+          "name": "List All Reviews (Worklist)",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/reviews?status=OVERDUE&dueWithinDays=14", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","reviews"],
+              "query": [{ "key": "status", "value": "OVERDUE", "disabled": true }, { "key": "dueWithinDays", "value": "14", "disabled": true }] } }
+        },
+        {
+          "name": "Get Client Reviews",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/reviews/:uniqueId", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","reviews",":uniqueId"],
+              "variable": [{ "key": "uniqueId", "value": "" }] } }
+        },
+        {
+          "name": "Complete Review",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/reviews/:reviewId/complete", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","reviews",":reviewId","complete"],
+              "variable": [{ "key": "reviewId", "value": "" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"keyPoints\": [\n    \"No SIP for long term wealth, Need to start SIP for 1st 1 Cr goal\",\n    \"Goal setup is pending\",\n    \"6 Months emergency is pending\",\n    \"Insurance top up cover is pending\"\n  ]\n}" } }
+        },
+        {
+          "name": "Reschedule Review",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/reviews/:reviewId/reschedule", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","reviews",":reviewId","reschedule"],
+              "variable": [{ "key": "reviewId", "value": "" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"scheduledDate\": \"2026-08-15\"\n}" } }
+        },
+        {
+          "name": "Run Maintenance Job",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/mf/admin/reviews/run-maintenance", "host": ["{{baseUrl}}"], "path": ["api","mf","admin","reviews","run-maintenance"] } }
+        }
+      ]
+    }
+
+  ]
+}
