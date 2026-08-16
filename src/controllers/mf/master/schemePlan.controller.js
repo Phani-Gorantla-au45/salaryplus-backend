@@ -2,6 +2,23 @@ import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
 import { fetchFpSchemePlan } from "../../../utils/mf/master/schemePlan.utils.js";
 import { getAmcLogoMap } from "../../../utils/mf/master/amc.utils.js";
 
+/* ------------------------------------------------------------------ */
+/*  GET /api/mf/admin/scheme-plans/fp/:isin                            */
+/*  Calls FP directly — always live, never cached.                     */
+/* ------------------------------------------------------------------ */
+export const getFpSchemePlanRaw = async (req, res) => {
+  try {
+    const isin = req.params.isin?.toUpperCase().trim();
+    if (!isin) return res.status(400).json({ success: false, message: "isin is required" });
+
+    const data = await fetchFpSchemePlan(isin);
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    console.error("❌ [FP SCHEME RAW] Error:", err.message);
+    return res.status(502).json({ success: false, message: err.message });
+  }
+};
+
 const ISIN_REGEX = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
 const CACHE_TTL_HOURS = 12; // re-fetch from FP if scheme data is older than this
 

@@ -4,7 +4,9 @@ import {
   listSchemePlans,
   bulkSyncSchemePlans,
   getAmcLogoByIsin,
+  getFpSchemePlanRaw,
 } from "../../../controllers/mf/master/schemePlan.controller.js";
+import { adminAuth } from "../../../middlewares/adminAuth.middleware.js";
 
 const router = express.Router();
 
@@ -14,6 +16,9 @@ router.get("/", listSchemePlans);
 
 // POST /api/mf/master/scheme-plans/bulk-sync    — cache multiple ISINs (MUST be before /:isin)
 router.post("/bulk-sync", bulkSyncSchemePlans);
+
+// GET  /api/mf/master/scheme-plans/fp/:isin     — raw FP live call, always hits FP (admin only)
+router.get("/fp/:isin", adminAuth, getFpSchemePlanRaw);
 
 // GET  /api/mf/master/scheme-plans/:isin/amc-logo — AMC logo for a given ISIN (MUST be before /:isin)
 router.get("/:isin/amc-logo", getAmcLogoByIsin);
