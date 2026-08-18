@@ -12,6 +12,9 @@ import {
   linkFundsToGoal,
   listAllCustomGoalsAdmin,
   getUserCustomGoalsAdmin,
+  adminCreateGoalForUser,
+  adminUpdateGoal,
+  adminDeleteGoal,
 } from "../../controllers/goals/userCustomGoal.controller.js";
 
 const router = Router();
@@ -21,8 +24,11 @@ router.get  ("/types",      listGoalTypes);
 router.post ("/calculate",  calculateGoalPreview);
 
 // Admin — must be registered before "/:id" so "admin" isn't swallowed as a goal id
-router.get  ("/admin",                adminAuth, listAllCustomGoalsAdmin);
-router.get  ("/admin/user/:uniqueId", adminAuth, getUserCustomGoalsAdmin);
+router.get   ("/admin",                   adminAuth, listAllCustomGoalsAdmin);
+router.get   ("/admin/user/:uniqueId",    adminAuth, getUserCustomGoalsAdmin);
+router.post  ("/admin/user/:uniqueId",    adminAuth, adminCreateGoalForUser);
+router.patch ("/admin/:id",               adminAuth, adminUpdateGoal);
+router.delete("/admin/:id",               adminAuth, adminDeleteGoal);
 
 // Authenticated user routes
 router.post  ("/",                auth, createCustomGoal);

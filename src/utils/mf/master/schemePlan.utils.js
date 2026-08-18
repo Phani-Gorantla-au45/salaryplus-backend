@@ -27,6 +27,7 @@ export const fetchFpSchemePlan = async (isin) => {
     return response.data;
   } catch (err) {
     console.error(`❌ [FP SCHEME] Fetch failed for ISIN ${isin}:`, err.response?.data || err.message);
-    throw new Error(err.response?.data?.message || err.message || "Failed to fetch scheme plan from FP");
+    const fpMsg = err.response?.data?.error?.message || err.response?.data?.message || err.message;
+    throw new Error(fpMsg || "Failed to fetch scheme plan from FP");
   }
 };

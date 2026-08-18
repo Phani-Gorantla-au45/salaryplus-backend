@@ -302,6 +302,115 @@ export const linkFundsToGoal = async (req, res) => {
 };
 
 /* ================================================================
+ * ADMIN — CREATE GOAL ON BEHALF OF A USER
+ * POST /api/custom-goals/admin/user/:uniqueId
+ * Same logic as createCustomGoal but admin supplies the uniqueId.
+ * No user-facing email is sent (admin-initiated flow).
+ * ================================================================ */
+export const adminCreateGoalForUser = async (req, res) => {
+  try {
+    const { uniqueId } = req.params;
+    const {
+      goalType, name, inputs,
+      targetAmount, monthlySip, stepUpSip, stepUpRate,
+      chosenPlan,
+    } = req.body;
+
+    if (!goalType || !name || !targetAmount || !monthlySip || !chosenPlan) {
+      return res.status(400).json({
+        success: false,
+        message: "goalType, name, targetAmount, monthlySip and chosenPlan are required",
+      });
+    }
+
+    if (!getGoalType(goalType)) {
+      return res.status(400).json({ success: false, message: `Unknown goalType: ${goalType}` });
+    }
+
+    if (!["sip", "step_up_sip"].includes(chosenPlan)) {
+      return res.status(400).json({ success: false, message: "chosenPlan must be sip or step_up_sip" });
+    }
+
+    if (chosenPlan === "step_up_sip" && !stepUpSip) {
+      return res.status(400).json({ success: false, message: "stepUpSip is required when chosenPlan is step_up_sip" });
+    }
+
+    const user = await RegistrationUser.findOne({ uniqueId }, { First_name: 1, Last_name: 1 }).lean();
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    let duration;
+    try {
+      duration = calculateCustomGoal(goalType, inputs ?? {}).duration;
+    } catch (calcErr) {
+      return res.status(400).json({ success: false, message: `Could not derive target year: ${calcErr.message}` });
+    }
+    const targetYear = new Date().getFullYear() + duration;
+
+    const goal = await UserCustomGoal.create({
+      uniqueId,
+      goalType,
+      name: name.trim(),
+      inputs:       inputs ?? {},
+      targetAmount,
+      monthlySip,
+      stepUpSip:    stepUpSip  ?? null,
+      stepUpRate:   stepUpRate ?? null,
+      chosenPlan,
+      targetYear,
+    });
+
+    return res.status(201).json({ success: true, data: goal });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ================================================================
+ * ADMIN — UPDATE ANY USER'S GOAL
+ * PATCH /api/custom-goals/admin/:id
+ * No ownership check — admin can update any goal.
+ * ================================================================ */
+export const adminUpdateGoal = async (req, res) => {
+  try {
+    const goal = await UserCustomGoal.findById(req.params.id);
+    if (!goal) return res.status(404).json({ success: false, message: "Goal not found" });
+
+    const fields = ["name", "inputs", "targetAmount", "monthlySip", "stepUpSip", "stepUpRate", "chosenPlan", "status"];
+    for (const f of fields) {
+      if (req.body[f] !== undefined) goal[f] = req.body[f];
+    }
+
+    if (req.body.inputs !== undefined) {
+      try {
+        const duration = calculateCustomGoal(goal.goalType, goal.inputs).duration;
+        goal.targetYear = new Date().getFullYear() + duration;
+      } catch (calcErr) {
+        return res.status(400).json({ success: false, message: `Could not derive target year: ${calcErr.message}` });
+      }
+    }
+
+    await goal.save();
+    return res.status(200).json({ success: true, data: goal });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ================================================================
+ * ADMIN — DELETE ANY USER'S GOAL
+ * DELETE /api/custom-goals/admin/:id
+ * ================================================================ */
+export const adminDeleteGoal = async (req, res) => {
+  try {
+    const deleted = await UserCustomGoal.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, message: "Goal not found" });
+    return res.status(200).json({ success: true, message: "Goal deleted" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ================================================================
  * ADMIN — LIST ALL USERS' CUSTOM GOALS
  * GET /api/custom-goals/admin
  *
