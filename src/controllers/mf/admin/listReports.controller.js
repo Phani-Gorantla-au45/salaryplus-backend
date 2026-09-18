@@ -53,11 +53,28 @@ const attachUsersByInvestmentAccount = async (parsed) => {
  *
  * Query params (all optional):
  *   partner, traded_on_from, traded_on_to, primary_investor_name,
- *   folio_number, pan_number
+ *   folio_number, pan_number, uniqueId
+ *
+ * uniqueId: if provided, PAN is resolved from our DB and used as
+ *           pan_number — overrides any pan_number query param.
  * ================================================================ */
 export const getTransactionListReport = async (req, res) => {
   try {
-    const { partner, traded_on_from, traded_on_to, primary_investor_name, folio_number, pan_number } = req.query;
+    const { partner, traded_on_from, traded_on_to, primary_investor_name, folio_number, pan_number, uniqueId } = req.query;
+
+    // Resolve PAN from DB when uniqueId is given
+    let resolvedPan = pan_number ?? null;
+    if (uniqueId) {
+      const userData = await MfUserData.findOne(
+        { uniqueId },
+        { "investorProfile.pan": 1 }
+      ).lean();
+      resolvedPan = userData?.investorProfile?.pan ?? null;
+      if (!resolvedPan) {
+        return res.status(404).json({ success: false, message: `No PAN found in DB for uniqueId: ${uniqueId}` });
+      }
+      console.log(`🔍 [ADMIN TXN REPORT] Resolved PAN for ${uniqueId}: ${resolvedPan}`);
+    }
 
     const payload = {};
     if (partner) payload.partner = partner;
@@ -65,7 +82,7 @@ export const getTransactionListReport = async (req, res) => {
     if (traded_on_to) payload.traded_on_to = traded_on_to;
     if (primary_investor_name) payload.primary_investor_name = primary_investor_name;
     if (folio_number) payload.folio_number = folio_number;
-    if (pan_number) payload.pan_number = pan_number;
+    if (resolvedPan) payload.pan_number = resolvedPan;
 
     const fpResponse = await fetchFpTransactionListReport(payload);
     const parsed = parseRows(fpResponse);

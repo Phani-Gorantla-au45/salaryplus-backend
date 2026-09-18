@@ -3,16 +3,18 @@ import { fetchFpSchemePlan } from "../../../utils/mf/master/schemePlan.utils.js"
 import { getAmcLogoMap } from "../../../utils/mf/master/amc.utils.js";
 
 /* ------------------------------------------------------------------ */
-/*  GET /api/mf/admin/scheme-plans/fp/:isin                            */
-/*  Calls FP directly — always live, never cached.                     */
+/*  GET /api/mf/master/scheme-plans/fp/:isin  (admin only)             */
+/*  Always fetches live from FP and upserts into DB.                   */
+/*  Use this to force-sync any ISIN regardless of cache age.           */
 /* ------------------------------------------------------------------ */
 export const getFpSchemePlanRaw = async (req, res) => {
   try {
     const isin = req.params.isin?.toUpperCase().trim();
     if (!isin) return res.status(400).json({ success: false, message: "isin is required" });
 
-    const data = await fetchFpSchemePlan(isin);
-    return res.status(200).json({ success: true, data });
+    console.log(`🔄 [FP SCHEME SYNC] Force-syncing ISIN: ${isin}`);
+    const record = await syncSchemeFromFp(isin);
+    return res.status(200).json({ success: true, synced: true, data: record });
   } catch (err) {
     console.error("❌ [FP SCHEME RAW] Error:", err.message);
     return res.status(502).json({ success: false, message: err.message });

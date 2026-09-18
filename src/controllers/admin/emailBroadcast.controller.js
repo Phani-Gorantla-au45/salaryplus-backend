@@ -46,7 +46,7 @@ export const previewEmail = async (req, res) => {
     const to   = testEmail?.trim() || TEST_EMAIL;
     const html = buildCampaignHtml(subject, body);
 
-    await sendOneCampaignEmail(to, `[PREVIEW] ${subject}`, html, body.replace(/<[^>]+>/g, ""));
+    await sendOneCampaignEmail(to, subject, html, body.replace(/<[^>]+>/g, ""));
 
     // Log as test campaign
     await EmailCampaign.create({
