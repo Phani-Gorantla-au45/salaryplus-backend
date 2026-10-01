@@ -28,6 +28,10 @@ const mfBasketSchema = new mongoose.Schema(
     // Optional — if set, this basket is shown only to this user (overrides the default)
     // null = default basket visible to all users
     assignedUserId: { type: String, default: null, index: true },
+
+    // Flagship — if true, this basket is the platform's featured basket shown to ALL users.
+    // Only one basket should have flagship: true at a time (enforced at the controller level).
+    flagship: { type: Boolean, default: false, index: true },
     funds:               { type: [basketFundSchema], default: [] },
     basketMinInvestment: { type: Number, default: null }, // min total amount to invest so every fund gets its lumpsum minimum
     active:              { type: Boolean, default: true },

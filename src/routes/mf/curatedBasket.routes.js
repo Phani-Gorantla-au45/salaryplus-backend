@@ -2,10 +2,14 @@ import express from "express";
 import {
   listCuratedBaskets,
   getCuratedBasket,
+  getFlagshipBasketPublic,
 } from "../../controllers/mf/curatedBasket.controller.js";
 import { auth } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
+
+// GET /api/mf/curated-basket/flagship — the platform's featured basket (no auth, must be before /:id)
+router.get("/flagship", getFlagshipBasketPublic);
 
 // GET /api/mf/curated-basket          — list baskets (user-specific override if exists, else default)
 router.get("/", auth, listCuratedBaskets);

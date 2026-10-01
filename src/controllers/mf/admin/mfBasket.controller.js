@@ -290,6 +290,178 @@ export const assignBasket = async (req, res) => {
   }
 };
 
+/* ================================================================
+ * FLAGSHIP BASKET — one active flagship at a time, visible to all users.
+ * ================================================================ */
+
+/* ------------------------------------------------------------------ */
+/*  POST /api/mf/admin/flagship-basket                                  */
+/*  Create the flagship basket. If one already exists it is replaced    */
+/*  (old one is unflagged, new one becomes flagship).                   */
+/*  Body: { name, description?, riskProfile, funds: [{ isin, contributionPercent }] }
+/* ------------------------------------------------------------------ */
+export const createFlagshipBasket = async (req, res) => {
+  try {
+    const { name, description, riskProfile, funds } = req.body;
+
+    if (!name?.trim()) return res.status(400).json({ success: false, message: "name is required" });
+    if (!RISK_PROFILES.includes(riskProfile)) {
+      return res.status(400).json({ success: false, message: `riskProfile must be one of: ${RISK_PROFILES.join(", ")}` });
+    }
+    if (!Array.isArray(funds) || funds.length === 0) {
+      return res.status(400).json({ success: false, message: "funds must be a non-empty array" });
+    }
+    for (const f of funds) {
+      if (!f.isin) return res.status(400).json({ success: false, message: "Each fund must have an isin" });
+      if (typeof f.contributionPercent !== "number" || f.contributionPercent <= 0) {
+        return res.status(400).json({ success: false, message: `contributionPercent for ${f.isin} must be a positive number` });
+      }
+    }
+    const total = funds.reduce((sum, f) => sum + f.contributionPercent, 0);
+    if (Math.abs(total - 100) > 0.01) {
+      return res.status(400).json({ success: false, message: `Fund contributions must sum to 100%. Got: ${total}%` });
+    }
+
+    const resolvedFunds = await Promise.all(
+      funds.map(async (f) => {
+        const schemeData = await resolveSchemeForBasket(f.isin);
+        return {
+          isin:                f.isin.toUpperCase().trim(),
+          fundName:            schemeData.fundName,
+          schemeName:          schemeData.schemeName,
+          contributionPercent: f.contributionPercent,
+          minLumpsumAmount:    schemeData.minLumpsumAmount,
+          minSipAmount:        schemeData.minSipAmount,
+          thresholds:          schemeData.thresholds,
+        };
+      })
+    );
+
+    // Unflag any existing flagship first
+    await MfBasket.updateMany({ flagship: true }, { $set: { flagship: false } });
+
+    const basket = await MfBasket.create({
+      name:                name.trim(),
+      description:         description?.trim() ?? null,
+      riskProfile,
+      flagship:            true,
+      assignedUserId:      null,
+      funds:               resolvedFunds,
+      basketMinInvestment: calcBasketMinInvestment(resolvedFunds),
+    });
+
+    const logoMap = await getAmcLogoMap(resolvedFunds.map((f) => f.fundName).filter(Boolean));
+    console.log(`✅ [FLAGSHIP BASKET] Created — id=${basket._id}`);
+    return res.status(201).json({ success: true, data: basketResponse(basket, logoMap) });
+  } catch (err) {
+    console.error("❌ [FLAGSHIP BASKET] Create error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  GET /api/mf/admin/flagship-basket                                   */
+/* ------------------------------------------------------------------ */
+export const getFlagshipBasket = async (req, res) => {
+  try {
+    const basket = await MfBasket.findOne({ flagship: true });
+    if (!basket) return res.status(404).json({ success: false, message: "No flagship basket configured yet" });
+
+    const logoMap = await getAmcLogoMap(basket.funds.map((f) => f.fundName).filter(Boolean));
+    return res.status(200).json({ success: true, data: basketResponse(basket, logoMap) });
+  } catch (err) {
+    console.error("❌ [FLAGSHIP BASKET] Get error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  PATCH /api/mf/admin/flagship-basket                                 */
+/*  Update name, description, riskProfile, active, or funds.           */
+/* ------------------------------------------------------------------ */
+export const updateFlagshipBasket = async (req, res) => {
+  try {
+    const basket = await MfBasket.findOne({ flagship: true });
+    if (!basket) return res.status(404).json({ success: false, message: "No flagship basket configured yet" });
+
+    const { name, description, riskProfile, active, funds } = req.body;
+
+    if (name !== undefined)        basket.name        = name.trim();
+    if (description !== undefined) basket.description = description?.trim() ?? null;
+    if (active !== undefined)      basket.active      = Boolean(active);
+
+    if (riskProfile !== undefined) {
+      if (!RISK_PROFILES.includes(riskProfile)) {
+        return res.status(400).json({ success: false, message: `riskProfile must be one of: ${RISK_PROFILES.join(", ")}` });
+      }
+      basket.riskProfile = riskProfile;
+    }
+
+    if (funds !== undefined) {
+      if (!Array.isArray(funds) || funds.length === 0) {
+        return res.status(400).json({ success: false, message: "funds must be a non-empty array" });
+      }
+      for (const f of funds) {
+        if (!f.isin || typeof f.contributionPercent !== "number" || f.contributionPercent <= 0) {
+          return res.status(400).json({ success: false, message: "Each fund must have isin and a positive contributionPercent" });
+        }
+      }
+      const total = funds.reduce((sum, f) => sum + f.contributionPercent, 0);
+      if (Math.abs(total - 100) > 0.01) {
+        return res.status(400).json({ success: false, message: `Fund contributions must sum to 100%. Got: ${total}%` });
+      }
+      const resolvedFunds = await Promise.all(
+        funds.map(async (f) => {
+          const schemeData = await resolveSchemeForBasket(f.isin);
+          return {
+            isin:                f.isin.toUpperCase().trim(),
+            fundName:            schemeData.fundName,
+            schemeName:          schemeData.schemeName,
+            contributionPercent: f.contributionPercent,
+            minLumpsumAmount:    schemeData.minLumpsumAmount,
+            minSipAmount:        schemeData.minSipAmount,
+            thresholds:          schemeData.thresholds,
+          };
+        })
+      );
+      basket.funds               = resolvedFunds;
+      basket.basketMinInvestment = calcBasketMinInvestment(resolvedFunds);
+    }
+
+    await basket.save();
+    const logoMap = await getAmcLogoMap(basket.funds.map((f) => f.fundName).filter(Boolean));
+    return res.status(200).json({ success: true, data: basketResponse(basket, logoMap) });
+  } catch (err) {
+    console.error("❌ [FLAGSHIP BASKET] Update error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  DELETE /api/mf/admin/flagship-basket                                */
+/*  Removes the flagship flag (basket stays in DB but is no longer     */
+/*  featured). Pass ?hard=true to delete the document entirely.        */
+/* ------------------------------------------------------------------ */
+export const deleteFlagshipBasket = async (req, res) => {
+  try {
+    const basket = await MfBasket.findOne({ flagship: true });
+    if (!basket) return res.status(404).json({ success: false, message: "No flagship basket configured" });
+
+    if (req.query.hard === "true") {
+      await basket.deleteOne();
+      return res.status(200).json({ success: true, message: "Flagship basket permanently deleted" });
+    }
+
+    basket.flagship = false;
+    basket.active   = false;
+    await basket.save();
+    return res.status(200).json({ success: true, message: "Flagship basket removed (basket retained in DB)" });
+  } catch (err) {
+    console.error("❌ [FLAGSHIP BASKET] Delete error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 /* ------------------------------------------------------------------ */
 /*  DELETE /api/mf/admin/basket/:id                                     */
 /* ------------------------------------------------------------------ */

@@ -79,6 +79,25 @@ export const getCuratedBasket = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  GET /api/mf/flagship-basket                                         */
+/*  Returns the single active flagship basket visible to all users.    */
+/*  No auth required.                                                  */
+/* ------------------------------------------------------------------ */
+export const getFlagshipBasketPublic = async (req, res) => {
+  try {
+    const basket = await MfBasket.findOne({ flagship: true, active: true });
+    if (!basket) {
+      return res.status(404).json({ success: false, message: "No flagship basket available" });
+    }
+    const logoMap = await getAmcLogoMap(basket.funds.map((f) => f.fundName).filter(Boolean));
+    return res.status(200).json({ success: true, data: basketPublicResponse(basket, logoMap) });
+  } catch (err) {
+    console.error("❌ [FLAGSHIP BASKET] Public get error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  Internal — public-facing response shape (no raw thresholds)         */
 /* ------------------------------------------------------------------ */
 const basketPublicResponse = (basket, logoMap = {}) => ({
