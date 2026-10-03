@@ -19,17 +19,27 @@ const fpHeaders = async () => {
 /* ------------------------------------------------------------------ */
 export const createFpSip = async (payload) => {
   try {
-    console.log("\n📤 [FP SIP] Create payload:", JSON.stringify(payload, null, 2));
+    console.log(
+      "\n📤 [FP SIP] Create payload:",
+      JSON.stringify(payload, null, 2),
+    );
     const response = await axios.post(
       `${FP_API_URL()}/v2/mf_purchase_plans`,
       payload,
-      { headers: await fpHeaders() }
+      { headers: await fpHeaders() },
     );
-    console.log(`✅ [FP SIP] Created — id=${response.data?.id} state=${response.data?.state}`);
+    console.log(
+      `✅ [FP SIP] Created — id=${response.data?.id} state=${response.data?.state}`,
+    );
     return response.data;
   } catch (err) {
-    console.error("❌ [FP SIP] Create failed:", JSON.stringify(err.response?.data || err.message, null, 2));
-    throw new Error(err.response?.data?.message || "Failed to create SIP on FP");
+    console.error(
+      "❌ [FP SIP] Create failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2),
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to create SIP on FP",
+    );
   }
 };
 
@@ -41,18 +51,28 @@ export const createFpSip = async (payload) => {
 export const createFpBatchSip = async (plans) => {
   try {
     const payload = { mf_purchase_plans: plans };
-    console.log(`\n📤 [FP BATCH SIP] Creating ${plans.length} plan(s):`, JSON.stringify(payload, null, 2));
+    console.log(
+      `\n📤 [FP BATCH SIP] Creating ${plans.length} plan(s):`,
+      JSON.stringify(payload, null, 2),
+    );
     const response = await axios.post(
       `${FP_API_URL()}/v2/mf_purchase_plans/batch`,
       payload,
-      { headers: await fpHeaders() }
+      { headers: await fpHeaders() },
     );
     const data = response.data?.data ?? [];
-    console.log(`✅ [FP BATCH SIP] Created ${data.length} plan(s) — ids: ${data.map(p => p.id).join(", ")}`);
+    console.log(
+      `✅ [FP BATCH SIP] Created ${data.length} plan(s) — ids: ${data.map((p) => p.id).join(", ")}`,
+    );
     return data;
   } catch (err) {
-    console.error("❌ [FP BATCH SIP] Create failed:", JSON.stringify(err.response?.data || err.message, null, 2));
-    throw new Error(err.response?.data?.message || "Failed to create batch SIP on FP");
+    console.error(
+      "❌ [FP BATCH SIP] Create failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2),
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to create batch SIP on FP",
+    );
   }
 };
 
@@ -67,13 +87,18 @@ export const patchFpSip = async (payload) => {
     const response = await axios.patch(
       `${FP_API_URL()}/v2/mf_purchase_plans`,
       payload,
-      { headers: await fpHeaders() }
+      { headers: await fpHeaders() },
     );
     console.log(`✅ [FP SIP] PATCH done — state=${response.data?.state}`);
     return response.data;
   } catch (err) {
-    console.error("❌ [FP SIP] PATCH failed:", JSON.stringify(err.response?.data || err.message, null, 2));
-    throw new Error(err.response?.data?.message || "Failed to update SIP on FP");
+    console.error(
+      "❌ [FP SIP] PATCH failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2),
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to update SIP on FP",
+    );
   }
 };
 
@@ -90,14 +115,21 @@ export const patchFpBatchSip = async (plans) => {
     const response = await axios.patch(
       `${FP_API_URL()}/v2/mf_purchase_plans/batch`,
       payload,
-      { headers: await fpHeaders() }
+      { headers: await fpHeaders() },
     );
     const data = response.data?.data ?? [];
-    console.log(`✅ [FP BATCH SIP] PATCH done — states: ${data.map(p => p.state).join(", ")}`);
+    console.log(
+      `✅ [FP BATCH SIP] PATCH done — states: ${data.map((p) => p.state).join(", ")}`,
+    );
     return data;
   } catch (err) {
-    console.error("❌ [FP BATCH SIP] PATCH failed:", JSON.stringify(err.response?.data || err.message, null, 2));
-    throw new Error(err.response?.data?.message || "Failed to confirm batch SIP on FP");
+    console.error(
+      "❌ [FP BATCH SIP] PATCH failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2),
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to confirm batch SIP on FP",
+    );
   }
 };
 
@@ -110,13 +142,18 @@ export const fetchFpSip = async (fpSipId) => {
     console.log(`\n📋 [FP SIP] Fetching id=${fpSipId}`);
     const response = await axios.get(
       `${FP_API_URL()}/v2/mf_purchase_plans/${fpSipId}`,
-      { headers: await fpHeaders() }
+      { headers: await fpHeaders() },
     );
     console.log(`✅ [FP SIP] state=${response.data?.state}`);
     return response.data;
   } catch (err) {
-    console.error("❌ [FP SIP] Fetch failed:", JSON.stringify(err.response?.data || err.message, null, 2));
-    throw new Error(err.response?.data?.message || "Failed to fetch SIP from FP");
+    console.error(
+      "❌ [FP SIP] Fetch failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2),
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to fetch SIP from FP",
+    );
   }
 };
 
@@ -124,7 +161,11 @@ export const fetchFpSip = async (fpSipId) => {
 /*  POST /v2/mf_purchase_plans/cancel                                   */
 /*  Cancels a single SIP plan by FP id.                                 */
 /* ------------------------------------------------------------------ */
-export const cancelFpSip = async (fpSipId, cancellationCode, cancellationReason = null) => {
+export const cancelFpSip = async (
+  fpSipId,
+  cancellationCode,
+  cancellationReason = null,
+) => {
   try {
     const payload = { id: fpSipId, cancellation_code: cancellationCode };
     if (cancellationReason) payload.cancellation_reason = cancellationReason;
@@ -132,13 +173,18 @@ export const cancelFpSip = async (fpSipId, cancellationCode, cancellationReason 
     const response = await axios.post(
       `${FP_API_URL()}/v2/mf_purchase_plans/cancel`,
       payload,
-      { headers: await fpHeaders() }
+      { headers: await fpHeaders() },
     );
     console.log(`✅ [FP SIP] Cancelled — state=${response.data?.state}`);
     return response.data;
   } catch (err) {
-    console.error("❌ [FP SIP] Cancel failed:", JSON.stringify(err.response?.data || err.message, null, 2));
-    throw new Error(err.response?.data?.message || "Failed to cancel SIP on FP");
+    console.error(
+      "❌ [FP SIP] Cancel failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2),
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to cancel SIP on FP",
+    );
   }
 };
 
@@ -149,13 +195,21 @@ export const cancelFpSip = async (fpSipId, cancellationCode, cancellationReason 
 /* ------------------------------------------------------------------ */
 export const listFpSips = async (params = {}) => {
   try {
-    const response = await axios.get(
-      `${FP_API_URL()}/v2/mf_purchase_plans`,
-      { headers: await fpHeaders(), params }
-    );
+    const response = await axios.get(`${FP_API_URL()}/v2/mf_purchase_plans`, {
+      headers: await fpHeaders(),
+      params,
+    });
+    console.log("Sip data from FP", response.data);
+    console.log("Sip data from FP", response.data);
+
     return response.data;
   } catch (err) {
-    console.error("❌ [FP SIP] List failed:", JSON.stringify(err.response?.data || err.message, null, 2));
-    throw new Error(err.response?.data?.message || "Failed to list SIPs from FP");
+    console.error(
+      "❌ [FP SIP] List failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2),
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to list SIPs from FP",
+    );
   }
 };
