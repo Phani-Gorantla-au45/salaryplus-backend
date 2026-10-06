@@ -1,5 +1,4 @@
 import MfUserData from "../../../models/mf/mfUserData.model.js";
-import MfPurchase from "../../../models/mf/purchase/mfPurchase.model.js";
 import { fetchFpFolios } from "../../../utils/mf/folio.utils.js";
 import {
   fetchFpTransactionListReport,
@@ -129,21 +128,22 @@ export const getTransactionListReport = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Internal — fetch FP purchase list filtered to one user's records.  */
+/*  Internal — fetch FP purchase list filtered by investment account.  */
 /* ------------------------------------------------------------------ */
 const fetchPurchasesForUser = async (uniqueId, extraPayload = {}) => {
-  const purchases = await MfPurchase.find(
-    { uniqueId, fpPurchaseId: { $ne: null } },
-    { fpPurchaseId: 1 }
+  const userData = await MfUserData.findOne(
+    { uniqueId },
+    { "investmentAccount.fpInvestmentAccountId": 1 }
   ).lean();
 
-  if (purchases.length === 0) return { rows: [], fpFilters: { uniqueId } };
+  const fpAccountId = userData?.investmentAccount?.fpInvestmentAccountId ?? null;
+  if (!fpAccountId) return { rows: [], fpFilters: { uniqueId } };
 
   const payload = {
     ...extraPayload,
-    ids: purchases.map((p) => p.fpPurchaseId),
+    mf_investment_accounts: [fpAccountId],
   };
-  console.log(`🔍 [PURCHASE REPORT] ${purchases.length} FP ID(s) resolved for uniqueId: ${uniqueId}`);
+  console.log(`🔍 [PURCHASE REPORT] Fetching by mf_investment_account: ${fpAccountId} for uniqueId: ${uniqueId}`);
 
   const fpResponse = await fetchFpPurchaseListReport(payload);
   const rows = parseRows(fpResponse);

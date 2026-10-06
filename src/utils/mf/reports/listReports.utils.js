@@ -57,11 +57,12 @@ export const fetchFpTransactionListReport = async (payload = {}) => {
 /*  POST /v2/mf_purchases/reports/mf_purchase_list                      */
 /*                                                                      */
 /*  payload: {                                                          */
-/*    ids?:           String[]                                         */
-/*    states?:        String[] (pending/confirmed/submitted/successful/ */
-/*                     failed/cancelled/refunded/reversed)              */
-/*    plans?:         String[] (mf purchase plan ids)                  */
-/*    plan_old_ids?:  String[]                                          */
+/*    ids?:                    String[]                                */
+/*    states?:                 String[] (pending/confirmed/submitted/   */
+/*                               successful/failed/cancelled/refunded)  */
+/*    plans?:                  String[] (mf purchase plan ids)         */
+/*    plan_old_ids?:           String[]                                */
+/*    mf_investment_accounts?: String[]  ← filter by investment account */
 /*  }                                                                   */
 /* ------------------------------------------------------------------ */
 export const fetchFpPurchaseListReport = async (payload = {}) => {
