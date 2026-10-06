@@ -1,4 +1,5 @@
 import MfUserData from "../../../models/mf/mfUserData.model.js";
+import MfPurchase from "../../../models/mf/purchase/mfPurchase.model.js";
 import { fetchFpFolios } from "../../../utils/mf/folio.utils.js";
 import {
   fetchFpTransactionListReport,
@@ -127,34 +128,87 @@ export const getTransactionListReport = async (req, res) => {
   }
 };
 
+/* ------------------------------------------------------------------ */
+/*  Internal — fetch FP purchase list filtered to one user's records.  */
+/* ------------------------------------------------------------------ */
+const fetchPurchasesForUser = async (uniqueId, extraPayload = {}) => {
+  const purchases = await MfPurchase.find(
+    { uniqueId, fpPurchaseId: { $ne: null } },
+    { fpPurchaseId: 1 }
+  ).lean();
+
+  if (purchases.length === 0) return { rows: [], fpFilters: { uniqueId } };
+
+  const payload = {
+    ...extraPayload,
+    ids: purchases.map((p) => p.fpPurchaseId),
+  };
+  console.log(`🔍 [PURCHASE REPORT] ${purchases.length} FP ID(s) resolved for uniqueId: ${uniqueId}`);
+
+  const fpResponse = await fetchFpPurchaseListReport(payload);
+  const rows = parseRows(fpResponse);
+  return { rows, fpFilters: fpResponse?.filter_by ?? payload };
+};
+
 /* ================================================================
- * GET /api/mf/admin/reports/purchases
+ * GET /api/mf/admin/reports/purchases          (admin — all users)
+ * GET /api/mf/admin/reports/purchases?uniqueId= (admin — one user)
  *
  * Query params (all optional, comma-separated):
- *   ids, states, plans, plan_old_ids
+ *   ids, states, plans, plan_old_ids, uniqueId
  * ================================================================ */
 export const getPurchaseListReport = async (req, res) => {
   try {
-    const { ids, states, plans, plan_old_ids } = req.query;
+    const { ids, states, plans, plan_old_ids, uniqueId } = req.query;
 
-    const payload = {};
-    if (ids) payload.ids = csvToArray(ids);
-    if (states) payload.states = csvToArray(states);
-    if (plans) payload.plans = csvToArray(plans);
-    if (plan_old_ids) payload.plan_old_ids = csvToArray(plan_old_ids);
+    const extraPayload = {};
+    if (states)       extraPayload.states       = csvToArray(states);
+    if (plans)        extraPayload.plans        = csvToArray(plans);
+    if (plan_old_ids) extraPayload.plan_old_ids = csvToArray(plan_old_ids);
 
-    const fpResponse = await fetchFpPurchaseListReport(payload);
-    const parsed = parseRows(fpResponse);
+    let parsed, filters;
+
+    if (uniqueId) {
+      const { rows, fpFilters } = await fetchPurchasesForUser(uniqueId, extraPayload);
+      parsed  = rows;
+      filters = fpFilters;
+    } else {
+      if (ids) extraPayload.ids = csvToArray(ids);
+      const fpResponse = await fetchFpPurchaseListReport(extraPayload);
+      parsed  = parseRows(fpResponse);
+      filters = fpResponse?.filter_by ?? extraPayload;
+    }
+
     const enriched = await attachUsersByInvestmentAccount(parsed);
+    return res.status(200).json({ success: true, count: enriched.length, data: enriched, filters });
+  } catch (err) {
+    console.error("❌ [ADMIN PURCHASE LIST REPORT] Error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ================================================================
+ * GET /api/mf/reports/purchases                (user — own data only)
+ *
+ * Authenticated user gets only their own FP purchases.
+ * Optional query: ?states=successful,submitted
+ * ================================================================ */
+export const getUserPurchaseReport = async (req, res) => {
+  try {
+    const { uniqueId } = req.user;
+    const extraPayload = {};
+    if (req.query.states) extraPayload.states = csvToArray(req.query.states);
+
+    const { rows, fpFilters } = await fetchPurchasesForUser(uniqueId, extraPayload);
 
     return res.status(200).json({
       success: true,
-      count: enriched.length,
-      data: enriched,
-      filters: fpResponse?.filter_by ?? payload,
+      count:   rows.length,
+      data:    rows,
+      filters: fpFilters,
     });
   } catch (err) {
-    console.error("❌ [ADMIN PURCHASE LIST REPORT] Error:", err.message);
+    console.error("❌ [USER PURCHASE REPORT] Error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
