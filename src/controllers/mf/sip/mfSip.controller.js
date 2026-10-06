@@ -474,9 +474,12 @@ export const getSip = async (req, res) => {
 
     const updated = await MfSip.findById(record._id);
     const goalMap = await enrichWithGoals([updated]);
-    return res
-      .status(200)
-      .json({ success: true, data: sipPublicResponse(updated, { goalName: goalMap[updated.linkedGoalId] ?? null }) });
+    return res.status(200).json({
+      success: true,
+      data: sipPublicResponse(updated, {
+        goalName: goalMap[updated.linkedGoalId] ?? null,
+      }),
+    });
   } catch (err) {
     console.error("❌ [SIP] Get error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -502,7 +505,9 @@ export const listSips = async (req, res) => {
     return res.status(200).json({
       success: true,
       count: sips.length,
-      data: sips.map((s) => sipPublicResponse(s, { goalName: goalMap[s.linkedGoalId] ?? null })),
+      data: sips.map((s) =>
+        sipPublicResponse(s, { goalName: goalMap[s.linkedGoalId] ?? null }),
+      ),
     });
   } catch (err) {
     console.error("❌ [SIP] List error:", err.message);
@@ -585,7 +590,9 @@ export const sipPublicResponse = (s, extras = {}) => ({
 });
 
 const formatGoalType = (type) =>
-  type ? type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : null;
+  type
+    ? type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : null;
 
 const enrichWithGoals = async (sips) => {
   const goalIds = sips.map((s) => s.linkedGoalId).filter(Boolean);
@@ -593,7 +600,8 @@ const enrichWithGoals = async (sips) => {
   const goals = await UserGoal.find({ _id: { $in: goalIds } }).lean();
   const goalMap = {};
   for (const g of goals) {
-    goalMap[g._id.toString()] = g.inputs?.name || formatGoalType(g.templateType);
+    goalMap[g._id.toString()] =
+      g.inputs?.name || formatGoalType(g.templateType);
   }
   return goalMap;
 };

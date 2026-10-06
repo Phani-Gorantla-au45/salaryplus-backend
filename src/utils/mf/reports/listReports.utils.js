@@ -36,14 +36,20 @@ export const fetchFpTransactionListReport = async (payload = {}) => {
       payload,
       { headers: await fpHeaders() },
     );
-    console.log(`✅ [FP TXN LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`);
+    console.log(
+      `✅ [FP TXN LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`,
+    );
+    console.log("user Transaction data", response.data);
     return response.data;
   } catch (err) {
     console.error(
       "❌ [FP TXN LIST REPORT] Fetch failed:",
       JSON.stringify(err.response?.data || err.message, null, 2),
     );
-    throw new Error(err.response?.data?.message || "Failed to fetch transaction list report from FP");
+    throw new Error(
+      err.response?.data?.message ||
+        "Failed to fetch transaction list report from FP",
+    );
   }
 };
 
@@ -60,20 +66,28 @@ export const fetchFpTransactionListReport = async (payload = {}) => {
 /* ------------------------------------------------------------------ */
 export const fetchFpPurchaseListReport = async (payload = {}) => {
   try {
-    console.log(`\n📋 [FP PURCHASE LIST REPORT] Fetching with filters:`, payload);
+    console.log(
+      `\n📋 [FP PURCHASE LIST REPORT] Fetching with filters:`,
+      payload,
+    );
     const response = await axios.post(
       `${FP_API_URL()}/v2/mf_purchases/reports/mf_purchase_list`,
       payload,
       { headers: await fpHeaders() },
     );
-    console.log(`✅ [FP PURCHASE LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`);
+    console.log(
+      `✅ [FP PURCHASE LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`,
+    );
     return response.data;
   } catch (err) {
     console.error(
       "❌ [FP PURCHASE LIST REPORT] Fetch failed:",
       JSON.stringify(err.response?.data || err.message, null, 2),
     );
-    throw new Error(err.response?.data?.message || "Failed to fetch purchase list report from FP");
+    throw new Error(
+      err.response?.data?.message ||
+        "Failed to fetch purchase list report from FP",
+    );
   }
 };
 
@@ -89,19 +103,27 @@ export const fetchFpPurchaseListReport = async (payload = {}) => {
 /* ------------------------------------------------------------------ */
 export const fetchFpRedemptionListReport = async (payload = {}) => {
   try {
-    console.log(`\n📋 [FP REDEMPTION LIST REPORT] Fetching with filters:`, payload);
+    console.log(
+      `\n📋 [FP REDEMPTION LIST REPORT] Fetching with filters:`,
+      payload,
+    );
     const response = await axios.post(
       `${FP_API_URL()}/v2/mf_redemptions/reports/mf_redemption_list`,
       payload,
       { headers: await fpHeaders() },
     );
-    console.log(`✅ [FP REDEMPTION LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`);
+    console.log(
+      `✅ [FP REDEMPTION LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`,
+    );
     return response.data;
   } catch (err) {
     console.error(
       "❌ [FP REDEMPTION LIST REPORT] Fetch failed:",
       JSON.stringify(err.response?.data || err.message, null, 2),
     );
-    throw new Error(err.response?.data?.message || "Failed to fetch redemption list report from FP");
+    throw new Error(
+      err.response?.data?.message ||
+        "Failed to fetch redemption list report from FP",
+    );
   }
 };

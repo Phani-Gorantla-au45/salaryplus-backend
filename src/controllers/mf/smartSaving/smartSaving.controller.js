@@ -1,4 +1,5 @@
 import MfSmartSaving from "../../../models/mf/smartSaving/mfSmartSaving.model.js";
+import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
 
 /* ------------------------------------------------------------------ */
 /*  Internal — public response shape                                    */
@@ -17,7 +18,8 @@ const publicShape = (doc) => ({
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/smart-saving                                            */
-/*  Frontend endpoint — returns the currently active fund config.      */
+/*  Frontend endpoint — returns the currently active fund config       */
+/*  enriched with SIP dates and min amounts from the scheme plan.      */
 /* ------------------------------------------------------------------ */
 export const getSmartSaving = async (req, res) => {
   try {
@@ -30,9 +32,29 @@ export const getSmartSaving = async (req, res) => {
       });
     }
 
+    // Look up SIP thresholds from the scheme plan so the frontend
+    // can show the SIP date picker and min amount.
+    const scheme = await MfSchemePlan.findOne({ isin: config.isin }, { thresholds: 1 }).lean();
+    const thresholds = scheme?.thresholds ?? [];
+
+    const sipMonthly = thresholds.find((t) => t.type === "sip" && t.frequency === "monthly");
+    const sipAny     = thresholds.find((t) => t.type === "sip");
+    const sip        = sipMonthly ?? sipAny ?? null;
+
+    const lumpsum    = thresholds.find((t) => t.type === "lumpsum");
+
     return res.status(200).json({
       success: true,
-      data: publicShape(config),
+      data: {
+        ...publicShape(config),
+        // SIP fields needed by the date-picker and SIP creation flow
+        minSipAmount:      config.minInvestmentAmount ?? sip?.amount_min ?? null,
+        sipAmountMultiple: sip?.amount_multiples ?? null,
+        sipDates:          sip?.dates?.length ? sip.dates : null,
+        minInstallments:   sip?.installments_min ?? null,
+        // Lumpsum fields
+        minLumpsumAmount:  config.minInvestmentAmount ?? lumpsum?.amount_min ?? null,
+      },
     });
   } catch (err) {
     console.error("❌ [SMART SAVING] Get error:", err.message);
