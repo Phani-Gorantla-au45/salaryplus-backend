@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import MfUserData from "../../../models/mf/mfUserData.model.js";
 import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
 import { fetchFpFolios } from "../../../utils/mf/folio.utils.js";
@@ -20,7 +21,7 @@ const csvToArray = (value) => (value ? value.split(",").map((v) => v.trim()).fil
 
 /* ------------------------------------------------------------------ */
 /*  Internal — replace ISIN codes in `scheme` field with human names.  */
-/*  Adds schemeName + fundName from our MfSchemePlan collection.       */
+/*  Adds scheme_name + fund_name from our MfSchemePlan collection.     */
 /*  Single DB round-trip for all rows regardless of count.             */
 /* ------------------------------------------------------------------ */
 const enrichWithSchemeNames = async (rows) => {
@@ -33,13 +34,13 @@ const enrichWithSchemeNames = async (rows) => {
   ).lean();
 
   const isinMap = Object.fromEntries(
-    plans.map((p) => [p.isin, { schemeName: p.schemeName ?? null, fundName: p.fundName ?? null }])
+    plans.map((p) => [p.isin, { scheme_name: p.schemeName ?? null, fund_name: p.fundName ?? null }])
   );
 
   return rows.map((r) => ({
     ...r,
-    schemeName: isinMap[r.scheme]?.schemeName ?? null,
-    fundName:   isinMap[r.scheme]?.fundName   ?? null,
+    scheme_name: isinMap[r.scheme]?.scheme_name ?? null,
+    fund_name:   isinMap[r.scheme]?.fund_name   ?? null,
   }));
 };
 
@@ -237,13 +238,33 @@ export const getPurchaseListReport = async (req, res) => {
 export const getUserPurchaseReport = async (req, res) => {
   try {
     const { uniqueId } = req.user;
+    const { states, since } = req.query;
+
     const extraPayload = {};
-    if (req.query.states) extraPayload.states = csvToArray(req.query.states);
+    if (states) extraPayload.states = csvToArray(states);
 
-    const { rows, fpFilters } = await fetchPurchasesForUser(uniqueId, extraPayload);
+    let { rows, fpFilters } = await fetchPurchasesForUser(uniqueId, extraPayload);
 
-    console.log(`📦 [USER PURCHASE REPORT] uniqueId=${uniqueId} count=${rows.length}`);
+    // ?since=YYYY-MM-DD — only return rows traded on or after this date
+    if (since) {
+      rows = rows.filter((r) => r.traded_on && r.traded_on >= since);
+    }
+
+    console.log(`📦 [USER PURCHASE REPORT] uniqueId=${uniqueId} count=${rows.length}${since ? ` since=${since}` : ""}`);
     if (rows.length > 0) console.log("📦 [USER PURCHASE REPORT] sample row:", JSON.stringify(rows[0], null, 2));
+
+    // Cache headers
+    if (since && rows.length === 0) {
+      // Nothing new — safe to cache for 5 min
+      res.set("Cache-Control", "private, max-age=300");
+    } else if (rows.length > 0) {
+      const etag = `"${crypto.createHash("md5").update(JSON.stringify(rows)).digest("hex")}"`;
+      res.set("ETag", etag);
+      res.set("Cache-Control", "private, no-cache");
+      if (req.headers["if-none-match"] === etag) {
+        return res.status(304).end();
+      }
+    }
 
     return res.status(200).json({
       success: true,
