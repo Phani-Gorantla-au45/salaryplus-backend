@@ -127,27 +127,29 @@ export const getTransactionListReport = async (req, res) => {
   }
 };
 
+
 /* ------------------------------------------------------------------ */
-/*  Internal — fetch FP purchase list filtered by investment account.  */
+/*  Internal — fetch ALL FP purchases and post-filter by              */
+/*  mf_investment_account for the given uniqueId.                      */
 /* ------------------------------------------------------------------ */
 const fetchPurchasesForUser = async (uniqueId, extraPayload = {}) => {
   const userData = await MfUserData.findOne(
     { uniqueId },
     { "investmentAccount.fpInvestmentAccountId": 1 }
   ).lean();
-
   const fpAccountId = userData?.investmentAccount?.fpInvestmentAccountId ?? null;
-  if (!fpAccountId) return { rows: [], fpFilters: { uniqueId } };
 
-  const payload = {
-    ...extraPayload,
-    mf_investment_accounts: [fpAccountId],
-  };
-  console.log(`🔍 [PURCHASE REPORT] Fetching by mf_investment_account: ${fpAccountId} for uniqueId: ${uniqueId}`);
+  if (!fpAccountId) {
+    return { rows: [], fpFilters: { uniqueId, mf_investment_account: null } };
+  }
 
-  const fpResponse = await fetchFpPurchaseListReport(payload);
-  const rows = parseRows(fpResponse);
-  return { rows, fpFilters: fpResponse?.filter_by ?? payload };
+  console.log(`🔍 [PURCHASE REPORT] uniqueId=${uniqueId} fpAccount=${fpAccountId}`);
+
+  const fpResponse = await fetchFpPurchaseListReport(extraPayload);
+  const allRows = parseRows(fpResponse);
+  const rows = allRows.filter((r) => r.mf_investment_account === fpAccountId);
+
+  return { rows, fpFilters: { uniqueId, mf_investment_account: fpAccountId } };
 };
 
 /* ================================================================
@@ -166,18 +168,27 @@ export const getPurchaseListReport = async (req, res) => {
     if (plans)        extraPayload.plans        = csvToArray(plans);
     if (plan_old_ids) extraPayload.plan_old_ids = csvToArray(plan_old_ids);
 
-    let parsed, filters;
-
     if (uniqueId) {
       const { rows, fpFilters } = await fetchPurchasesForUser(uniqueId, extraPayload);
-      parsed  = rows;
-      filters = fpFilters;
-    } else {
-      if (ids) extraPayload.ids = csvToArray(ids);
-      const fpResponse = await fetchFpPurchaseListReport(extraPayload);
-      parsed  = parseRows(fpResponse);
-      filters = fpResponse?.filter_by ?? extraPayload;
+      const enriched = await attachUsersByInvestmentAccount(rows);
+
+      // Hoist user info to top level — no need to repeat it on every row
+      const userInfo = enriched[0]?.user ?? null;
+      const data     = enriched.map(({ user, ...row }) => row);
+
+      return res.status(200).json({
+        success: true,
+        user:    userInfo,
+        count:   data.length,
+        data,
+        filters: fpFilters,
+      });
     }
+
+    if (ids) extraPayload.ids = csvToArray(ids);
+    const fpResponse = await fetchFpPurchaseListReport(extraPayload);
+    const parsed  = parseRows(fpResponse);
+    const filters = fpResponse?.filter_by ?? extraPayload;
 
     const enriched = await attachUsersByInvestmentAccount(parsed);
     return res.status(200).json({ success: true, count: enriched.length, data: enriched, filters });
