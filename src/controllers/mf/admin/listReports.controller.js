@@ -251,7 +251,7 @@ export const getUserPurchaseReport = async (req, res) => {
     }
 
     console.log(`📦 [USER PURCHASE REPORT] uniqueId=${uniqueId} count=${rows.length}${since ? ` since=${since}` : ""}`);
-    if (rows.length > 0) console.log("📦 [USER PURCHASE REPORT] sample row:", JSON.stringify(rows[0], null, 2));
+    console.log("📦 [USER PURCHASE REPORT] full data:", JSON.stringify(rows, null, 2));
 
     // Cache headers
     if (since && rows.length === 0) {
