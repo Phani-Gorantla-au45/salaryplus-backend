@@ -242,6 +242,9 @@ export const getUserPurchaseReport = async (req, res) => {
 
     const { rows, fpFilters } = await fetchPurchasesForUser(uniqueId, extraPayload);
 
+    console.log(`📦 [USER PURCHASE REPORT] uniqueId=${uniqueId} count=${rows.length}`);
+    if (rows.length > 0) console.log("📦 [USER PURCHASE REPORT] sample row:", JSON.stringify(rows[0], null, 2));
+
     return res.status(200).json({
       success: true,
       count:   rows.length,
