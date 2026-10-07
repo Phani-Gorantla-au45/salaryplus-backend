@@ -1,4 +1,5 @@
 import MfUserData from "../../../models/mf/mfUserData.model.js";
+import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
 import { fetchFpFolios } from "../../../utils/mf/folio.utils.js";
 import {
   fetchFpTransactionListReport,
@@ -16,6 +17,31 @@ const parseRows = (fpResponse) => {
 };
 
 const csvToArray = (value) => (value ? value.split(",").map((v) => v.trim()).filter(Boolean) : undefined);
+
+/* ------------------------------------------------------------------ */
+/*  Internal — replace ISIN codes in `scheme` field with human names.  */
+/*  Adds schemeName + fundName from our MfSchemePlan collection.       */
+/*  Single DB round-trip for all rows regardless of count.             */
+/* ------------------------------------------------------------------ */
+const enrichWithSchemeNames = async (rows) => {
+  const isins = [...new Set(rows.map((r) => r.scheme).filter(Boolean))];
+  if (isins.length === 0) return rows;
+
+  const plans = await MfSchemePlan.find(
+    { isin: { $in: isins } },
+    { isin: 1, schemeName: 1, fundName: 1 }
+  ).lean();
+
+  const isinMap = Object.fromEntries(
+    plans.map((p) => [p.isin, { schemeName: p.schemeName ?? null, fundName: p.fundName ?? null }])
+  );
+
+  return rows.map((r) => ({
+    ...r,
+    schemeName: isinMap[r.scheme]?.schemeName ?? null,
+    fundName:   isinMap[r.scheme]?.fundName   ?? null,
+  }));
+};
 
 /* ------------------------------------------------------------------ */
 /*  Internal — attach our user info by resolving FP's                  */
@@ -115,10 +141,13 @@ export const getTransactionListReport = async (req, res) => {
       }
     }
 
+    const withUniqueId = parsed.map((r) => ({ ...r, uniqueId: folioToUniqueId[r.folio_number] ?? null }));
+    const enriched = await enrichWithSchemeNames(withUniqueId);
+
     return res.status(200).json({
       success: true,
-      count: parsed.length,
-      data: parsed.map((r) => ({ ...r, uniqueId: folioToUniqueId[r.folio_number] ?? null })),
+      count: enriched.length,
+      data:  enriched,
       filters: fpResponse?.filter_by ?? payload,
     });
   } catch (err) {
@@ -147,7 +176,8 @@ const fetchPurchasesForUser = async (uniqueId, extraPayload = {}) => {
 
   const fpResponse = await fetchFpPurchaseListReport(extraPayload);
   const allRows = parseRows(fpResponse);
-  const rows = allRows.filter((r) => r.mf_investment_account === fpAccountId);
+  const filtered = allRows.filter((r) => r.mf_investment_account === fpAccountId);
+  const rows = await enrichWithSchemeNames(filtered);
 
   return { rows, fpFilters: { uniqueId, mf_investment_account: fpAccountId } };
 };
