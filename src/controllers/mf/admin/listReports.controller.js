@@ -3,6 +3,7 @@ import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
 import { fetchFpFolios } from "../../../utils/mf/folio.utils.js";
 import {
   fetchFpTransactionListReport,
+  fetchFpPurchases,
   fetchFpPurchaseListReport,
   fetchFpRedemptionListReport,
 } from "../../../utils/mf/reports/listReports.utils.js";
@@ -202,35 +203,6 @@ export const getTransactionListReport = async (req, res) => {
   }
 };
 
-/* ------------------------------------------------------------------ */
-/*  Internal — fetch ALL FP purchases and post-filter by              */
-/*  mf_investment_account for the given uniqueId.                      */
-/* ------------------------------------------------------------------ */
-const fetchPurchasesForUser = async (uniqueId, extraPayload = {}) => {
-  const userData = await MfUserData.findOne(
-    { uniqueId },
-    { "investmentAccount.fpInvestmentAccountId": 1 },
-  ).lean();
-  const fpAccountId =
-    userData?.investmentAccount?.fpInvestmentAccountId ?? null;
-
-  if (!fpAccountId) {
-    return { rows: [], fpFilters: { uniqueId, mf_investment_account: null } };
-  }
-
-  console.log(
-    `🔍 [PURCHASE REPORT] uniqueId=${uniqueId} fpAccount=${fpAccountId}`,
-  );
-
-  const fpResponse = await fetchFpPurchaseListReport(extraPayload);
-  const allRows = parseRows(fpResponse);
-  const filtered = allRows.filter(
-    (r) => r.mf_investment_account === fpAccountId,
-  );
-  const rows = await enrichWithSchemeNames(filtered);
-
-  return { rows, fpFilters: { uniqueId, mf_investment_account: fpAccountId } };
-};
 
 /* ================================================================
  * GET /api/mf/admin/reports/purchases          (admin — all users)
@@ -249,22 +221,32 @@ export const getPurchaseListReport = async (req, res) => {
     if (plan_old_ids) extraPayload.plan_old_ids = csvToArray(plan_old_ids);
 
     if (uniqueId) {
-      const { rows, fpFilters } = await fetchPurchasesForUser(
-        uniqueId,
-        extraPayload,
-      );
-      const enriched = await attachUsersByInvestmentAccount(rows);
+      const userData = await MfUserData.findOne(
+        { uniqueId },
+        { "investmentAccount.fpInvestmentAccountId": 1, "investorProfile.name": 1, "investorProfile.pan": 1 }
+      ).lean();
+      const fpAccountId = userData?.investmentAccount?.fpInvestmentAccountId ?? null;
 
-      // Hoist user info to top level — no need to repeat it on every row
-      const userInfo = enriched[0]?.user ?? null;
-      const data = enriched.map(({ user, ...row }) => row);
+      if (!fpAccountId) {
+        return res.status(404).json({ success: false, message: `No investment account found for uniqueId: ${uniqueId}` });
+      }
+
+      const params = { mf_investment_account: fpAccountId };
+      if (states) params.states = states;
+
+      const fpResponse = await fetchFpPurchases(params);
+      const rows = await enrichWithSchemeNames(fpResponse?.data ?? []);
 
       return res.status(200).json({
         success: true,
-        user: userInfo,
-        count: data.length,
-        data,
-        filters: fpFilters,
+        user: {
+          uniqueId,
+          name: userData?.investorProfile?.name ?? null,
+          pan:  userData?.investorProfile?.pan  ?? null,
+          mf_investment_account: fpAccountId,
+        },
+        count: rows.length,
+        data:  rows,
       });
     }
 
@@ -286,40 +268,48 @@ export const getPurchaseListReport = async (req, res) => {
 /* ================================================================
  * GET /api/mf/reports/purchases                (user — own data only)
  *
- * Authenticated user gets only their own FP purchases.
- * Optional query: ?states=successful,submitted
+ * Calls GET /v2/mf_purchases?mf_investment_account=<fpAccountId>
+ * directly — no post-filtering needed.
+ * Optional query: ?states=successful,submitted&since=2024-10-01
  * ================================================================ */
 export const getUserPurchaseReport = async (req, res) => {
   try {
     const { uniqueId } = req.user;
     const { states, since } = req.query;
 
-    const extraPayload = {};
-    if (states) extraPayload.states = csvToArray(states);
+    // Resolve the user's FP investment account from our DB
+    const userData = await MfUserData.findOne(
+      { uniqueId },
+      { "investmentAccount.fpInvestmentAccountId": 1 }
+    ).lean();
+    const fpAccountId = userData?.investmentAccount?.fpInvestmentAccountId ?? null;
 
-    let { rows, fpFilters } = await fetchPurchasesForUser(
-      uniqueId,
-      extraPayload,
-    );
-
-    // ?since=YYYY-MM-DD — only return rows traded on or after this date
-    if (since) {
-      rows = rows.filter((r) => r.traded_on && r.traded_on >= since);
+    if (!fpAccountId) {
+      return res.status(404).json({ success: false, message: "No investment account found for this user" });
     }
 
-    console.log(
-      `📦 [USER PURCHASE REPORT] uniqueId=${uniqueId} count=${rows.length}${since ? ` since=${since}` : ""}`,
-    );
-    console.log(
-      "📦 [USER PURCHASE REPORT] full data:",
-      JSON.stringify(rows, null, 2),
-    );
+    const params = { mf_investment_account: fpAccountId };
+    if (states) params.states = states; // FP accepts comma-separated string
+
+    const fpResponse = await fetchFpPurchases(params);
+    let purchases = fpResponse?.data ?? [];
+
+    // ?since=YYYY-MM-DD — filter by traded_on or created_at
+    if (since) {
+      purchases = purchases.filter(
+        (p) => (p.traded_on ?? p.created_at?.slice(0, 10)) >= since
+      );
+    }
+
+    const enriched = await enrichWithSchemeNames(purchases);
+
+    console.log(`📦 [USER PURCHASE REPORT] uniqueId=${uniqueId} fpAccount=${fpAccountId} count=${enriched.length}`);
+    console.log("📦 [USER PURCHASE REPORT] full data:", JSON.stringify(enriched, null, 2));
 
     return res.status(200).json({
       success: true,
-      count: rows.length,
-      data: rows,
-      filters: fpFilters,
+      count:   enriched.length,
+      data:    enriched,
     });
   } catch (err) {
     console.error("❌ [USER PURCHASE REPORT] Error:", err.message);

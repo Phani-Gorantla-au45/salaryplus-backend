@@ -54,34 +54,54 @@ export const fetchFpTransactionListReport = async (payload = {}) => {
 };
 
 /* ------------------------------------------------------------------ */
-/*  POST /v2/mf_purchases/reports/mf_purchase_list                      */
+/*  GET /v2/mf_purchases                                                */
+/*                                                                      */
+/*  params: {                                                           */
+/*    mf_investment_account?: String                                   */
+/*    states?:                String  (comma-separated)                */
+/*    plan?:                  String  (mf purchase plan id)            */
+/*    skip_instruction?:      String                                   */
+/*  }                                                                   */
+/* ------------------------------------------------------------------ */
+export const fetchFpPurchases = async (params = {}) => {
+  try {
+    console.log(`\n📋 [FP PURCHASES] Fetching with params:`, params);
+    const response = await axios.get(`${FP_API_URL()}/v2/mf_purchases`, {
+      params,
+      headers: await fpHeaders(),
+    });
+    console.log(`✅ [FP PURCHASES] Received ${response.data?.data?.length ?? 0} record(s)`);
+    return response.data;
+  } catch (err) {
+    console.error(
+      "❌ [FP PURCHASES] Fetch failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2),
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to fetch purchases from FP",
+    );
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  POST /v2/mf_purchases/reports/mf_purchase_list  (admin bulk report) */
 /*                                                                      */
 /*  payload: {                                                          */
-/*    ids?:                    String[]                                */
-/*    states?:                 String[] (pending/confirmed/submitted/   */
-/*                               successful/failed/cancelled/refunded)  */
-/*    plans?:                  String[] (mf purchase plan ids)         */
-/*    plan_old_ids?:           String[]                                */
-/*    mf_investment_accounts?: String[]  ← filter by investment account */
+/*    ids?:          String[]                                          */
+/*    states?:       String[]                                          */
+/*    plans?:        String[]                                          */
+/*    plan_old_ids?: String[]                                          */
 /*  }                                                                   */
 /* ------------------------------------------------------------------ */
 export const fetchFpPurchaseListReport = async (payload = {}) => {
   try {
-    console.log(
-      `\n📋 [FP PURCHASE LIST REPORT] Fetching with filters:`,
-      payload,
-    );
+    console.log(`\n📋 [FP PURCHASE LIST REPORT] Fetching with filters:`, payload);
     const response = await axios.post(
       `${FP_API_URL()}/v2/mf_purchases/reports/mf_purchase_list`,
       payload,
       { headers: await fpHeaders() },
     );
-    // console.log(
-    //   `✅ [FP PURCHASE LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`,
-    // );
-
-    console.log("mf purchase response", response.data);
-
+    console.log(`✅ [FP PURCHASE LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`);
     return response.data;
   } catch (err) {
     console.error(
