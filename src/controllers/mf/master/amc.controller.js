@@ -63,10 +63,11 @@ export const listAmcs = async (req, res) => {
       success: true,
       count: amcs.length,
       data: amcs.map((a) => ({
-        id: a.fpAmcId,
-        name: a.name,
-        active: a.active,
+        id:      a.fpAmcId,
+        name:    a.name,
+        active:  a.active,
         amcCode: a.amcCode,
+        amcLogo: a.amcLogo ?? null,
       })),
     });
   } catch (err) {
