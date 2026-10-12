@@ -76,9 +76,12 @@ export const fetchFpPurchaseListReport = async (payload = {}) => {
       payload,
       { headers: await fpHeaders() },
     );
-    console.log(
-      `✅ [FP PURCHASE LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`,
-    );
+    // console.log(
+    //   `✅ [FP PURCHASE LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`,
+    // );
+
+    console.log("mf purchase response", response.data);
+
     return response.data;
   } catch (err) {
     console.error(
