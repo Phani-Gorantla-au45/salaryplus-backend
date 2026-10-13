@@ -36,10 +36,7 @@ export const fetchFpTransactionListReport = async (payload = {}) => {
       payload,
       { headers: await fpHeaders() },
     );
-    console.log(
-      `✅ [FP TXN LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`,
-    );
-    console.log("user Transaction data", response.data);
+    console.log(`[FP TXN LIST REPORT] Received ${response.data?.data?.rows?.length ?? 0} row(s)`);
     return response.data;
   } catch (err) {
     console.error(
@@ -65,32 +62,38 @@ export const fetchFpTransactionListReport = async (payload = {}) => {
 /* ------------------------------------------------------------------ */
 export const fetchFpPurchases = async (params = {}) => {
   try {
-    console.log(`\n📋 [FP PURCHASES] Fetching all pages with params:`, params);
     const allData = [];
     let cursor = null;
+    let pageNum = 0;
 
     do {
+      pageNum++;
       const pageParams = { ...params, ...(cursor ? { after: cursor } : {}) };
       const response = await axios.get(`${FP_API_URL()}/v2/mf_purchases`, {
         params: pageParams,
         headers: await fpHeaders(),
       });
       const page = response.data;
-      allData.push(...(page?.data ?? []));
+
+      // Log full response shape on first page so we can verify pagination keys
+      if (pageNum === 1) {
+        const shape = Object.fromEntries(
+          Object.entries(page).map(([k, v]) => [k, Array.isArray(v) ? `Array(${v.length})` : v])
+        );
+        console.log(`[FP PURCHASES] Page 1 response shape:`, JSON.stringify(shape));
+      }
+
+      const records = page?.data ?? [];
+      allData.push(...records);
       cursor = page?.next ?? null;
-      console.log(`✅ [FP PURCHASES] Page received: ${page?.data?.length ?? 0} record(s), next=${cursor}`);
+      console.log(`[FP PURCHASES] Page ${pageNum}: ${records.length} records, next=${cursor}`);
     } while (cursor);
 
-    console.log(`✅ [FP PURCHASES] Total fetched: ${allData.length} record(s)`);
+    console.log(`[FP PURCHASES] Done — total: ${allData.length} records across ${pageNum} page(s)`);
     return { object: "list", data: allData };
   } catch (err) {
-    console.error(
-      "❌ [FP PURCHASES] Fetch failed:",
-      JSON.stringify(err.response?.data || err.message, null, 2),
-    );
-    throw new Error(
-      err.response?.data?.message || "Failed to fetch purchases from FP",
-    );
+    console.error(`[FP PURCHASES] Fetch failed:`, err.response?.data || err.message);
+    throw new Error(err.response?.data?.message || "Failed to fetch purchases from FP");
   }
 };
 

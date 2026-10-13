@@ -151,7 +151,6 @@ export const getTransactionListReport = async (req, res) => {
     if (resolvedPan) payload.pan_number = resolvedPan;
 
     const fpResponse = await fetchFpTransactionListReport(payload);
-    console.log("fp resp", fpResponse);
     const parsed = parseRows(fpResponse);
 
     // Resolve folio_number → uniqueId. This report's columns don't include
@@ -191,7 +190,6 @@ export const getTransactionListReport = async (req, res) => {
       uniqueId: folioToUniqueId[r.folio_number] ?? null,
     }));
     const enriched = await enrichWithSchemeNames(withUniqueId);
-    console.log("final resp", fpResponse?.filter_by ?? payload);
     return res.status(200).json({
       success: true,
       count: enriched.length,
@@ -304,8 +302,7 @@ export const getUserPurchaseReport = async (req, res) => {
 
     const enriched = await enrichWithSchemeNames(purchases);
 
-    console.log(`📦 [USER PURCHASE REPORT] uniqueId=${uniqueId} fpAccount=${fpAccountId} count=${enriched.length}`);
-    console.log("📦 [USER PURCHASE REPORT] full data:", JSON.stringify(enriched, null, 2));
+    console.log(`[USER PURCHASE REPORT] uniqueId=${uniqueId} fpAccount=${fpAccountId} total=${enriched.length}${since ? ` since=${since}` : ""}`);
 
     return res.status(200).json({
       success: true,
@@ -353,8 +350,7 @@ export const getUserRedemptionReport = async (req, res) => {
 
     const enriched = await enrichWithSchemeNames(redemptions);
 
-    console.log(`📦 [USER REDEMPTION REPORT] uniqueId=${uniqueId} fpAccount=${fpAccountId} count=${enriched.length}`);
-    console.log("📦 [USER REDEMPTION REPORT] full data:", JSON.stringify(enriched, null, 2));
+    console.log(`[USER REDEMPTION REPORT] uniqueId=${uniqueId} fpAccount=${fpAccountId} total=${enriched.length}${since ? ` since=${since}` : ""}`);
 
     return res.status(200).json({
       success: true,
