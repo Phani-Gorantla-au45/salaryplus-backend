@@ -287,13 +287,16 @@ export const getUserPurchaseReport = async (req, res) => {
       return res.status(404).json({ success: false, message: "No investment account found for this user" });
     }
 
-    const params = { mf_investment_account: fpAccountId };
-    if (states) params.states = states; // FP accepts comma-separated string
+    // Use the report endpoint — no 100-record cap unlike GET /v2/mf_purchases
+    const payload = {};
+    if (states) payload.states = csvToArray(states);
 
-    const fpResponse = await fetchFpPurchases(params);
-    let purchases = fpResponse?.data ?? [];
+    const fpResponse = await fetchFpPurchaseListReport(payload);
+    const allRows = parseRows(fpResponse);
 
-    // ?since=YYYY-MM-DD — filter by traded_on or created_at
+    // Post-filter by mf_investment_account to isolate this user
+    let purchases = allRows.filter((r) => r.mf_investment_account === fpAccountId);
+
     if (since) {
       purchases = purchases.filter(
         (p) => (p.traded_on ?? p.created_at?.slice(0, 10)) >= since
