@@ -189,6 +189,64 @@ export const cancelFpSip = async (
 };
 
 /* ------------------------------------------------------------------ */
+/*  POST /v2/mf_purchase_plans/:id/skip_instructions                    */
+/*  Creates a skip instruction for the given plan.                      */
+/*  payload: { from: "YYYY-MM-DD", to: "YYYY-MM-DD" }                  */
+/* ------------------------------------------------------------------ */
+export const createFpSkipInstruction = async (fpSipId, payload) => {
+  try {
+    console.log(`[FP SKIP] Create for plan=${fpSipId}`, payload);
+    const response = await axios.post(
+      `${FP_API_URL()}/v2/mf_purchase_plans/${fpSipId}/skip_instructions`,
+      payload,
+      { headers: await fpHeaders() },
+    );
+    console.log(`[FP SKIP] Created id=${response.data?.id} state=${response.data?.state}`);
+    return response.data;
+  } catch (err) {
+    console.error(`[FP SKIP] Create failed:`, err.response?.data || err.message);
+    throw new Error(err.response?.data?.message || "Failed to create skip instruction on FP");
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  GET /v2/mf_purchase_plans/:id/skip_instructions                     */
+/*  Lists all skip instructions for a plan.                             */
+/*  params: { statuses? }  e.g. "pending,active"                       */
+/* ------------------------------------------------------------------ */
+export const listFpSkipInstructions = async (fpSipId, params = {}) => {
+  try {
+    const response = await axios.get(
+      `${FP_API_URL()}/v2/mf_purchase_plans/${fpSipId}/skip_instructions`,
+      { headers: await fpHeaders(), params },
+    );
+    return response.data;
+  } catch (err) {
+    console.error(`[FP SKIP] List failed:`, err.response?.data || err.message);
+    throw new Error(err.response?.data?.message || "Failed to list skip instructions from FP");
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  POST /v2/mf_purchase_plans/skip_instructions/:id/cancel             */
+/* ------------------------------------------------------------------ */
+export const cancelFpSkipInstruction = async (skipId) => {
+  try {
+    console.log(`[FP SKIP] Cancel id=${skipId}`);
+    const response = await axios.post(
+      `${FP_API_URL()}/v2/mf_purchase_plans/skip_instructions/${skipId}/cancel`,
+      {},
+      { headers: await fpHeaders() },
+    );
+    console.log(`[FP SKIP] Cancelled state=${response.data?.state}`);
+    return response.data;
+  } catch (err) {
+    console.error(`[FP SKIP] Cancel failed:`, err.response?.data || err.message);
+    throw new Error(err.response?.data?.message || "Failed to cancel skip instruction on FP");
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  GET /v2/mf_purchase_plans                                           */
 /*  Lists SIP plans with optional filters.                              */
 /*  params: { mf_investment_account, states }                          */
