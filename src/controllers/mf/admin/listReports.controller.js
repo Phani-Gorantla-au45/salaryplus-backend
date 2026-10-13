@@ -267,16 +267,15 @@ export const getPurchaseListReport = async (req, res) => {
 /* ================================================================
  * GET /api/mf/reports/purchases                (user — own data only)
  *
- * Calls GET /v2/mf_purchases?mf_investment_account=<fpAccountId>
- * directly — no post-filtering needed.
- * Optional query: ?states=successful,submitted&since=2024-10-01
+ * Optional query: ?states=successful,submitted&since=2024-10-01&plan=mfpp_xxx
+ * When ?plan= is provided, hits GET /v2/mf_purchases directly (fast, narrow).
+ * Otherwise hits the report endpoint for full history (no 100-record cap).
  * ================================================================ */
 export const getUserPurchaseReport = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { states, since } = req.query;
+    const { states, since, plan } = req.query;
 
-    // Resolve the user's FP investment account from our DB
     const userData = await MfUserData.findOne(
       { uniqueId },
       { "investmentAccount.fpInvestmentAccountId": 1 }
@@ -287,15 +286,22 @@ export const getUserPurchaseReport = async (req, res) => {
       return res.status(404).json({ success: false, message: "No investment account found for this user" });
     }
 
-    // Use the report endpoint — no 100-record cap unlike GET /v2/mf_purchases
-    const payload = {};
-    if (states) payload.states = csvToArray(states);
+    let purchases;
 
-    const fpResponse = await fetchFpPurchaseListReport(payload);
-    const allRows = parseRows(fpResponse);
-
-    // Post-filter by mf_investment_account to isolate this user
-    let purchases = allRows.filter((r) => r.mf_investment_account === fpAccountId);
+    if (plan) {
+      // Narrow query — use GET /v2/mf_purchases directly
+      const params = { mf_investment_account: fpAccountId, plan };
+      if (states) params.states = states;
+      const fpResponse = await fetchFpPurchases(params);
+      purchases = fpResponse?.data ?? [];
+    } else {
+      // Full history — use report endpoint (no 100-record cap)
+      const payload = {};
+      if (states) payload.states = csvToArray(states);
+      const fpResponse = await fetchFpPurchaseListReport(payload);
+      const allRows = parseRows(fpResponse);
+      purchases = allRows.filter((r) => r.mf_investment_account === fpAccountId);
+    }
 
     if (since) {
       purchases = purchases.filter(
@@ -304,9 +310,7 @@ export const getUserPurchaseReport = async (req, res) => {
     }
 
     const enriched = await enrichWithSchemeNames(purchases);
-
-    const dates = enriched.map((p) => p.created_at ?? p.traded_on).filter(Boolean).sort();
-    console.log(`[USER PURCHASE REPORT] uniqueId=${uniqueId} total=${enriched.length} oldest=${dates[0] ?? "?"} newest=${dates[dates.length - 1] ?? "?"}`);
+    console.log(`[USER PURCHASE REPORT] uniqueId=${uniqueId} total=${enriched.length}${plan ? ` plan=${plan}` : ""}`);
 
     return res.status(200).json({
       success: true,
