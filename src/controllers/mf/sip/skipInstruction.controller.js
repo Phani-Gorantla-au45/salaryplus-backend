@@ -64,8 +64,8 @@ export const createSkipInstruction = async (req, res) => {
     const { sipId } = req.params;
     const { skip_count } = req.body;
 
-    // Verify this SIP belongs to the user
-    const sipRecord = await MfSip.findOne({ _id: sipId, uniqueId }).lean();
+    // Verify this SIP belongs to the user (sipId is FP's mfpp_xxx)
+    const sipRecord = await MfSip.findOne({ fpSipId: sipId, uniqueId }).lean();
     if (!sipRecord) {
       return res.status(404).json({ success: false, message: "SIP not found" });
     }
@@ -99,7 +99,7 @@ export const listSkipInstructions = async (req, res) => {
     const { sipId } = req.params;
     const { statuses } = req.query;
 
-    const sipRecord = await MfSip.findOne({ _id: sipId, uniqueId }).lean();
+    const sipRecord = await MfSip.findOne({ fpSipId: sipId, uniqueId }).lean();
     if (!sipRecord) {
       return res.status(404).json({ success: false, message: "SIP not found" });
     }
