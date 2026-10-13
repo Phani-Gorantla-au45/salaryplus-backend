@@ -78,7 +78,7 @@ export const createSkipInstruction = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: `${count} installment(s) will be skipped`,
+      message: `${skip_count} installment(s) will be skipped`,
       data: result,
     });
   } catch (err) {

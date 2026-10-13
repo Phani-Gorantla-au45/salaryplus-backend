@@ -7,6 +7,7 @@ import {
   createFpSip,
   patchFpSip,
   fetchFpSip,
+  cancelFpSip,
   listFpSips,
 } from "../../../utils/mf/sip/sip.utils.js";
 import { fetchFpSchemePlan } from "../../../utils/mf/master/schemePlan.utils.js";
@@ -540,40 +541,65 @@ export const listSips = async (req, res) => {
   }
 };
 
+const CANCELLABLE_STATES = ["created", "review_completed", "confirmed", "submitted", "active"];
+
+const VALID_CANCELLATION_CODES = [
+  "amount_not_available",
+  "investment_returns_not_as_expected",
+  "exit_load_not_as_expected",
+  "switch_to_other_scheme",
+  "fund_manager_changed",
+  "investment_goal_complete",
+  "mandate_not_ready",
+  "invest_later",
+  "customer_support_not_satisfactory",
+  "amc_support_not_satisfactory",
+  "custom_reason",
+];
+
 /* ------------------------------------------------------------------ */
 /*  POST /api/mf/sip/:id/cancel                                         */
-/*  Cancels a SIP in created or active state.                           */
+/*  :id is the FP plan id (mfpp_xxx) from GET /api/mf/sip              */
+/*  Body: { cancellation_code, cancellation_reason? }                  */
 /* ------------------------------------------------------------------ */
 export const cancelSip = async (req, res) => {
   try {
     const { uniqueId } = req.user;
     const { id } = req.params;
+    const { cancellation_code, cancellation_reason } = req.body;
 
-    const record = await MfSip.findOne({ _id: id, uniqueId });
+    if (!cancellation_code || !VALID_CANCELLATION_CODES.includes(cancellation_code)) {
+      return res.status(400).json({
+        success: false,
+        message: `cancellation_code is required. Allowed: ${VALID_CANCELLATION_CODES.join(", ")}`,
+      });
+    }
+    if (cancellation_code === "custom_reason" && !cancellation_reason) {
+      return res.status(400).json({
+        success: false,
+        message: "cancellation_reason is required when cancellation_code is 'custom_reason'",
+      });
+    }
+
+    // Look up by fpSipId (mfpp_xxx) — same id returned by GET /api/mf/sip
+    const record = await MfSip.findOne({ fpSipId: id, uniqueId });
     if (!record)
       return res.status(404).json({ success: false, message: "SIP not found" });
-    if (
-      ![
-        "created",
-        "review_completed",
-        "confirmed",
-        "submitted",
-        "active",
-      ].includes(record.fpState)
-    ) {
+
+    if (!CANCELLABLE_STATES.includes(record.fpState)) {
       return res.status(400).json({
         success: false,
         message: `SIP in '${record.fpState}' state cannot be cancelled`,
       });
     }
 
-    const fpData = await patchFpSip({ id: record.fpSipId, state: "cancelled" });
+    const fpData = await cancelFpSip(record.fpSipId, cancellation_code, cancellation_reason ?? null);
     await MfSip.updateOne({ _id: record._id }, { $set: sipFromFp(fpData) });
 
     return res.status(200).json({
       success: true,
       message: "SIP cancelled successfully",
-      data: { sipId: record._id, fpState: fpData.state },
+      data: fpData,
     });
   } catch (err) {
     console.error("❌ [SIP] Cancel error:", err.message);
