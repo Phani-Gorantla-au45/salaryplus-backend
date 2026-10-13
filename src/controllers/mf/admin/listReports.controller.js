@@ -302,7 +302,8 @@ export const getUserPurchaseReport = async (req, res) => {
 
     const enriched = await enrichWithSchemeNames(purchases);
 
-    console.log(`[USER PURCHASE REPORT] uniqueId=${uniqueId} fpAccount=${fpAccountId} total=${enriched.length}${since ? ` since=${since}` : ""}`);
+    const dates = enriched.map((p) => p.created_at ?? p.traded_on).filter(Boolean).sort();
+    console.log(`[USER PURCHASE REPORT] uniqueId=${uniqueId} total=${enriched.length} oldest=${dates[0] ?? "?"} newest=${dates[dates.length - 1] ?? "?"}`);
 
     return res.status(200).json({
       success: true,
