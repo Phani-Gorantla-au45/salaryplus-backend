@@ -6,6 +6,11 @@ import {
   adminListSkipInstructions,
   adminCancelSkipInstruction,
 } from "../../../controllers/mf/sip/skipInstruction.controller.js";
+import {
+  adminCreateAmountModification,
+  adminCreateMandateModification,
+  adminGetModificationInstruction,
+} from "../../../controllers/mf/sip/sipModification.controller.js";
 
 const router = express.Router();
 
@@ -15,5 +20,10 @@ router.get("/:fpSipId",                   adminAuth, getSipAdmin);
 router.post("/:fpSipId/cancel",           adminAuth, cancelSipAdmin);
 router.post("/:fpSipId/skip",             adminAuth, adminCreateSkipInstruction);
 router.get("/:fpSipId/skip",              adminAuth, adminListSkipInstructions);
+
+// Modification instructions
+router.get("/modify/:modificationId",     adminAuth, adminGetModificationInstruction);
+router.post("/:fpSipId/modify/amount",    adminAuth, adminCreateAmountModification);
+router.post("/:fpSipId/modify/mandate",   adminAuth, adminCreateMandateModification);
 
 export default router;

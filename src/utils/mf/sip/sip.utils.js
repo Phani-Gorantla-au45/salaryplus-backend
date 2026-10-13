@@ -268,3 +268,44 @@ export const listFpSips = async (params = {}) => {
     );
   }
 };
+
+/* ------------------------------------------------------------------ */
+/*  POST /v2/mf_plan_modification_instructions                          */
+/*  Creates a plan modification instruction (amount or mandate change). */
+/*                                                                      */
+/*  Amount change payload:                                              */
+/*    { plan, amount, consent }                                         */
+/*  Mandate change payload:                                             */
+/*    { plan, payment_method: "mandate", payment_source, consent }     */
+/* ------------------------------------------------------------------ */
+export const createFpModificationInstruction = async (payload) => {
+  try {
+    console.log(`[FP MODIFY] Create plan=${payload.plan} type=${payload.amount ? "amount" : "mandate"}`);
+    const response = await axios.post(
+      `${FP_API_URL()}/v2/mf_plan_modification_instructions`,
+      payload,
+      { headers: await fpHeaders() },
+    );
+    console.log(`[FP MODIFY] Created id=${response.data?.id} state=${response.data?.state}`);
+    return response.data;
+  } catch (err) {
+    console.error(`[FP MODIFY] Create failed:`, err.response?.data || err.message);
+    throw new Error(err.response?.data?.message || "Failed to create modification instruction on FP");
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  GET /v2/mf_plan_modification_instructions/:id                       */
+/* ------------------------------------------------------------------ */
+export const fetchFpModificationInstruction = async (id) => {
+  try {
+    const response = await axios.get(
+      `${FP_API_URL()}/v2/mf_plan_modification_instructions/${id}`,
+      { headers: await fpHeaders() },
+    );
+    return response.data;
+  } catch (err) {
+    console.error(`[FP MODIFY] Fetch failed:`, err.response?.data || err.message);
+    throw new Error(err.response?.data?.message || "Failed to fetch modification instruction from FP");
+  }
+};

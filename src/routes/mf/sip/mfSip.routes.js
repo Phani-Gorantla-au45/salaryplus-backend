@@ -13,6 +13,11 @@ import {
   cancelSkipInstruction,
 } from "../../../controllers/mf/sip/skipInstruction.controller.js";
 import {
+  createAmountModification,
+  createMandateModification,
+  getModificationInstruction,
+} from "../../../controllers/mf/sip/sipModification.controller.js";
+import {
   payFirstInstallment,
   getFirstInstallmentStatus,
 } from "../../../controllers/mf/sip/sipFirstInstallment.controller.js";
@@ -34,6 +39,11 @@ router.post("/:id/cancel",                          auth, cancelSip);
 // Skip instructions
 router.post("/:sipId/skip",                         auth, createSkipInstruction);
 router.get("/:sipId/skip",                          auth, listSkipInstructions);
+
+// Modification instructions — must be before /:id to avoid conflicts
+router.get("/modify/:modificationId",               auth, getModificationInstruction);
+router.post("/:sipId/modify/amount",                auth, createAmountModification);
+router.post("/:sipId/modify/mandate",               auth, createMandateModification);
 
 // First installment payment (single + basket SIP)
 router.post("/:sipId/first-installment",            auth, payFirstInstallment);
