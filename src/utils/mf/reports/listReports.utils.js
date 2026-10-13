@@ -54,7 +54,7 @@ export const fetchFpTransactionListReport = async (payload = {}) => {
 };
 
 /* ------------------------------------------------------------------ */
-/*  GET /v2/mf_purchases                                                */
+/*  GET /v2/mf_purchases  — fetches ALL pages via cursor pagination.   */
 /*                                                                      */
 /*  params: {                                                           */
 /*    mf_investment_account?: String                                   */
@@ -65,13 +65,24 @@ export const fetchFpTransactionListReport = async (payload = {}) => {
 /* ------------------------------------------------------------------ */
 export const fetchFpPurchases = async (params = {}) => {
   try {
-    console.log(`\n📋 [FP PURCHASES] Fetching with params:`, params);
-    const response = await axios.get(`${FP_API_URL()}/v2/mf_purchases`, {
-      params,
-      headers: await fpHeaders(),
-    });
-    console.log(`✅ [FP PURCHASES] Received ${response.data?.data?.length ?? 0} record(s)`);
-    return response.data;
+    console.log(`\n📋 [FP PURCHASES] Fetching all pages with params:`, params);
+    const allData = [];
+    let cursor = null;
+
+    do {
+      const pageParams = { ...params, ...(cursor ? { after: cursor } : {}) };
+      const response = await axios.get(`${FP_API_URL()}/v2/mf_purchases`, {
+        params: pageParams,
+        headers: await fpHeaders(),
+      });
+      const page = response.data;
+      allData.push(...(page?.data ?? []));
+      cursor = page?.next ?? null;
+      console.log(`✅ [FP PURCHASES] Page received: ${page?.data?.length ?? 0} record(s), next=${cursor}`);
+    } while (cursor);
+
+    console.log(`✅ [FP PURCHASES] Total fetched: ${allData.length} record(s)`);
+    return { object: "list", data: allData };
   } catch (err) {
     console.error(
       "❌ [FP PURCHASES] Fetch failed:",
@@ -126,13 +137,24 @@ export const fetchFpPurchaseListReport = async (payload = {}) => {
 /* ------------------------------------------------------------------ */
 export const fetchFpRedemptions = async (params = {}) => {
   try {
-    console.log(`\n📋 [FP REDEMPTIONS] Fetching with params:`, params);
-    const response = await axios.get(`${FP_API_URL()}/v2/mf_redemptions`, {
-      params,
-      headers: await fpHeaders(),
-    });
-    console.log(`✅ [FP REDEMPTIONS] Received ${response.data?.data?.length ?? 0} record(s)`);
-    return response.data;
+    console.log(`\n📋 [FP REDEMPTIONS] Fetching all pages with params:`, params);
+    const allData = [];
+    let cursor = null;
+
+    do {
+      const pageParams = { ...params, ...(cursor ? { after: cursor } : {}) };
+      const response = await axios.get(`${FP_API_URL()}/v2/mf_redemptions`, {
+        params: pageParams,
+        headers: await fpHeaders(),
+      });
+      const page = response.data;
+      allData.push(...(page?.data ?? []));
+      cursor = page?.next ?? null;
+      console.log(`✅ [FP REDEMPTIONS] Page received: ${page?.data?.length ?? 0} record(s), next=${cursor}`);
+    } while (cursor);
+
+    console.log(`✅ [FP REDEMPTIONS] Total fetched: ${allData.length} record(s)`);
+    return { object: "list", data: allData };
   } catch (err) {
     console.error(
       "❌ [FP REDEMPTIONS] Fetch failed:",
