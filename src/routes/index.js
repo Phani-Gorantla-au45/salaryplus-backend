@@ -75,6 +75,7 @@ import mfBasketSipRoutes  from "./mf/sip/mfBasketSip.routes.js";
 import mfRedemptionRoutes  from "./mf/redemption/mfRedemption.routes.js";
 import mfUserTransactionRoutes from "./mf/transactions.routes.js";
 import mfSmartSavingRoutes from "./mf/smartSaving/smartSaving.routes.js";
+import mfSmartSavingV2Routes from "./mf/smartSaving/smartSavingV2.routes.js";
 import appVersionRoutes    from "./app/appVersion.routes.js";
 import goalRoutes          from "./goals/goal.routes.js";
 import customGoalRoutes    from "./goals/userCustomGoal.routes.js";
@@ -195,7 +196,8 @@ router.use("/api/mf/redemption", mfRedemptionRoutes);
 router.use("/api/mf/transactions", mfUserTransactionRoutes);
 
 // MF Smart Saving (Instant Liquid Fund)
-router.use("/api/mf/smart-saving", mfSmartSavingRoutes);
+router.use("/api/mf/smart-saving",    mfSmartSavingRoutes);
+router.use("/api/mf/smart-saving-v2", mfSmartSavingV2Routes);
 
 // App Version / Force Update
 router.use("/api/app", appVersionRoutes);

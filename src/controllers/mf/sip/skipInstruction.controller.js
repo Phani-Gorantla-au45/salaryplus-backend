@@ -1,12 +1,51 @@
 import MfSip from "../../../models/mf/sip/mfSip.model.js";
+import MfUserData from "../../../models/mf/mfUserData.model.js";
 import {
   fetchFpSip,
   createFpSkipInstruction,
   listFpSkipInstructions,
   cancelFpSkipInstruction,
 } from "../../../utils/mf/sip/sip.utils.js";
+import { sendSipSkipEmail, sendSipResumeEmail } from "../../../utils/notifications/email.utils.js";
 
 const MAX_SKIP_COUNT = 2;
+
+/* fire-and-forget email helper — never throws */
+const sendSkipEmailSafe = async (uniqueId, sipRecord, skipResult, skipCount) => {
+  try {
+    const userData = await MfUserData.findOne({ uniqueId }, { name: 1, "email.email": 1 }).lean();
+    const to = userData?.email?.email;
+    if (!to) return;
+    await sendSipSkipEmail({
+      to,
+      userName:   userData?.name ?? null,
+      schemeName: sipRecord?.schemeName ?? null,
+      skipCount,
+      fromDate:   skipResult?.from ?? null,
+      toDate:     skipResult?.to   ?? null,
+      frequency:  sipRecord?.frequency ?? null,
+    });
+  } catch (e) {
+    console.error("[SKIP EMAIL] Failed to send skip email:", e.message);
+  }
+};
+
+const sendResumeEmailSafe = async (uniqueId, schemeName, skipResult) => {
+  try {
+    const userData = await MfUserData.findOne({ uniqueId }, { name: 1, "email.email": 1 }).lean();
+    const to = userData?.email?.email;
+    if (!to) return;
+    await sendSipResumeEmail({
+      to,
+      userName:   userData?.name ?? null,
+      schemeName: schemeName ?? null,
+      fromDate:   skipResult?.from ?? null,
+      toDate:     skipResult?.to   ?? null,
+    });
+  } catch (e) {
+    console.error("[SKIP EMAIL] Failed to send resume email:", e.message);
+  }
+};
 
 /* ------------------------------------------------------------------ */
 /*  Shared — build and send a skip instruction given a resolved FP     */
@@ -76,6 +115,8 @@ export const createSkipInstruction = async (req, res) => {
     console.log(`[SKIP] uniqueId=${uniqueId} plan=${sipRecord.fpSipId} skip_count=${skip_count}`);
     const result = await buildAndCreateSkip(sipRecord.fpSipId, skip_count);
 
+    sendSkipEmailSafe(uniqueId, sipRecord, result, Number(skip_count));
+
     return res.status(201).json({
       success: true,
       message: `${skip_count} installment(s) will be skipped`,
@@ -137,12 +178,15 @@ export const cancelSkipInstruction = async (req, res) => {
 
     // Sanity-check: confirm the cancelled plan belongs to this user
     const planId = result?.plan;
+    let sipRecord = null;
     if (planId) {
-      const owns = await MfSip.exists({ fpSipId: planId, uniqueId });
-      if (!owns) {
+      sipRecord = await MfSip.findOne({ fpSipId: planId, uniqueId }, { schemeName: 1, fpSipId: 1 }).lean();
+      if (!sipRecord) {
         return res.status(403).json({ success: false, message: "Not authorised to cancel this skip instruction" });
       }
     }
+
+    sendResumeEmailSafe(uniqueId, sipRecord?.schemeName ?? null, result);
 
     return res.status(200).json({
       success: true,
@@ -168,6 +212,11 @@ export const adminCreateSkipInstruction = async (req, res) => {
 
     console.log(`[ADMIN SKIP] Create plan=${fpSipId} skip_count=${skip_count}`);
     const result = await buildAndCreateSkip(fpSipId, skip_count);
+
+    const sipRecord = await MfSip.findOne({ fpSipId }, { schemeName: 1, frequency: 1, uniqueId: 1 }).lean();
+    if (sipRecord?.uniqueId) {
+      sendSkipEmailSafe(sipRecord.uniqueId, sipRecord, result, Number(skip_count));
+    }
 
     return res.status(201).json({
       success: true,
@@ -217,6 +266,14 @@ export const adminCancelSkipInstruction = async (req, res) => {
 
     console.log(`[ADMIN SKIP] Cancel id=${skipId}`);
     const result = await cancelFpSkipInstruction(skipId);
+
+    const planId = result?.plan;
+    if (planId) {
+      const sipRecord = await MfSip.findOne({ fpSipId: planId }, { schemeName: 1, uniqueId: 1 }).lean();
+      if (sipRecord?.uniqueId) {
+        sendResumeEmailSafe(sipRecord.uniqueId, sipRecord.schemeName ?? null, result);
+      }
+    }
 
     return res.status(200).json({
       success: true,

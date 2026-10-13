@@ -4,6 +4,19 @@ import {
   createFpModificationInstruction,
   fetchFpModificationInstruction,
 } from "../../../utils/mf/sip/sip.utils.js";
+import { sendSipModificationEmail } from "../../../utils/notifications/email.utils.js";
+
+/* fire-and-forget email helper — never throws */
+const sendModificationEmailSafe = async (uniqueId, schemeName, modificationType, newAmount) => {
+  try {
+    const userData = await MfUserData.findOne({ uniqueId }, { name: 1, "email.email": 1 }).lean();
+    const to = userData?.email?.email;
+    if (!to) return;
+    await sendSipModificationEmail({ to, userName: userData?.name ?? null, schemeName, modificationType, newAmount });
+  } catch (e) {
+    console.error("[MODIFY EMAIL] Failed:", e.message);
+  }
+};
 
 /* ------------------------------------------------------------------ */
 /*  Internal — build consent object from stored user data.             */
@@ -52,6 +65,8 @@ export const createAmountModification = async (req, res) => {
       consent,
     });
 
+    sendModificationEmailSafe(uniqueId, sipRecord?.schemeName ?? null, "amount", Number(amount));
+
     return res.status(201).json({
       success: true,
       message: "Amount modification instruction created",
@@ -94,6 +109,8 @@ export const createMandateModification = async (req, res) => {
       payment_source: Number(payment_source),
       consent,
     });
+
+    sendModificationEmailSafe(uniqueId, sipRecord?.schemeName ?? null, "mandate", null);
 
     return res.status(201).json({
       success: true,
@@ -148,6 +165,10 @@ export const adminCreateAmountModification = async (req, res) => {
       consent,
     });
 
+    MfSip.findOne({ fpSipId }, { schemeName: 1 }).lean().then((sip) =>
+      sendModificationEmailSafe(uniqueId, sip?.schemeName ?? null, "amount", Number(amount))
+    );
+
     return res.status(201).json({
       success: true,
       message: "Amount modification instruction created",
@@ -184,6 +205,10 @@ export const adminCreateMandateModification = async (req, res) => {
       payment_source: Number(payment_source),
       consent,
     });
+
+    MfSip.findOne({ fpSipId }, { schemeName: 1 }).lean().then((sip) =>
+      sendModificationEmailSafe(uniqueId, sip?.schemeName ?? null, "mandate", null)
+    );
 
     return res.status(201).json({
       success: true,

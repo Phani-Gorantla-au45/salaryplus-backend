@@ -604,6 +604,268 @@ export const sendPortfolioReviewEmail = async ({ to, userName, keyPoints, review
   });
 };
 
+/* ================================================================
+ * SIP SKIP INSTALLMENT — USER CONFIRMATION EMAIL
+ * ================================================================ */
+export const sendSipSkipEmail = async ({ to, userName, schemeName, skipCount, fromDate, toDate, frequency }) => {
+  const displayName = userName?.trim() || "Investor";
+  const fundLabel   = schemeName ?? "your SIP";
+  const freqLabel   = frequency ? ` (${frequency})` : "";
+  const fmtDate     = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }) : d;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#F4F6FB;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FB;padding:32px 0">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+        <tr>
+          <td style="background:${BRAND_COLOR};padding:24px 32px">
+            <p style="margin:0;font-size:22px;font-weight:800;color:#fff;letter-spacing:1px">${BRAND}</p>
+            <p style="margin:4px 0 0;font-size:12px;color:${GOLD};letter-spacing:2px;text-transform:uppercase">Wealth · Done Right</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#FFF8E1;padding:20px 32px;border-bottom:2px solid #FFE082;text-align:center">
+            <p style="margin:0;font-size:26px">⏸️</p>
+            <p style="margin:8px 0 0;font-size:18px;font-weight:800;color:#92400E">SIP Installment${skipCount > 1 ? "s" : ""} Skipped</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px">
+            <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 20px">
+              Dear <strong>${displayName}</strong>,<br/>
+              Your request to skip <strong>${skipCount} installment${skipCount > 1 ? "s" : ""}</strong> for <strong>${fundLabel}</strong>${freqLabel} has been registered successfully.
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFF;border:1px solid #E0E7FF;border-radius:10px;margin:0 0 24px;overflow:hidden">
+              <tr style="background:${BRAND_COLOR}">
+                <td colspan="2" style="padding:12px 20px;font-size:13px;font-weight:700;color:#fff;letter-spacing:0.5px">Skip Details</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #E0E7FF;width:45%">Fund</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827;border-bottom:1px solid #E0E7FF">${fundLabel}</td>
+              </tr>
+              <tr style="background:#F9FAFB">
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #E0E7FF">Installments Skipped</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827;border-bottom:1px solid #E0E7FF">${skipCount}</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #E0E7FF">Skip From</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827;border-bottom:1px solid #E0E7FF">${fmtDate(fromDate)}</td>
+              </tr>
+              <tr style="background:#F9FAFB">
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151">Skip To</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827">${fmtDate(toDate)}</td>
+              </tr>
+            </table>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px">
+              <tr>
+                <td style="background:#FFF9E6;border:1px solid ${GOLD};border-radius:8px;padding:14px 18px">
+                  <p style="margin:0;font-size:13px;color:#92400E;line-height:1.6">
+                    Your SIP will <strong>automatically resume</strong> after the skip period ends.
+                    No installment will be deducted during the skip period.
+                  </p>
+                </td>
+              </tr>
+            </table>
+            <p style="color:#6B7280;font-size:13px;line-height:1.6;margin:0">
+              If you did not request this or have questions, contact us at
+              <a href="mailto:support@bharatwealth.app" style="color:${BRAND_COLOR}">support@bharatwealth.app</a>.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#F4F6FB;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:11px;color:#9CA3AF">© ${new Date().getFullYear()} ${BRAND}. All rights reserved.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await getTransporter().sendMail({
+    from:    `"${BRAND}" <${process.env.SMTP_FROM}>`,
+    to,
+    subject: `SIP Installment Skip Confirmed — ${BRAND}`,
+    text:    `Dear ${displayName}, your request to skip ${skipCount} installment(s) for ${fundLabel} has been registered. Skip period: ${fromDate} to ${toDate}. Your SIP will resume automatically after this period.`,
+    html,
+  });
+};
+
+/* ================================================================
+ * SIP RESUME (CANCEL SKIP) — USER CONFIRMATION EMAIL
+ * ================================================================ */
+export const sendSipResumeEmail = async ({ to, userName, schemeName, fromDate, toDate }) => {
+  const displayName = userName?.trim() || "Investor";
+  const fundLabel   = schemeName ?? "your SIP";
+  const fmtDate     = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }) : d;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#F4F6FB;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FB;padding:32px 0">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+        <tr>
+          <td style="background:${BRAND_COLOR};padding:24px 32px">
+            <p style="margin:0;font-size:22px;font-weight:800;color:#fff;letter-spacing:1px">${BRAND}</p>
+            <p style="margin:4px 0 0;font-size:12px;color:${GOLD};letter-spacing:2px;text-transform:uppercase">Wealth · Done Right</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#ECFDF5;padding:20px 32px;border-bottom:2px solid #D1FAE5;text-align:center">
+            <p style="margin:0;font-size:26px">▶️</p>
+            <p style="margin:8px 0 0;font-size:18px;font-weight:800;color:#065F46">SIP Resumed Successfully</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px">
+            <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 20px">
+              Dear <strong>${displayName}</strong>,<br/>
+              Your skip instruction for <strong>${fundLabel}</strong> has been cancelled. Your SIP will now run as scheduled.
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFF;border:1px solid #E0E7FF;border-radius:10px;margin:0 0 24px;overflow:hidden">
+              <tr style="background:${BRAND_COLOR}">
+                <td colspan="2" style="padding:12px 20px;font-size:13px;font-weight:700;color:#fff">Cancelled Skip Details</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #E0E7FF;width:45%">Fund</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827;border-bottom:1px solid #E0E7FF">${fundLabel}</td>
+              </tr>
+              ${fromDate ? `<tr style="background:#F9FAFB">
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #E0E7FF">Was Skipped From</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827;border-bottom:1px solid #E0E7FF">${fmtDate(fromDate)}</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151">Was Skipped To</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827">${fmtDate(toDate)}</td>
+              </tr>` : ""}
+            </table>
+            <p style="color:#6B7280;font-size:13px;line-height:1.6;margin:0">
+              Questions? Contact us at <a href="mailto:support@bharatwealth.app" style="color:${BRAND_COLOR}">support@bharatwealth.app</a>.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#F4F6FB;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:11px;color:#9CA3AF">© ${new Date().getFullYear()} ${BRAND}. All rights reserved.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await getTransporter().sendMail({
+    from:    `"${BRAND}" <${process.env.SMTP_FROM}>`,
+    to,
+    subject: `SIP Resumed — Skip Instruction Cancelled — ${BRAND}`,
+    text:    `Dear ${displayName}, your skip instruction for ${fundLabel} has been cancelled. Your SIP will now run as per the original schedule.`,
+    html,
+  });
+};
+
+/* ================================================================
+ * SIP MODIFICATION — USER CONFIRMATION EMAIL
+ * modificationType: "amount" | "mandate"
+ * newAmount: number (for amount change)
+ * ================================================================ */
+export const sendSipModificationEmail = async ({ to, userName, schemeName, modificationType, newAmount }) => {
+  const displayName = userName?.trim() || "Investor";
+  const fundLabel   = schemeName ?? "your SIP";
+  const fmt         = (n) => "₹" + Number(n).toLocaleString("en-IN");
+  const isAmount    = modificationType === "amount";
+  const actionLabel = isAmount ? "SIP Amount Changed" : "SIP Mandate Updated";
+  const actionIcon  = isAmount ? "💰" : "🏦";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#F4F6FB;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FB;padding:32px 0">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+        <tr>
+          <td style="background:${BRAND_COLOR};padding:24px 32px">
+            <p style="margin:0;font-size:22px;font-weight:800;color:#fff;letter-spacing:1px">${BRAND}</p>
+            <p style="margin:4px 0 0;font-size:12px;color:${GOLD};letter-spacing:2px;text-transform:uppercase">Wealth · Done Right</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#EFF6FF;padding:20px 32px;border-bottom:2px solid #DBEAFE;text-align:center">
+            <p style="margin:0;font-size:26px">${actionIcon}</p>
+            <p style="margin:8px 0 0;font-size:18px;font-weight:800;color:${BRAND_COLOR}">${actionLabel}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px">
+            <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 20px">
+              Dear <strong>${displayName}</strong>,<br/>
+              Your modification request for <strong>${fundLabel}</strong> has been registered. The change will take effect from the next eligible installment.
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFF;border:1px solid #E0E7FF;border-radius:10px;margin:0 0 24px;overflow:hidden">
+              <tr style="background:${BRAND_COLOR}">
+                <td colspan="2" style="padding:12px 20px;font-size:13px;font-weight:700;color:#fff">Modification Details</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #E0E7FF;width:45%">Fund</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827;border-bottom:1px solid #E0E7FF">${fundLabel}</td>
+              </tr>
+              <tr style="background:#F9FAFB">
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #E0E7FF">Change Type</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827;border-bottom:1px solid #E0E7FF">${isAmount ? "Installment Amount" : "Payment Mandate"}</td>
+              </tr>
+              ${isAmount && newAmount ? `<tr>
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151">New Amount</td>
+                <td style="padding:12px 20px;font-size:16px;font-weight:800;color:#065F46">${fmt(newAmount)}</td>
+              </tr>` : `<tr>
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151">Status</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827">New mandate linked</td>
+              </tr>`}
+            </table>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px">
+              <tr>
+                <td style="background:#F0F4FF;border-left:4px solid ${BRAND_COLOR};border-radius:6px;padding:14px 18px">
+                  <p style="margin:0;font-size:13px;color:#374151;line-height:1.6">
+                    The modification instruction has been submitted. Changes typically reflect from the <strong>next installment date</strong>.
+                  </p>
+                </td>
+              </tr>
+            </table>
+            <p style="color:#6B7280;font-size:13px;line-height:1.6;margin:0">
+              If you did not request this change, contact us immediately at
+              <a href="mailto:support@bharatwealth.app" style="color:${BRAND_COLOR}">support@bharatwealth.app</a>.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#F4F6FB;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:11px;color:#9CA3AF">© ${new Date().getFullYear()} ${BRAND}. All rights reserved.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await getTransporter().sendMail({
+    from:    `"${BRAND}" <${process.env.SMTP_FROM}>`,
+    to,
+    subject: `${actionLabel} — ${BRAND}`,
+    text:    `Dear ${displayName}, your ${isAmount ? `amount modification (new amount: ${fmt(newAmount)})` : "mandate modification"} for ${fundLabel} has been registered. The change will take effect from the next eligible installment.`,
+    html,
+  });
+};
+
 export const sendEmailOtp = async (to, otp) => {
   const html = `
 <!DOCTYPE html>
