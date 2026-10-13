@@ -116,6 +116,35 @@ export const fetchFpPurchaseListReport = async (payload = {}) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  GET /v2/mf_redemptions                                              */
+/*                                                                      */
+/*  params: {                                                           */
+/*    mf_investment_account?: String                                   */
+/*    states?:                String  (comma-separated)                */
+/*    plan?:                  String  (mf redemption plan id)          */
+/*  }                                                                   */
+/* ------------------------------------------------------------------ */
+export const fetchFpRedemptions = async (params = {}) => {
+  try {
+    console.log(`\n📋 [FP REDEMPTIONS] Fetching with params:`, params);
+    const response = await axios.get(`${FP_API_URL()}/v2/mf_redemptions`, {
+      params,
+      headers: await fpHeaders(),
+    });
+    console.log(`✅ [FP REDEMPTIONS] Received ${response.data?.data?.length ?? 0} record(s)`);
+    return response.data;
+  } catch (err) {
+    console.error(
+      "❌ [FP REDEMPTIONS] Fetch failed:",
+      JSON.stringify(err.response?.data || err.message, null, 2),
+    );
+    throw new Error(
+      err.response?.data?.message || "Failed to fetch redemptions from FP",
+    );
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  POST /v2/mf_redemptions/reports/mf_redemption_list                  */
 /*                                                                      */
 /*  payload: {                                                          */

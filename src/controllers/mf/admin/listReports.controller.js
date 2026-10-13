@@ -5,6 +5,7 @@ import {
   fetchFpTransactionListReport,
   fetchFpPurchases,
   fetchFpPurchaseListReport,
+  fetchFpRedemptions,
   fetchFpRedemptionListReport,
 } from "../../../utils/mf/reports/listReports.utils.js";
 
@@ -313,6 +314,55 @@ export const getUserPurchaseReport = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ [USER PURCHASE REPORT] Error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ================================================================
+ * GET /api/mf/reports/redemptions             (user — own data only)
+ *
+ * Calls GET /v2/mf_redemptions?mf_investment_account=<fpAccountId>
+ * Optional query: ?states=successful,submitted&since=2024-10-01
+ * ================================================================ */
+export const getUserRedemptionReport = async (req, res) => {
+  try {
+    const { uniqueId } = req.user;
+    const { states, since } = req.query;
+
+    const userData = await MfUserData.findOne(
+      { uniqueId },
+      { "investmentAccount.fpInvestmentAccountId": 1 }
+    ).lean();
+    const fpAccountId = userData?.investmentAccount?.fpInvestmentAccountId ?? null;
+
+    if (!fpAccountId) {
+      return res.status(404).json({ success: false, message: "No investment account found for this user" });
+    }
+
+    const params = { mf_investment_account: fpAccountId };
+    if (states) params.states = states;
+
+    const fpResponse = await fetchFpRedemptions(params);
+    let redemptions = fpResponse?.data ?? [];
+
+    if (since) {
+      redemptions = redemptions.filter(
+        (r) => (r.traded_on ?? r.created_at?.slice(0, 10)) >= since
+      );
+    }
+
+    const enriched = await enrichWithSchemeNames(redemptions);
+
+    console.log(`📦 [USER REDEMPTION REPORT] uniqueId=${uniqueId} fpAccount=${fpAccountId} count=${enriched.length}`);
+    console.log("📦 [USER REDEMPTION REPORT] full data:", JSON.stringify(enriched, null, 2));
+
+    return res.status(200).json({
+      success: true,
+      count:   enriched.length,
+      data:    enriched,
+    });
+  } catch (err) {
+    console.error("❌ [USER REDEMPTION REPORT] Error:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };

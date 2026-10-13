@@ -66,7 +66,8 @@ import mfAdminPortfolioReviewRoutes    from "./mf/admin/review/portfolioReviewAd
 import mfHoldingsRoutes    from "./mf/reports/holdings.routes.js";
 import mfReturnsRoutes       from "./mf/reports/returns.routes.js";
 import mfTransactionsRoutes  from "./mf/reports/transactions.routes.js";
-import mfPurchasesReportRoutes from "./mf/reports/purchases.routes.js";
+import mfPurchasesReportRoutes   from "./mf/reports/purchases.routes.js";
+import mfRedemptionsReportRoutes from "./mf/reports/redemptions.routes.js";
 import mfMandateRoutes       from "./mf/mandate/mandate.routes.js";
 import mfCuratedBasketRoutes from "./mf/curatedBasket.routes.js";
 import mfSipRoutes       from "./mf/sip/mfSip.routes.js";
@@ -173,7 +174,8 @@ router.use("/api/mf/curated-basket", mfCuratedBasketRoutes);
 router.use("/api/mf/reports/holdings",      mfHoldingsRoutes);
 router.use("/api/mf/reports/returns",       mfReturnsRoutes);
 router.use("/api/mf/reports/transactions",  mfTransactionsRoutes);
-router.use("/api/mf/reports/purchases",     mfPurchasesReportRoutes);
+router.use("/api/mf/reports/purchases",    mfPurchasesReportRoutes);
+router.use("/api/mf/reports/redemptions",  mfRedemptionsReportRoutes);
 
 // MF Mandate (eNACH / UPI Autopay)
 router.use("/api/mf/mandate", mfMandateRoutes);
