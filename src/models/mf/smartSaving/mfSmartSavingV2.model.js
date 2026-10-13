@@ -17,8 +17,9 @@ const fundConfigSchema = new mongoose.Schema(
     instantLimitRupees:  { type: Number, default: 50000 },
     instantLimitPercent: { type: Number, default: 90 },    // 90 = 90%
 
-    minInvestmentAmount: { type: Number, default: null },   // scheme minimum
-    isActive:            { type: Boolean, default: true },
+    minInvestmentAmount:  { type: Number, default: null },   // scheme minimum
+    minRedemptionAmount:  { type: Number, default: null },   // minimum per redemption order
+    isActive:             { type: Boolean, default: true },
   },
   { _id: false }
 );

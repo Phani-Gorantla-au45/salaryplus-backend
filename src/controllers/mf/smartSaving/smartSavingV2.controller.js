@@ -221,6 +221,7 @@ export const createV2Basket = async (req, res) => {
         instantLimitRupees:  f.instantLimitRupees  != null ? Number(f.instantLimitRupees)  : 50000,
         instantLimitPercent: f.instantLimitPercent != null ? Number(f.instantLimitPercent) : 90,
         minInvestmentAmount: f.minInvestmentAmount != null ? Number(f.minInvestmentAmount) : null,
+        minRedemptionAmount: f.minRedemptionAmount != null ? Number(f.minRedemptionAmount) : null,
         isActive:            f.isActive !== false,
       })),
     });
@@ -263,7 +264,7 @@ export const addFundToBasket = async (req, res) => {
   try {
     const { id } = req.params;
     const { isin, fundName, amcName, rank,
-            instantLimitRupees, instantLimitPercent, minInvestmentAmount } = req.body;
+            instantLimitRupees, instantLimitPercent, minInvestmentAmount, minRedemptionAmount } = req.body;
 
     if (!isin || !fundName || !rank) {
       return res.status(400).json({ success: false, message: "isin, fundName, and rank are required" });
@@ -285,6 +286,7 @@ export const addFundToBasket = async (req, res) => {
       instantLimitRupees:  instantLimitRupees  != null ? Number(instantLimitRupees)  : 50000,
       instantLimitPercent: instantLimitPercent != null ? Number(instantLimitPercent) : 90,
       minInvestmentAmount: minInvestmentAmount != null ? Number(minInvestmentAmount) : null,
+      minRedemptionAmount: minRedemptionAmount != null ? Number(minRedemptionAmount) : null,
       isActive:            true,
     });
     await basket.save();
@@ -312,7 +314,7 @@ export const updateFundInBasket = async (req, res) => {
     if (!fund) return res.status(404).json({ success: false, message: `Fund ${upperIsin} not in this basket` });
 
     const editable = ["fundName", "amcName", "rank", "instantLimitRupees",
-                      "instantLimitPercent", "minInvestmentAmount", "isActive"];
+                      "instantLimitPercent", "minInvestmentAmount", "minRedemptionAmount", "isActive"];
     for (const key of editable) {
       if (req.body[key] !== undefined) {
         fund[key] = ["fundName", "amcName"].includes(key) ? req.body[key]?.trim() : req.body[key];
@@ -653,11 +655,22 @@ const buildRedeemPlan = (requested, activeFunds, holdingsMap, instantMap) => {
 
     const cap          = instantCap(fund, h.currentValue, instantMap?.[fund.isin] ?? null);
     const normalAvail  = Math.max(0, h.currentValue - cap);
+    const minRedeem    = fund.minRedemptionAmount ?? 0;
 
-    const instantTake  = Math.min(remaining, Math.floor(cap));
+    // Instant slice — bump to minimum if calculated amount falls below it
+    let instantTake = Math.min(remaining, Math.floor(cap));
+    if (instantTake > 0 && minRedeem > 0 && instantTake < minRedeem) {
+      const bumped = Math.min(minRedeem, Math.floor(cap));
+      instantTake  = bumped >= minRedeem ? bumped : 0;
+    }
     remaining -= instantTake;
 
-    const normalTake   = Math.min(remaining, Math.floor(normalAvail));
+    // Normal slice — same minimum check
+    let normalTake = Math.min(remaining, Math.floor(normalAvail));
+    if (normalTake > 0 && minRedeem > 0 && normalTake < minRedeem) {
+      const bumped = Math.min(minRedeem, Math.floor(normalAvail));
+      normalTake   = bumped >= minRedeem ? bumped : 0;
+    }
     remaining -= normalTake;
 
     if (instantTake > 0 || normalTake > 0) {
