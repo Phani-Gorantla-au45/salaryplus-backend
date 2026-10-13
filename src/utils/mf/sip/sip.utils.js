@@ -199,9 +199,6 @@ export const listFpSips = async (params = {}) => {
       headers: await fpHeaders(),
       params,
     });
-    console.log("Sip data from FP", response.data);
-    console.log("Sip data from FP", response.data);
-
     return response.data;
   } catch (err) {
     console.error(

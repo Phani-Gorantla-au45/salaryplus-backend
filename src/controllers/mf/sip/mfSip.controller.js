@@ -7,6 +7,7 @@ import {
   createFpSip,
   patchFpSip,
   fetchFpSip,
+  listFpSips,
 } from "../../../utils/mf/sip/sip.utils.js";
 import { fetchFpSchemePlan } from "../../../utils/mf/master/schemePlan.utils.js";
 import {
@@ -494,20 +495,44 @@ export const getSip = async (req, res) => {
 export const listSips = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const { state, frequency } = req.query;
 
-    const filter = { uniqueId };
-    if (state) filter.fpState = state;
-    if (frequency) filter.frequency = frequency;
+    const userData = await MfUserData.findOne(
+      { uniqueId },
+      { "investmentAccount.fpInvestmentAccountId": 1 }
+    ).lean();
+    const fpAccountId = userData?.investmentAccount?.fpInvestmentAccountId ?? null;
 
-    const sips = await MfSip.find(filter).sort({ createdAt: -1 });
-    const goalMap = await enrichWithGoals(sips);
+    if (!fpAccountId) {
+      return res.status(404).json({ success: false, message: "No investment account found for this user" });
+    }
+
+    const fpResponse = await listFpSips({
+      mf_investment_account: fpAccountId,
+      states: "active",
+    });
+
+    const sips = fpResponse?.data ?? [];
+
+    // Enrich with scheme_name and fund_name from our DB
+    const isins = [...new Set(sips.map((s) => s.scheme).filter(Boolean))];
+    let isinMap = {};
+    if (isins.length > 0) {
+      const plans = await MfSchemePlan.find({ isin: { $in: isins } }, { isin: 1, schemeName: 1, fundName: 1 }).lean();
+      isinMap = Object.fromEntries(plans.map((p) => [p.isin, { scheme_name: p.schemeName ?? null, fund_name: p.fundName ?? null }]));
+    }
+
+    const enriched = sips.map((s) => ({
+      ...s,
+      scheme_name: isinMap[s.scheme]?.scheme_name ?? null,
+      fund_name:   isinMap[s.scheme]?.fund_name   ?? null,
+    }));
+
+    console.log(`[SIP LIST] uniqueId=${uniqueId} fpAccount=${fpAccountId} total=${enriched.length}`);
+
     return res.status(200).json({
       success: true,
-      count: sips.length,
-      data: sips.map((s) =>
-        sipPublicResponse(s, { goalName: goalMap[s.linkedGoalId] ?? null }),
-      ),
+      count: enriched.length,
+      data:  enriched,
     });
   } catch (err) {
     console.error("❌ [SIP] List error:", err.message);
