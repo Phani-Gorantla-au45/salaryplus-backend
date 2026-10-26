@@ -119,12 +119,22 @@ const resolveUserContacts = async (uniqueId, mfData) => {
   return { phone, email, isd };
 };
 
+const extractRows = (raw) => {
+  if (Array.isArray(raw))           return raw;
+  if (Array.isArray(raw?.data))     return raw.data;
+  if (Array.isArray(raw?.data?.data))      return raw.data.data;
+  if (Array.isArray(raw?.data?.holdings))  return raw.data.holdings;
+  if (Array.isArray(raw?.holdings)) return raw.holdings;
+  console.warn("[SS-V2] Unexpected holdings response shape:", JSON.stringify(raw)?.slice(0, 300));
+  return [];
+};
+
 const fetchHoldingsMap = async (fpAccountId, basketIsins) => {
   const map = {}; // isin → { currentValue, folioNumber, units }
   if (!fpAccountId) return map;
   try {
     const raw  = await fetchFpHoldings(fpAccountId);
-    const rows = raw?.data ?? raw ?? [];
+    const rows = extractRows(raw);
     const set  = new Set(basketIsins);
     for (const h of rows) {
       const isin = (h.isin ?? h.scheme ?? "").toUpperCase();
