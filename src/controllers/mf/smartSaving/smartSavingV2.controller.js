@@ -120,11 +120,27 @@ const resolveUserContacts = async (uniqueId, mfData) => {
 };
 
 const extractRows = (raw) => {
-  if (Array.isArray(raw))           return raw;
-  if (Array.isArray(raw?.data))     return raw.data;
+  if (Array.isArray(raw))                  return raw;
+  if (Array.isArray(raw?.data))            return raw.data;
   if (Array.isArray(raw?.data?.data))      return raw.data.data;
   if (Array.isArray(raw?.data?.holdings))  return raw.data.holdings;
-  if (Array.isArray(raw?.holdings)) return raw.holdings;
+  if (Array.isArray(raw?.holdings))        return raw.holdings;
+
+  // FP nested shape: { id, folios: [{ folio_number, schemes: [{ isin, market_value, holdings }] }] }
+  const folios = raw?.folios ?? raw?.data?.folios;
+  if (Array.isArray(folios)) {
+    return folios.flatMap((folio) =>
+      (folio.schemes ?? []).map((s) => ({
+        isin:              (s.isin ?? "").toUpperCase(),
+        folio_number:      folio.folio_number,
+        current_value:     s.market_value?.amount ?? 0,
+        redeemable_amount: s.market_value?.redeemable_amount ?? 0,
+        units:             s.holdings?.units ?? 0,
+        redeemable_units:  s.holdings?.redeemable_units ?? 0,
+      }))
+    );
+  }
+
   console.warn("[SS-V2] Unexpected holdings response shape:", JSON.stringify(raw)?.slice(0, 300));
   return [];
 };
@@ -138,11 +154,13 @@ const fetchHoldingsMap = async (fpAccountId, basketIsins) => {
     const set  = new Set(basketIsins);
     for (const h of rows) {
       const isin = (h.isin ?? h.scheme ?? "").toUpperCase();
-      if (set.has(isin)) {
+      if (set.has(isin) && (h.current_value ?? 0) > 0) {
         map[isin] = {
-          currentValue: h.current_value ?? h.closing_value ?? 0,
-          folioNumber:  h.folio_number ?? h.folio ?? null,
-          units:        h.units ?? null,
+          currentValue:     h.current_value ?? 0,
+          folioNumber:      h.folio_number ?? h.folio ?? null,
+          units:            h.units ?? 0,
+          redeemableUnits:  h.redeemable_units ?? h.units ?? 0,
+          redeemableAmount: h.redeemable_amount ?? h.current_value ?? 0,
         };
       }
     }
