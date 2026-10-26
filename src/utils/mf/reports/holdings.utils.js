@@ -24,18 +24,13 @@ const fpHeaders = async () => {
 /*  }                                                                   */
 /* ------------------------------------------------------------------ */
 export const fetchFpHoldings = async (investmentAccountId, params = {}) => {
-  // FP requires a numeric investment_account_id — parse it if stored as string
-  const accountId = typeof investmentAccountId === "string"
-    ? parseInt(investmentAccountId, 10)
-    : investmentAccountId;
-
   try {
     console.log(
-      `\n📊 [FP HOLDINGS] Fetching holdings for account=${accountId}, params:`,
+      `\n📊 [FP HOLDINGS] Fetching holdings for account=${investmentAccountId}, params:`,
       params
     );
     const response = await axios.get(
-      `${FP_API_URL()}/api/oms/investment_accounts/${accountId}/holdings`,
+      `${FP_API_URL()}/api/oms/investment_accounts/${investmentAccountId}/holdings`,
       {
         headers: await fpHeaders(),
         params,

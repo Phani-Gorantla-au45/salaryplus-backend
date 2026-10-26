@@ -340,8 +340,8 @@ export const getV2Basket = async (req, res) => {
     const basket = await MfSmartSavingV2.findOne({ isActive: true }).lean();
     if (!basket) return res.status(404).json({ success: false, message: "No active smart savings basket configured" });
 
-    const mfData     = await MfUserData.findOne({ uniqueId }, { "investmentAccount.fpInvestmentAccountId": 1 }).lean();
-    const fpAccountId = mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
+    const mfData     = await MfUserData.findOne({ uniqueId }, { "investmentAccount.fpInvestmentAccountId": 1, "investmentAccount.fpInvestmentAccountOldId": 1 }).lean();
+    const fpAccountId = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
 
     const basketIsins = basket.funds.map((f) => f.isin);
     const holdingsMap  = await fetchHoldingsMap(fpAccountId, basketIsins);
@@ -404,8 +404,8 @@ export const previewSmartInvest = async (req, res) => {
     const basket = await MfSmartSavingV2.findOne({ isActive: true }).lean();
     if (!basket) return res.status(404).json({ success: false, message: "No active smart savings basket" });
 
-    const mfData      = await MfUserData.findOne({ uniqueId }, { "investmentAccount.fpInvestmentAccountId": 1 }).lean();
-    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
+    const mfData      = await MfUserData.findOne({ uniqueId }, { "investmentAccount.fpInvestmentAccountId": 1, "investmentAccount.fpInvestmentAccountOldId": 1 }).lean();
+    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
     const activeFunds  = basket.funds.filter((f) => f.isActive);
     const holdingsMap  = await fetchHoldingsMap(fpAccountId, activeFunds.map((f) => f.isin));
 
@@ -480,7 +480,7 @@ export const smartInvest = async (req, res) => {
     if (!basket) return res.status(404).json({ success: false, message: "No active smart savings basket" });
 
     const mfData      = await MfUserData.findOne({ uniqueId });
-    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountId;
+    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId;
     if (!fpAccountId) return res.status(400).json({ success: false, message: "MF investment account not found. Complete setup first." });
 
     const activeFunds = basket.funds.filter((f) => f.isActive);
@@ -612,8 +612,8 @@ export const previewSmartRedeem = async (req, res) => {
     const basket = await MfSmartSavingV2.findOne({ isActive: true }).lean();
     if (!basket) return res.status(404).json({ success: false, message: "No active smart savings basket" });
 
-    const mfData      = await MfUserData.findOne({ uniqueId }, { "investmentAccount.fpInvestmentAccountId": 1 }).lean();
-    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
+    const mfData      = await MfUserData.findOne({ uniqueId }, { "investmentAccount.fpInvestmentAccountId": 1, "investmentAccount.fpInvestmentAccountOldId": 1 }).lean();
+    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
     const activeFunds  = basket.funds.filter((f) => f.isActive).sort((a, b) => a.rank - b.rank);
     const holdingsMap  = await fetchHoldingsMap(fpAccountId, activeFunds.map((f) => f.isin));
     const instantMap   = await fetchInstantSummaries(fpAccountId, activeFunds, holdingsMap);
@@ -710,7 +710,7 @@ export const smartRedeem = async (req, res) => {
     if (!basket) return res.status(404).json({ success: false, message: "No active smart savings basket" });
 
     const mfData      = await MfUserData.findOne({ uniqueId });
-    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountId;
+    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId;
     if (!fpAccountId) return res.status(400).json({ success: false, message: "MF investment account not found." });
 
     const activeFunds = basket.funds.filter((f) => f.isActive).sort((a, b) => a.rank - b.rank);
