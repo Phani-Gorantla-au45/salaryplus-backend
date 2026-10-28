@@ -145,8 +145,10 @@ const extractRows = (raw) => {
   return [];
 };
 
+// holdingsMap: isin → { currentValue (sum), folioNumber (primary), folios: FolioEntry[] }
+// Multiple folios per ISIN are fully preserved in the `folios` array.
 const fetchHoldingsMap = async (fpAccountId, basketIsins) => {
-  const map = {}; // isin → { currentValue, folioNumber, units }
+  const map = {};
   if (!fpAccountId) return map;
   try {
     const raw  = await fetchFpHoldings(fpAccountId);
@@ -154,14 +156,23 @@ const fetchHoldingsMap = async (fpAccountId, basketIsins) => {
     const set  = new Set(basketIsins);
     for (const h of rows) {
       const isin = (h.isin ?? h.scheme ?? "").toUpperCase();
-      if (set.has(isin) && (h.current_value ?? 0) > 0) {
-        map[isin] = {
-          currentValue:     h.current_value ?? 0,
-          folioNumber:      h.folio_number ?? h.folio ?? null,
-          units:            h.units ?? 0,
-          redeemableUnits:  h.redeemable_units ?? h.units ?? 0,
-          redeemableAmount: h.redeemable_amount ?? h.current_value ?? 0,
-        };
+      if (!set.has(isin) || (h.current_value ?? 0) <= 0) continue;
+      const entry = {
+        currentValue:     h.current_value,
+        folioNumber:      h.folio_number ?? h.folio ?? null,
+        units:            h.units ?? 0,
+        redeemableUnits:  h.redeemable_units ?? h.units ?? 0,
+        redeemableAmount: h.redeemable_amount ?? h.current_value,
+      };
+      if (!map[isin]) {
+        map[isin] = { ...entry, folios: [entry] };
+      } else {
+        // Accumulate totals across folios
+        map[isin].currentValue     += entry.currentValue;
+        map[isin].redeemableAmount += entry.redeemableAmount;
+        map[isin].units            += entry.units;
+        map[isin].redeemableUnits  += entry.redeemableUnits;
+        map[isin].folios.push(entry);
       }
     }
   } catch (e) {
@@ -170,23 +181,27 @@ const fetchHoldingsMap = async (fpAccountId, basketIsins) => {
   return map;
 };
 
-/* Fetch FP instant redemption summaries in parallel */
+// Fetch instant redemption capacity per (isin, folio) — keyed as "ISIN:folioNumber"
 const fetchInstantSummaries = async (fpAccountId, funds, holdingsMap) => {
-  const map = {}; // isin → maxInstant (null = unknown)
+  const map = {}; // `${isin}:${folio}` → maxInstant
   await Promise.all(
-    funds.map(async (fund) => {
+    funds.flatMap((fund) => {
       const h = holdingsMap[fund.isin];
-      if (!h?.folioNumber || !fpAccountId) return;
-      try {
-        const s = await fetchFpRedemptionSummary({
-          mf_investment_account: fpAccountId,
-          folio:  h.folioNumber,
-          scheme: fund.isin,
-        });
-        map[fund.isin] = s?.max_instant_redemption_amount ?? null;
-      } catch {
-        map[fund.isin] = null;
-      }
+      if (!h || !fpAccountId) return [];
+      return (h.folios ?? [h]).map(async (folio) => {
+        if (!folio.folioNumber) return;
+        const key = `${fund.isin}:${folio.folioNumber}`;
+        try {
+          const s = await fetchFpRedemptionSummary({
+            mf_investment_account: fpAccountId,
+            folio:  folio.folioNumber,
+            scheme: fund.isin,
+          });
+          map[key] = s?.max_instant_redemption_amount ?? null;
+        } catch {
+          map[key] = null;
+        }
+      });
     })
   );
   return map;
@@ -671,49 +686,57 @@ export const previewSmartRedeem = async (req, res) => {
  *  Shared redemption plan builder (used by both preview and execute)
  * ==================================================================== */
 const buildRedeemPlan = (requested, activeFunds, holdingsMap, instantMap) => {
-  let remaining   = requested;
+  let remaining    = requested;
   let totalInstant = 0;
   let totalNormal  = 0;
   const plan = [];
 
   for (const fund of activeFunds) {
     if (remaining <= 0) break;
-    const h = holdingsMap[fund.isin] ?? { currentValue: 0, folioNumber: null };
-    if (h.currentValue <= 0) continue;
+    const h = holdingsMap[fund.isin];
+    if (!h || h.currentValue <= 0) continue;
 
-    const cap          = instantCap(fund, h.currentValue, instantMap?.[fund.isin] ?? null);
-    const normalAvail  = Math.max(0, h.currentValue - cap);
-    const minRedeem    = fund.minRedemptionAmount ?? 0;
+    // Iterate each folio separately so multi-folio ISINs are fully redeemed
+    const folios    = h.folios ?? [h];
+    const minRedeem = fund.minRedemptionAmount ?? 0;
 
-    // Instant slice — bump to minimum if calculated amount falls below it
-    let instantTake = Math.min(remaining, Math.floor(cap));
-    if (instantTake > 0 && minRedeem > 0 && instantTake < minRedeem) {
-      const bumped = Math.min(minRedeem, Math.floor(cap));
-      instantTake  = bumped >= minRedeem ? bumped : 0;
-    }
-    remaining -= instantTake;
+    for (const folio of folios) {
+      if (remaining <= 0) break;
+      if (folio.currentValue <= 0) continue;
 
-    // Normal slice — same minimum check
-    let normalTake = Math.min(remaining, Math.floor(normalAvail));
-    if (normalTake > 0 && minRedeem > 0 && normalTake < minRedeem) {
-      const bumped = Math.min(minRedeem, Math.floor(normalAvail));
-      normalTake   = bumped >= minRedeem ? bumped : 0;
-    }
-    remaining -= normalTake;
+      const folioKey     = `${fund.isin}:${folio.folioNumber}`;
+      const instantLimit = instantMap?.[folioKey] ?? null;
+      const cap          = instantCap(fund, folio.currentValue, instantLimit);
+      const normalAvail  = Math.max(0, folio.currentValue - cap);
 
-    if (instantTake > 0 || normalTake > 0) {
-      plan.push({
-        isin:          fund.isin,
-        fundName:      fund.fundName,
-        rank:          fund.rank,
-        folioNumber:   h.folioNumber,
-        currentValue:  Math.floor(h.currentValue),
-        instantAmount: instantTake,
-        normalAmount:  normalTake,
-        totalAmount:   instantTake + normalTake,
-      });
-      totalInstant += instantTake;
-      totalNormal  += normalTake;
+      let instantTake = Math.min(remaining, Math.floor(cap));
+      if (instantTake > 0 && minRedeem > 0 && instantTake < minRedeem) {
+        const bumped = Math.min(minRedeem, Math.floor(cap));
+        instantTake  = bumped >= minRedeem ? bumped : 0;
+      }
+      remaining -= instantTake;
+
+      let normalTake = Math.min(remaining, Math.floor(normalAvail));
+      if (normalTake > 0 && minRedeem > 0 && normalTake < minRedeem) {
+        const bumped = Math.min(minRedeem, Math.floor(normalAvail));
+        normalTake   = bumped >= minRedeem ? bumped : 0;
+      }
+      remaining -= normalTake;
+
+      if (instantTake > 0 || normalTake > 0) {
+        plan.push({
+          isin:          fund.isin,
+          fundName:      fund.fundName,
+          rank:          fund.rank,
+          folioNumber:   folio.folioNumber,
+          currentValue:  Math.floor(folio.currentValue),
+          instantAmount: instantTake,
+          normalAmount:  normalTake,
+          totalAmount:   instantTake + normalTake,
+        });
+        totalInstant += instantTake;
+        totalNormal  += normalTake;
+      }
     }
   }
 
