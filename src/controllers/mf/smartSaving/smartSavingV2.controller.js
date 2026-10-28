@@ -182,18 +182,19 @@ const fetchHoldingsMap = async (fpAccountId, basketIsins) => {
 };
 
 // Fetch instant redemption capacity per (isin, folio) — keyed as "ISIN:folioNumber"
-const fetchInstantSummaries = async (fpAccountId, funds, holdingsMap) => {
+// fpStringId: the FP string account ID (e.g. "mfia_xxx") required by v2/mf_redemptions/summary
+const fetchInstantSummaries = async (fpStringId, funds, holdingsMap) => {
   const map = {}; // `${isin}:${folio}` → maxInstant
   await Promise.all(
     funds.flatMap((fund) => {
       const h = holdingsMap[fund.isin];
-      if (!h || !fpAccountId) return [];
+      if (!h || !fpStringId) return [];
       return (h.folios ?? [h]).map(async (folio) => {
         if (!folio.folioNumber) return;
         const key = `${fund.isin}:${folio.folioNumber}`;
         try {
           const s = await fetchFpRedemptionSummary({
-            mf_investment_account: fpAccountId,
+            mf_investment_account: fpStringId,
             folio:  folio.folioNumber,
             scheme: fund.isin,
           });
@@ -523,11 +524,12 @@ export const smartInvest = async (req, res) => {
     if (!basket) return res.status(404).json({ success: false, message: "No active smart savings basket" });
 
     const mfData      = await MfUserData.findOne({ uniqueId });
-    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId;
-    if (!fpAccountId) return res.status(400).json({ success: false, message: "MF investment account not found. Complete setup first." });
+    const fpOmsId     = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId;
+    const fpStringId  = mfData?.investmentAccount?.fpInvestmentAccountId;
+    if (!fpOmsId || !fpStringId) return res.status(400).json({ success: false, message: "MF investment account not found. Complete setup first." });
 
     const activeFunds = basket.funds.filter((f) => f.isActive);
-    const holdingsMap  = await fetchHoldingsMap(fpAccountId, activeFunds.map((f) => f.isin));
+    const holdingsMap  = await fetchHoldingsMap(fpOmsId, activeFunds.map((f) => f.isin));
 
     const existingValues = Object.fromEntries(
       Object.entries(holdingsMap).map(([isin, h]) => [isin, h.currentValue])
@@ -553,7 +555,7 @@ export const smartInvest = async (req, res) => {
     const userIp   = resolveIp(req);
     const fpPayload = allocation.map((a) => ({
       amount:                Number(a.amount),
-      mf_investment_account: fpAccountId,
+      mf_investment_account: fpStringId,
       scheme:                a.fund.isin,
       gateway:               "ondc",
       user_ip:               userIp,
@@ -590,7 +592,7 @@ export const smartInvest = async (req, res) => {
           uniqueId,
           fpPurchaseId:          primaryOrder.id,
           fpOldId:               primaryOrder.old_id ?? null,
-          mfInvestmentAccountId: fpAccountId,
+          mfInvestmentAccountId: fpStringId,
           amount:                totalAmount,
           isBasketOrder:         true,
           basketFunds:           allocation.map((a) => ({
@@ -656,10 +658,11 @@ export const previewSmartRedeem = async (req, res) => {
     if (!basket) return res.status(404).json({ success: false, message: "No active smart savings basket" });
 
     const mfData      = await MfUserData.findOne({ uniqueId }, { "investmentAccount.fpInvestmentAccountId": 1, "investmentAccount.fpInvestmentAccountOldId": 1 }).lean();
-    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
+    const fpOmsId     = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
+    const fpStringId  = mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
     const activeFunds  = basket.funds.filter((f) => f.isActive).sort((a, b) => a.rank - b.rank);
-    const holdingsMap  = await fetchHoldingsMap(fpAccountId, activeFunds.map((f) => f.isin));
-    const instantMap   = await fetchInstantSummaries(fpAccountId, activeFunds, holdingsMap);
+    const holdingsMap  = await fetchHoldingsMap(fpOmsId, activeFunds.map((f) => f.isin));
+    const instantMap   = await fetchInstantSummaries(fpStringId, activeFunds, holdingsMap);
 
     const { plan, totalInstant, totalNormal, covered } = buildRedeemPlan(requested, activeFunds, holdingsMap, instantMap);
 
@@ -760,18 +763,19 @@ export const smartRedeem = async (req, res) => {
     const basket = await MfSmartSavingV2.findOne({ isActive: true }).lean();
     if (!basket) return res.status(404).json({ success: false, message: "No active smart savings basket" });
 
-    const mfData      = await MfUserData.findOne({ uniqueId });
-    const fpAccountId  = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId;
-    if (!fpAccountId) return res.status(400).json({ success: false, message: "MF investment account not found." });
+    const mfData       = await MfUserData.findOne({ uniqueId });
+    const fpOmsId      = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId;
+    const fpStringId   = mfData?.investmentAccount?.fpInvestmentAccountId;
+    if (!fpOmsId || !fpStringId) return res.status(400).json({ success: false, message: "MF investment account not found." });
 
     const activeFunds = basket.funds.filter((f) => f.isActive).sort((a, b) => a.rank - b.rank);
-    const holdingsMap  = await fetchHoldingsMap(fpAccountId, activeFunds.map((f) => f.isin));
+    const holdingsMap  = await fetchHoldingsMap(fpOmsId, activeFunds.map((f) => f.isin));
 
     if (!Object.keys(holdingsMap).length) {
       return res.status(400).json({ success: false, message: "No holdings found in smart savings funds." });
     }
 
-    const instantMap = await fetchInstantSummaries(fpAccountId, activeFunds, holdingsMap);
+    const instantMap = await fetchInstantSummaries(fpStringId, activeFunds, holdingsMap);
     const { plan, covered } = buildRedeemPlan(requested, activeFunds, holdingsMap, instantMap);
 
     if (!plan.length || covered === 0) {
@@ -819,7 +823,7 @@ export const smartRedeem = async (req, res) => {
         }
 
         const fpPayload = {
-          mf_investment_account: fpAccountId,
+          mf_investment_account: fpStringId,
           folio_number:          entry.folioNumber,
           scheme:                entry.isin,
           amount,
@@ -842,7 +846,7 @@ export const smartRedeem = async (req, res) => {
               uniqueId,
               fpRedemptionId:        fpData.id,
               fpOldId:               fpData.old_id ?? null,
-              mfInvestmentAccountId: fpAccountId,
+              mfInvestmentAccountId: fpStringId,
               folioNumber:           fpData.folio_number ?? entry.folioNumber,
               isin:                  fpData.scheme ?? entry.isin,
               amount,
