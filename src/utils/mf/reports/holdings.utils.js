@@ -27,26 +27,26 @@ export const fetchFpHoldings = async (investmentAccountId, params = {}) => {
   try {
     console.log(
       `\n📊 [FP HOLDINGS] Fetching holdings for account=${investmentAccountId}, params:`,
-      params
+      params,
     );
     const response = await axios.get(
       `${FP_API_URL()}/api/oms/investment_accounts/${investmentAccountId}/holdings`,
       {
         headers: await fpHeaders(),
         params,
-      }
+      },
     );
-    console.log(`✅ [FP HOLDINGS] Received holdings data`);
+    console.log(`✅ [FP HOLDINGS] Received holdings data`, response.data);
     return response.data;
   } catch (err) {
     console.error(
       "❌ [FP HOLDINGS] Fetch failed:",
-      JSON.stringify(err.response?.data || err.message, null, 2)
+      JSON.stringify(err.response?.data || err.message, null, 2),
     );
     throw new Error(
       err.response?.data?.errors?.[0]?.message ||
-      err.response?.data?.message ||
-      "Failed to fetch holdings from FP"
+        err.response?.data?.message ||
+        "Failed to fetch holdings from FP",
     );
   }
 };
