@@ -99,9 +99,12 @@ const smartAllocate = (newAmount, activeFunds, existingHoldings = {}) => {
  *  Uses FP's summary value (authoritative) when available.
  * ==================================================================== */
 const instantCap = (fund, holdingValue, fpMaxInstant = null) => {
-  if (fpMaxInstant != null) return Math.min(holdingValue, fpMaxInstant);
   const pct  = (fund.instantLimitPercent ?? 90) / 100;
   const rule = Math.min(holdingValue * pct, fund.instantLimitRupees ?? 50000);
+  // Only override with FP's value when it's a positive number.
+  // 0 means FP hasn't computed it yet (new account, test env, ineligible period) —
+  // fall back to our formula so instant redemption isn't incorrectly blocked.
+  if (fpMaxInstant != null && fpMaxInstant > 0) return Math.min(holdingValue, fpMaxInstant);
   return Math.max(0, rule);
 };
 
