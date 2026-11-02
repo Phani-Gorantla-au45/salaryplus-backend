@@ -46,8 +46,9 @@ export const sendOtp = async (req, res) => {
     let user = await User.findOne({ phone });
     console.log(`👤 [SEND OTP] User exists: ${!!user}`);
 
-    // ⛔ Rate limit
-    if (user?.otpExpiry && user.otpExpiry > Date.now() - 30000) {
+    // ⛔ Rate limit — block if OTP was sent less than 30 seconds ago
+    // otpExpiry is set to now+5min at send time, so "sent < 30s ago" means expiry > now+4m30s
+    if (user?.otpExpiry && user.otpExpiry > Date.now() + (4.5 * 60 * 1000)) {
       console.log(`⛔ [SEND OTP] Rate limited — otpExpiry: ${user.otpExpiry}`);
       return res.status(429).json({ message: "Wait 1 min before retry" });
     }
