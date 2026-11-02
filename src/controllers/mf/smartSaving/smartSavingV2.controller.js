@@ -812,36 +812,16 @@ export const smartRedeem = async (req, res) => {
     const userIp       = resolveIp(req);
 
     /* ---- Create FP redemption orders ---- */
-    const createdIds         = [];
-    const createdOrders      = [];
-    const blockedInstantIsins = new Set(); // ISINs where instant was downgraded (30-min rule)
+    const createdIds    = [];
+    const createdOrders = [];
 
     for (const entry of plan) {
       const fund = activeFunds.find((f) => f.isin === entry.isin);
 
-      for (const [origAmount, origMode] of [[entry.instantAmount, "instant"], [entry.normalAmount, "normal"]]) {
-        if (origAmount <= 0) continue;
-
-        let mode   = origMode;
-        const amount = origAmount;
+      for (const [amount, mode] of [[entry.instantAmount, "instant"], [entry.normalAmount, "normal"]]) {
+        if (amount <= 0) continue;
 
         // 30-minute duplicate restriction: same PAN+Folio+Scheme instant order within 30 min fails at FP
-        if (origMode === "instant") {
-          const thirtyMinAgo   = new Date(Date.now() - 30 * 60 * 1000);
-          const recentInstant  = await MfRedemption.findOne({
-            uniqueId,
-            isin:           entry.isin,
-            folioNumber:    entry.folioNumber,
-            redemptionMode: "instant",
-            createdAt:      { $gte: thirtyMinAgo },
-          }).lean();
-
-          if (recentInstant) {
-            console.warn(`[SS-V2 REDEEM] ${entry.isin}: 30-min instant block — downgrading to normal`);
-            mode = "normal";
-            blockedInstantIsins.add(entry.isin);
-          }
-        }
 
         const fpPayload = {
           mf_investment_account: fpStringId,
@@ -907,25 +887,23 @@ export const smartRedeem = async (req, res) => {
 
     const totalInstant = createdOrders.filter((o) => o.redemptionMode === "instant").reduce((s, o) => s + o.amount, 0);
     const totalNormal  = createdOrders.filter((o) => o.redemptionMode === "normal").reduce((s, o) => s + o.amount, 0);
-    const blocked      = [...blockedInstantIsins];
 
-    console.log(`✅ [SS-V2 REDEEM] user=${uniqueId} orders=${createdIds.length} instant=${totalInstant} normal=${totalNormal}${blocked.length ? ` blocked=${blocked.join(",")}` : ""}`);
+    console.log(`✅ [SS-V2 REDEEM] user=${uniqueId} orders=${createdIds.length} instant=${totalInstant} normal=${totalNormal}`);
 
     return res.status(201).json({
       success: true,
       message: `${createdIds.length} redemption order(s) placed. OTP sent for consent.`,
       data: {
-        requestedAmount:       requested,
-        coveredAmount:         covered,
-        shortfall:             Math.max(0, requested - covered),
+        requestedAmount: requested,
+        coveredAmount:   covered,
+        shortfall:       Math.max(0, requested - covered),
         totalInstant,
         totalNormal,
-        orders:                createdOrders,
-        redemptionIds:         createdIds,
-        blockedInstantFunds:   blocked,   // ISINs downgraded to normal (30-min FP rule)
-        otpSentTo:             `${phone.slice(0, 3)}****${phone.slice(-3)}`,
-        otpExpiresAt:          sharedExpiry,
-        confirmUrl:            "POST /api/mf/smart-saving-v2/redeem/confirm",
+        orders:          createdOrders,
+        redemptionIds:   createdIds,
+        otpSentTo:       `${phone.slice(0, 3)}****${phone.slice(-3)}`,
+        otpExpiresAt:    sharedExpiry,
+        confirmUrl:      "POST /api/mf/smart-saving-v2/redeem/confirm",
       },
     });
   } catch (err) {
