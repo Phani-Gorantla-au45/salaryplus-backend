@@ -419,6 +419,14 @@ export const getV2Basket = async (req, res) => {
     const totalCurrentValue    = funds.reduce((s, f) => s + f.currentValue, 0);
     const totalInstantCapacity = funds.reduce((s, f) => s + f.instantRedeemCapacity, 0);
 
+    // Effective minimum investment = lowest minInvestmentAmount across active funds.
+    // The engine skips funds whose min isn't met and tries the next — so the basket
+    // accepts any amount >= the lowest individual fund minimum.
+    const activeMins = activeFunds
+      .map((f) => f.minInvestmentAmount)
+      .filter((v) => v != null && v > 0);
+    const basketMinInvestment = activeMins.length ? Math.min(...activeMins) : null;
+
     return res.status(200).json({
       success: true,
       data: {
@@ -428,6 +436,7 @@ export const getV2Basket = async (req, res) => {
         totalActiveFunds:     activeFunds.length,
         totalCurrentValue:    Math.floor(totalCurrentValue),
         totalInstantCapacity: Math.floor(totalInstantCapacity),
+        basketMinInvestment,   // use this for frontend min-amount validation, not per-fund min
         funds,
       },
     });
