@@ -41,38 +41,43 @@ import {
 const smartAllocate = (newAmount, activeFunds, existingHoldings = {}) => {
   if (!activeFunds.length || newAmount <= 0) return [];
 
-  const funds    = [...activeFunds].sort((a, b) => a.rank - b.rank);
-  const existing = (f) => existingHoldings[f.isin] ?? 0;
-
-  // threshold = the minimum balance at which a fund hits its per-day instant ceiling
+  const funds     = [...activeFunds].sort((a, b) => a.rank - b.rank);
+  const existing  = (f) => existingHoldings[f.isin] ?? 0;
   const threshold = (f) => (f.instantLimitRupees ?? 50000) / ((f.instantLimitPercent ?? 90) / 100);
+  const minInv    = (f) => f.minInvestmentAmount ?? 0;
 
   const totalExisting = funds.reduce((s, f) => s + existing(f), 0);
   const T_total       = totalExisting + newAmount;
-
-  // Minimum funds needed so at most `threshold` per fund
-  // (using smallest threshold to be conservative)
-  const minThreshold = Math.min(...funds.map(threshold));
-  const N_needed     = Math.ceil(T_total / minThreshold);
-  const N            = Math.min(N_needed, funds.length);
-  const topN         = funds.slice(0, N);
+  const minThreshold  = Math.min(...funds.map(threshold));
+  const N_needed      = Math.ceil(T_total / minThreshold);
+  const N             = Math.min(N_needed, funds.length);
+  const topN          = funds.slice(0, N);
 
   const alloc   = Object.fromEntries(funds.map((f) => [f.isin, 0]));
   let remaining = newAmount;
 
-  // Phase 1 — fill each top-N fund to its threshold (deficit first)
+  // Phase 1 — fill each top-N fund to its threshold (deficit first).
+  // Skip any fund where the calculated invest amount is below its minInvestmentAmount
+  // so the remaining falls through to the next eligible fund in rank order.
   for (const f of topN) {
     if (remaining <= 0) break;
-    const deficit  = Math.max(0, threshold(f) - existing(f));
-    const invest   = Math.min(deficit, remaining);
+    const deficit = Math.max(0, threshold(f) - existing(f));
+    const invest  = Math.min(deficit, remaining);
+    if (invest > 0 && minInv(f) > 0 && invest < minInv(f)) continue; // below min — skip
     alloc[f.isin] += invest;
     remaining     -= invest;
   }
 
-  // Phase 2 — leftover: spill into rank-1 fund (or first unused fund if available)
+  // Phase 2 — spill remainder to first fund (in rank order) that can accept it.
+  // Prefer the next unused fund (index N), fall back through all funds.
   if (remaining > 0) {
-    const spillTo = N < funds.length ? funds[N] : topN[0];
-    alloc[spillTo.isin] += remaining;
+    const candidates = N < funds.length ? [funds[N], ...topN] : [...topN];
+    const spillTo    = candidates.find((f) => minInv(f) === 0 || remaining >= minInv(f));
+    if (spillTo) {
+      alloc[spillTo.isin] += remaining;
+      remaining = 0;
+    }
+    // remaining > 0 here means no fund in the basket accepts this amount
   }
 
   return funds
@@ -540,15 +545,17 @@ export const smartInvest = async (req, res) => {
       return res.status(400).json({ success: false, message: "Engine could not distribute amount across basket funds" });
     }
 
-    /* ---- Validate min investment per fund ---- */
-    for (const a of allocation) {
-      const min = a.fund.minInvestmentAmount;
-      if (min && a.amount < min) {
-        return res.status(400).json({
-          success: false,
-          message: `Minimum investment for ${a.fund.fundName} is ₹${min}. Increase total_amount or ask admin to lower min.`,
-        });
-      }
+    /* ---- Check engine could allocate the full amount ---- */
+    const totalAllocated = allocation.reduce((s, a) => s + a.amount, 0);
+    if (totalAllocated === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount is below the minimum investment required for all funds in the basket.",
+      });
+    }
+    if (totalAllocated < Number(total_amount)) {
+      // Partial allocation — engine skipped funds whose minInvestmentAmount wasn't met
+      console.warn(`[SS-V2 INVEST] Partial allocation: requested=${total_amount} allocated=${totalAllocated}`);
     }
 
     /* ---- Build FP batch payload ---- */
