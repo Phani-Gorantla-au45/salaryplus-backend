@@ -43,7 +43,9 @@ const smartAllocate = (newAmount, activeFunds, existingHoldings = {}) => {
 
   const funds     = [...activeFunds].sort((a, b) => a.rank - b.rank);
   const existing  = (f) => existingHoldings[f.isin] ?? 0;
-  const threshold = (f) => (f.instantLimitRupees ?? 50000) / ((f.instantLimitPercent ?? 90) / 100);
+  // TEST MODE: set SMART_SAVING_TEST_THRESHOLD=500 in .env to cap each fund at ₹500
+  const testThreshold = process.env.SMART_SAVING_TEST_THRESHOLD ? Number(process.env.SMART_SAVING_TEST_THRESHOLD) : null;
+  const threshold = (f) => testThreshold ?? (f.instantLimitRupees ?? 50000) / ((f.instantLimitPercent ?? 90) / 100);
   const minInv    = (f) => f.minInvestmentAmount ?? 0;
 
   const totalExisting = funds.reduce((s, f) => s + existing(f), 0);
