@@ -4,9 +4,14 @@ import MfUserData            from "../../../models/mf/mfUserData.model.js";
 
 const TAG = "[SMART-PORTFOLIO ADMIN]";
 
+const SINGLETON_KEY = "default";
+
 const getOrCreateConfig = async () => {
-  let cfg = await SmartPortfolioConfig.findOne();
-  if (!cfg) cfg = await SmartPortfolioConfig.create({});
+  const cfg = await SmartPortfolioConfig.findOneAndUpdate(
+    { key: SINGLETON_KEY },
+    { $setOnInsert: { key: SINGLETON_KEY } },
+    { upsert: true, new: true }
+  );
   return cfg;
 };
 
@@ -218,7 +223,7 @@ export const assignPortfolio = async (req, res) => {
       return res.status(400).json({ success: false, message: "riskLevel must be 'moderate' or 'high'" });
     }
 
-    const cfg = await SmartPortfolioConfig.findOne().lean();
+    const cfg = await SmartPortfolioConfig.findOne({ key: SINGLETON_KEY }).lean();
     if (!cfg) return res.status(503).json({ success: false, message: "Smart Portfolio not configured yet" });
 
     const { allocation, funds } = computeAllocation(Number(age), riskLevel, cfg);

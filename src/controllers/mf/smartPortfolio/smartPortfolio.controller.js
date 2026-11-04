@@ -17,7 +17,7 @@ export const recommendPortfolio = async (req, res) => {
       return res.status(400).json({ success: false, message: "riskLevel must be 'moderate' or 'high'" });
     }
 
-    const cfg = await SmartPortfolioConfig.findOne().lean();
+    const cfg = await SmartPortfolioConfig.findOne({ key: "default" }).lean();
     if (!cfg || (!cfg.equity?.length && !cfg.debt?.length && !cfg.gold?.length)) {
       return res.status(503).json({ success: false, message: "Smart Portfolio not configured yet. Contact admin." });
     }
@@ -53,7 +53,7 @@ export const savePortfolio = async (req, res) => {
       return res.status(400).json({ success: false, message: "riskLevel must be 'moderate' or 'high'" });
     }
 
-    const cfg = await SmartPortfolioConfig.findOne().lean();
+    const cfg = await SmartPortfolioConfig.findOne({ key: "default" }).lean();
     if (!cfg) return res.status(503).json({ success: false, message: "Smart Portfolio not configured yet" });
 
     const { allocation, funds } = computeAllocation(Number(age), riskLevel, cfg);

@@ -38,9 +38,10 @@ const riskLevelFormulaSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// Singleton config doc
+// Singleton config doc — always identified by key: "default"
 const smartPortfolioConfigSchema = new mongoose.Schema(
   {
+    key: { type: String, default: "default", unique: true, index: true },
     // Fund picks per asset class (admin-managed)
     equity: { type: [fundSliceSchema], default: [] },
     debt:   { type: [fundSliceSchema], default: [] },
