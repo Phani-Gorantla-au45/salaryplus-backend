@@ -104,8 +104,13 @@ export const createSkipInstruction = async (req, res) => {
     const { skip_count } = req.body;
 
     // Verify this SIP belongs to the user (sipId is FP's mfpp_xxx)
+    console.log(`[SKIP] Lookup — sipId param: "${sipId}" | uniqueId: "${uniqueId}"`);
     const sipRecord = await MfSip.findOne({ fpSipId: sipId, uniqueId }).lean();
+    console.log(`[SKIP] DB result:`, sipRecord ? `found _id=${sipRecord._id} fpSipId=${sipRecord.fpSipId}` : "NOT FOUND");
     if (!sipRecord) {
+      // Check if the SIP exists at all (wrong user vs wrong id)
+      const anyMatch = await MfSip.findOne({ fpSipId: sipId }, { uniqueId: 1, fpSipId: 1 }).lean();
+      console.log(`[SKIP] Any doc with fpSipId="${sipId}":`, anyMatch ? `yes, belongs to ${anyMatch.uniqueId}` : "none");
       return res.status(404).json({ success: false, message: "SIP not found" });
     }
     if (!sipRecord.fpSipId) {
