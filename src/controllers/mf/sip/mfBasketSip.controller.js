@@ -16,6 +16,7 @@ import {
   verifyConsentOtp,
 } from "../../../utils/mf/consent.utils.js";
 import { sipPublicResponse } from "./mfSip.controller.js";
+import { sendSipCancelEmail } from "../../../utils/notifications/email.utils.js";
 
 /* ------------------------------------------------------------------ */
 /*  Internal helpers                                                     */
@@ -630,6 +631,28 @@ export const cancelBasketSip = async (req, res) => {
       { _id: record._id },
       { $set: { fpState: "cancelled", basketPlans: updatedBasketPlans } },
     );
+
+    // Send cancel email — fire and forget
+    (async () => {
+      try {
+        const user = await User.findOne({ uniqueId }, { email: 1, First_name: 1, Last_name: 1 }).lean();
+        const to   = user?.email;
+        if (to) {
+          const name       = [user.First_name, user.Last_name].filter(Boolean).join(" ") || null;
+          const fundNames  = record.basketFunds?.map((f) => f.schemeName || f.fundName).filter(Boolean).join(", ") || record.basketName || null;
+          await sendSipCancelEmail({
+            to,
+            userName:    name,
+            schemeName:  fundNames,
+            amount:      record.amount ?? null,
+            frequency:   record.frequency ?? null,
+            cancelledAt: new Date(),
+          });
+        }
+      } catch (e) {
+        console.error("❌ [BASKET SIP] Cancel email failed:", e.message);
+      }
+    })();
 
     return res.status(200).json({
       success: true,

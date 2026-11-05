@@ -17,6 +17,7 @@ import {
   sendConsentOtp,
   verifyConsentOtp,
 } from "../../../utils/mf/consent.utils.js";
+import { sendSipCancelEmail } from "../../../utils/notifications/email.utils.js";
 
 /* ------------------------------------------------------------------ */
 /*  Internal — get scheme from cache or FP                              */
@@ -595,6 +596,28 @@ export const cancelSip = async (req, res) => {
 
     const fpData = await cancelFpSip(record.fpSipId, cancellation_code, cancellation_reason ?? null);
     await MfSip.updateOne({ _id: record._id }, { $set: sipFromFp(fpData) });
+
+    // Send cancel email — fire and forget
+    (async () => {
+      try {
+        const userData = await MfUserData.findOne({ uniqueId }, { phone: 1 }).lean();
+        const user     = await User.findOne({ uniqueId }, { email: 1, First_name: 1, Last_name: 1 }).lean();
+        const to       = user?.email;
+        if (to) {
+          const name = [user.First_name, user.Last_name].filter(Boolean).join(" ") || null;
+          await sendSipCancelEmail({
+            to,
+            userName:    name,
+            schemeName:  record.schemeName ?? record.fundName ?? null,
+            amount:      record.amount ?? null,
+            frequency:   record.frequency ?? null,
+            cancelledAt: new Date(),
+          });
+        }
+      } catch (e) {
+        console.error("❌ [SIP] Cancel email failed:", e.message);
+      }
+    })();
 
     return res.status(200).json({
       success: true,

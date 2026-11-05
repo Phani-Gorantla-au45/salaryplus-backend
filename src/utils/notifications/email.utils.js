@@ -911,3 +911,92 @@ export const sendEmailOtp = async (to, otp) => {
     html,
   });
 };
+
+/* ================================================================
+ * SIP CANCELLATION — USER CONFIRMATION EMAIL
+ * ================================================================ */
+export const sendSipCancelEmail = async ({ to, userName, schemeName, amount, frequency, cancelledAt }) => {
+  const displayName = userName?.trim() || "Investor";
+  const fundLabel   = schemeName ?? "your SIP";
+  const fmt         = (n) => n ? "₹" + Number(n).toLocaleString("en-IN") : null;
+  const fmtDate     = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }) : "Today";
+  const freqLabel   = frequency ? frequency.charAt(0).toUpperCase() + frequency.slice(1) : null;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#F4F6FB;font-family:'Helvetica Neue',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FB;padding:32px 0">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+        <tr>
+          <td style="background:${BRAND_COLOR};padding:24px 32px">
+            <p style="margin:0;font-size:22px;font-weight:800;color:#fff;letter-spacing:1px">${BRAND}</p>
+            <p style="margin:4px 0 0;font-size:12px;color:${GOLD};letter-spacing:2px;text-transform:uppercase">Wealth · Done Right</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#FEF2F2;padding:20px 32px;border-bottom:2px solid #FECACA;text-align:center">
+            <p style="margin:0;font-size:26px">🛑</p>
+            <p style="margin:8px 0 0;font-size:18px;font-weight:800;color:#991B1B">SIP Cancelled</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px">
+            <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 20px">
+              Dear <strong>${displayName}</strong>,<br/>
+              Your SIP for <strong>${fundLabel}</strong> has been cancelled successfully. No further installments will be deducted.
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFF;border:1px solid #E0E7FF;border-radius:10px;margin:0 0 24px;overflow:hidden">
+              <tr style="background:${BRAND_COLOR}">
+                <td colspan="2" style="padding:12px 20px;font-size:13px;font-weight:700;color:#fff;letter-spacing:0.5px">Cancellation Details</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #E0E7FF;width:45%">Fund</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827;border-bottom:1px solid #E0E7FF">${fundLabel}</td>
+              </tr>
+              ${fmt(amount) ? `<tr style="background:#F9FAFB">
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151;border-bottom:1px solid #E0E7FF">SIP Amount</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827;border-bottom:1px solid #E0E7FF">${fmt(amount)}${freqLabel ? ` / ${freqLabel}` : ""}</td>
+              </tr>` : ""}
+              <tr>
+                <td style="padding:12px 20px;font-size:14px;font-weight:600;color:#374151">Cancelled On</td>
+                <td style="padding:12px 20px;font-size:14px;color:#111827">${fmtDate(cancelledAt)}</td>
+              </tr>
+            </table>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px">
+              <tr>
+                <td style="background:#FFF9E6;border:1px solid ${GOLD};border-radius:8px;padding:14px 18px">
+                  <p style="margin:0;font-size:13px;color:#92400E;line-height:1.6">
+                    Your existing mutual fund units are <strong>safe</strong> and remain in your portfolio. Only future installments have been stopped.
+                  </p>
+                </td>
+              </tr>
+            </table>
+            <p style="color:#6B7280;font-size:13px;line-height:1.6;margin:0">
+              If you did not request this or have questions, contact us at
+              <a href="mailto:support@bharatwealth.app" style="color:${BRAND_COLOR}">support@bharatwealth.app</a>.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#F4F6FB;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:11px;color:#9CA3AF">© ${new Date().getFullYear()} ${BRAND}. All rights reserved.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await getTransporter().sendMail({
+    from:    `"${BRAND}" <${process.env.SMTP_FROM}>`,
+    to,
+    cc:      "support@bharatwealth.app",
+    subject: `SIP Cancelled — ${BRAND}`,
+    text:    `Dear ${displayName}, your SIP for ${fundLabel} has been cancelled. No further installments will be deducted. Your existing units remain safe in your portfolio.`,
+    html,
+  });
+};
