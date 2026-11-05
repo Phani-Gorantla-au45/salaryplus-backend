@@ -103,21 +103,48 @@ export const createSkipInstruction = async (req, res) => {
     const { sipId } = req.params;
     const { skip_count } = req.body;
 
-    // Verify this SIP belongs to the user (sipId is FP's mfpp_xxx)
+    // Look up by top-level fpSipId first (individual SIP)
+    // Fall back to basketPlans[].fpSipId (basket SIP — each fund has its own plan id)
     console.log(`[SKIP] Lookup — sipId param: "${sipId}" | uniqueId: "${uniqueId}"`);
-    const sipRecord = await MfSip.findOne({ fpSipId: sipId, uniqueId }).lean();
-    console.log(`[SKIP] DB result:`, sipRecord ? `found _id=${sipRecord._id} fpSipId=${sipRecord.fpSipId}` : "NOT FOUND");
+    let sipRecord = await MfSip.findOne({ fpSipId: sipId, uniqueId }).lean();
     if (!sipRecord) {
-      // Check if the SIP exists at all (wrong user vs wrong id)
-      const anyMatch = await MfSip.findOne({ fpSipId: sipId }, { uniqueId: 1, fpSipId: 1 }).lean();
-      console.log(`[SKIP] Any doc with fpSipId="${sipId}":`, anyMatch ? `yes, belongs to ${anyMatch.uniqueId}` : "none");
+      sipRecord = await MfSip.findOne({ "basketPlans.fpSipId": sipId, uniqueId }).lean();
+    }
+    console.log(`[SKIP] DB result:`, sipRecord
+      ? `found _id=${sipRecord._id} isBasket=${sipRecord.isBasketSip} fpSipId=${sipRecord.fpSipId}`
+      : "NOT FOUND");
+    if (!sipRecord) {
       return res.status(404).json({ success: false, message: "SIP not found" });
     }
-    if (!sipRecord.fpSipId) {
-      return res.status(400).json({ success: false, message: "SIP has no FP plan ID" });
+
+    // For basket SIP: skip all active plans in the basket
+    if (sipRecord.isBasketSip) {
+      const activePlans = sipRecord.basketPlans.filter((p) => p.fpSipId && p.fpState !== "cancelled");
+      console.log(`[SKIP] Basket SIP — skipping ${activePlans.length} plans`);
+
+      const results = [];
+      const errors  = [];
+      for (const plan of activePlans) {
+        try {
+          const r = await buildAndCreateSkip(plan.fpSipId, skip_count);
+          results.push({ fpSipId: plan.fpSipId, isin: plan.isin, result: r });
+        } catch (e) {
+          errors.push({ fpSipId: plan.fpSipId, isin: plan.isin, error: e.message });
+        }
+      }
+
+      if (results.length > 0) sendSkipEmailSafe(uniqueId, sipRecord, results[0]?.result, Number(skip_count));
+
+      return res.status(201).json({
+        success: true,
+        message: `${skip_count} installment(s) will be skipped for ${results.length} fund(s)`,
+        data: results,
+        errors: errors.length ? errors : undefined,
+      });
     }
 
-    console.log(`[SKIP] uniqueId=${uniqueId} plan=${sipRecord.fpSipId} skip_count=${skip_count}`);
+    // Individual SIP
+    console.log(`[SKIP] Individual plan=${sipRecord.fpSipId} skip_count=${skip_count}`);
     const result = await buildAndCreateSkip(sipRecord.fpSipId, skip_count);
 
     sendSkipEmailSafe(uniqueId, sipRecord, result, Number(skip_count));
