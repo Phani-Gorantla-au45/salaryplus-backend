@@ -103,15 +103,38 @@ export const fetchFpRedemption = async (fpRedemptionId) => {
 /*                                                                      */
 /*  params: { mf_investment_account, folio, scheme }                   */
 /* ------------------------------------------------------------------ */
+/**
+ * Extract { max, min } instant amounts for one scheme+folio from a pre-redemption summary.
+ * FP response shape:
+ *   { object: "pre_redemption_summary", as_on, schemes: [
+ *       { scheme, folio, max_instant_redemption_amount, min_instant_redemption_amount } ] }
+ * max = permissible instant amount available TODAY (already net of today's usage).
+ */
+export const parseFpRedemptionSummary = (summary, scheme, folio) => {
+  const rows = Array.isArray(summary?.schemes) ? summary.schemes : [];
+  const row =
+    rows.find((r) => r.scheme?.toUpperCase() === scheme?.toUpperCase() && String(r.folio) === String(folio)) ??
+    rows.find((r) => r.scheme?.toUpperCase() === scheme?.toUpperCase()) ??
+    rows[0] ??
+    summary; // tolerate a flat response
+  const num = (v) => (v == null || isNaN(Number(v)) ? null : Number(v));
+  return {
+    max: num(row?.max_instant_redemption_amount),
+    min: num(row?.min_instant_redemption_amount),
+  };
+};
+
 export const fetchFpRedemptionSummary = async (params) => {
   try {
     console.log(
       `\n📊 [FP REDEMPTION SUMMARY] Fetching summary, params:`,
       params
     );
-    const response = await axios.get(
+    // POST with JSON body — the GET (query-param) variant is marked "To be Deprecated" by FP.
+    const response = await axios.post(
       `${FP_API_URL()}/v2/mf_redemptions/summary`,
-      { headers: await fpHeaders(), params }
+      params,
+      { headers: await fpHeaders() }
     );
     console.log(`✅ [FP REDEMPTION SUMMARY] Received`);
     return response.data;

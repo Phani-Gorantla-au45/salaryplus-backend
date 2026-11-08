@@ -9,6 +9,7 @@ import {
   createFpRedemption,
   patchFpRedemption,
   fetchFpRedemptionSummary,
+  parseFpRedemptionSummary,
 } from "../../../utils/mf/redemption/redemption.utils.js";
 import {
   generateOtp,
@@ -108,6 +109,110 @@ const instantCap = (fund, holdingValue, fpMaxInstant = null) => {
   return Math.max(0, rule);
 };
 
+/* ====================================================================
+ *  INSTANT REDEMPTION CAPACITY (per folio → summed per fund)
+ *
+ *  • PRIMARY: FP pre-redemption summary (POST /v2/mf_redemptions/summary)
+ *    per folio. max_instant_redemption_amount is used AS-IS — FP already
+ *    applies 90% / ₹50k / today's usage. min_instant_redemption_amount
+ *    is the smallest instant order allowed for that folio.
+ *  • FALLBACK only (FP call failed, or 0 in sandbox):
+ *      min( folio holding × pct,  limitRupees − instantUsedToday − FP-covered )
+ *      defaults: pct = 90%, limitRupees = ₹50,000
+ *    instantUsedToday = consented instant redemptions in this fund
+ *    since 00:00 IST today (not failed/cancelled).
+ *  • Fund capacity = sum of its folios' capacities.
+ * ==================================================================== */
+const INSTANT_EXCLUDED_STATES = ["failed", "cancelled", "reversed", "expired"];
+
+const istStartOfToday = () => {
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const ist = new Date(Date.now() + IST_OFFSET_MS);
+  ist.setUTCHours(0, 0, 0, 0);
+  return new Date(ist.getTime() - IST_OFFSET_MS);
+};
+
+// → { [ISIN]: rupees already redeemed instantly today }
+const fetchInstantUsedToday = async (uniqueId, isins) => {
+  const map = {};
+  if (!uniqueId || !isins.length) return map;
+  try {
+    const rows = await MfRedemption.aggregate([
+      {
+        $match: {
+          uniqueId,
+          isin:           { $in: isins.map((i) => i.toUpperCase()) },
+          redemptionMode: "instant",
+          consentGiven:   true,
+          fpState:        { $nin: INSTANT_EXCLUDED_STATES },
+          createdAt:      { $gte: istStartOfToday() },
+        },
+      },
+      { $group: { _id: "$isin", total: { $sum: { $ifNull: ["$amount", 0] } } } },
+    ]);
+    for (const r of rows) map[r._id] = r.total;
+  } catch (e) {
+    console.warn("[SS-V2] Instant-used-today lookup failed:", e.message);
+  }
+  return map;
+};
+
+// → { fundCap, folioCaps: { [folioNumber]: cap } }
+// FP sandbox often returns 0 for max_instant (not computed). In production a 0 is
+// authoritative (nothing available instantly today); in sandbox we ignore 0.
+const FP_IS_SANDBOX = () => /s\.finprim\.com/i.test(process.env.FP_API_URL ?? "");
+
+// → { fundCap, folioCaps: { [folioNumber]: cap }, folioMins: { [folioNumber]: min } }
+// instantMap: `${isin}:${folio}` → { max, min } from FP pre-redemption summary
+//
+// FP's max_instant_redemption_amount is AUTHORITATIVE — FP already applies
+// 90% / ₹50k / per-day usage. We use it as-is for every folio where FP returned it.
+// Our own rule (min(holding × pct, ₹50k − used today)) is ONLY a fallback for folios
+// where FP gave nothing usable (call failed, or 0 in sandbox).
+const computeFundInstant = (fund, holding, instantMap = {}, usedToday = 0) => {
+  const empty = { fundCap: 0, folioCaps: {}, folioMins: {} };
+  if (!holding || holding.currentValue <= 0) return empty;
+
+  const pct     = (fund.instantLimitPercent ?? 90) / 100;
+  const folios  = holding.folios ?? [holding];
+  const sandbox = FP_IS_SANDBOX();
+
+  const folioCaps = {};
+  const folioMins = {};
+  const fallback  = [];
+  let fpTotal     = 0;
+
+  for (const fo of folios) {
+    const fp = instantMap[`${fund.isin}:${fo.folioNumber}`] ?? {};
+    folioMins[fo.folioNumber] = fp.min != null && fp.min > 0 ? fp.min : 0;
+    const fpUsable = fp.max != null && (fp.max > 0 || !sandbox);
+    if (fpUsable) {
+      folioCaps[fo.folioNumber] = Math.max(0, Math.floor(fp.max));
+      fpTotal += folioCaps[fo.folioNumber];
+    } else {
+      fallback.push(fo);
+    }
+  }
+
+  // Fallback folios: share what's left of the fund's ₹50k/day after FP-reported folios
+  if (fallback.length) {
+    let left = Math.max(0, (fund.instantLimitRupees ?? 50000) - (usedToday ?? 0) - fpTotal);
+    for (const fo of [...fallback].sort((x, y) => y.currentValue - x.currentValue)) {
+      const take = Math.floor(Math.min(fo.currentValue * pct, left));
+      folioCaps[fo.folioNumber] = take;
+      left -= take;
+    }
+  }
+
+  // A folio below FP's min instant amount can't place an instant order
+  for (const k of Object.keys(folioCaps)) {
+    if (folioCaps[k] < (folioMins[k] ?? 0)) folioCaps[k] = 0;
+  }
+
+  const fundCap = Object.values(folioCaps).reduce((s, v) => s + v, 0);
+  return { fundCap, folioCaps, folioMins };
+};
+
 /* ------------------------------------------------------------------ */
 /*  Shared helpers                                                       */
 /* ------------------------------------------------------------------ */
@@ -194,7 +299,7 @@ const fetchHoldingsMap = async (fpAccountId, basketIsins) => {
 // Fetch instant redemption capacity per (isin, folio) — keyed as "ISIN:folioNumber"
 // fpStringId: the FP string account ID (e.g. "mfia_xxx") required by v2/mf_redemptions/summary
 const fetchInstantSummaries = async (fpStringId, funds, holdingsMap) => {
-  const map = {}; // `${isin}:${folio}` → maxInstant
+  const map = {}; // `${isin}:${folio}` → { max, min } (null values if FP call failed)
   await Promise.all(
     funds.flatMap((fund) => {
       const h = holdingsMap[fund.isin];
@@ -208,9 +313,9 @@ const fetchInstantSummaries = async (fpStringId, funds, holdingsMap) => {
             folio:  folio.folioNumber,
             scheme: fund.isin,
           });
-          map[key] = s?.max_instant_redemption_amount ?? null;
+          map[key] = parseFpRedemptionSummary(s, fund.isin, folio.folioNumber);
         } catch {
-          map[key] = null;
+          map[key] = { max: null, min: null };
         }
       });
     })
@@ -400,11 +505,17 @@ export const getV2Basket = async (req, res) => {
     // Only active funds are part of Smart Savings for display & totals.
     // Holdings in inactive funds remain visible/redeemable via the regular MF portfolio.
     const activeFunds = basket.funds.filter((f) => f.isActive).sort((a, b) => a.rank - b.rank);
-    const holdingsMap  = await fetchHoldingsMap(fpAccountId, activeFunds.map((f) => f.isin));
+    const activeIsins = activeFunds.map((f) => f.isin);
+    const fpStringId  = mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
+    const holdingsMap  = await fetchHoldingsMap(fpAccountId, activeIsins);
+    const [instantMap, usedTodayMap] = await Promise.all([
+      fetchInstantSummaries(fpStringId, activeFunds, holdingsMap),
+      fetchInstantUsedToday(uniqueId, activeIsins),
+    ]);
 
     const funds = activeFunds.map((f) => {
       const h   = holdingsMap[f.isin] ?? { currentValue: 0, folioNumber: null, units: null };
-      const cap = instantCap(f, h.currentValue);
+      const { fundCap: cap, folioCaps } = computeFundInstant(f, h, instantMap, usedTodayMap[f.isin] ?? 0);
       return {
         isin:                 f.isin,
         fundName:             f.fundName,
@@ -419,6 +530,12 @@ export const getV2Basket = async (req, res) => {
         units:                h.units,
         instantRedeemCapacity: Math.floor(cap),
         normalRedeemCapacity:  Math.max(0, Math.floor(h.currentValue - cap)),
+        instantUsedToday:      Math.floor(usedTodayMap[f.isin] ?? 0),
+        folios: (h.folios ?? []).map((fo) => ({
+          folioNumber:           fo.folioNumber,
+          currentValue:          Math.floor(fo.currentValue),
+          instantRedeemCapacity: folioCaps[fo.folioNumber] ?? 0,
+        })),
       };
     });
 
@@ -684,9 +801,12 @@ export const previewSmartRedeem = async (req, res) => {
     const fpStringId  = mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
     const activeFunds  = basket.funds.filter((f) => f.isActive).sort((a, b) => a.rank - b.rank);
     const holdingsMap  = await fetchHoldingsMap(fpOmsId, activeFunds.map((f) => f.isin));
-    const instantMap   = await fetchInstantSummaries(fpStringId, activeFunds, holdingsMap);
+    const [instantMap, usedTodayMap] = await Promise.all([
+      fetchInstantSummaries(fpStringId, activeFunds, holdingsMap),
+      fetchInstantUsedToday(uniqueId, activeFunds.map((f) => f.isin)),
+    ]);
 
-    const { plan, totalInstant, totalNormal, covered } = buildRedeemPlan(requested, activeFunds, holdingsMap, instantMap);
+    const { plan, totalInstant, totalNormal, covered } = buildRedeemPlan(requested, activeFunds, holdingsMap, instantMap, usedTodayMap);
 
     return res.status(200).json({
       success: true,
@@ -710,7 +830,7 @@ export const previewSmartRedeem = async (req, res) => {
 /* ====================================================================
  *  Shared redemption plan builder (used by both preview and execute)
  * ==================================================================== */
-const buildRedeemPlan = (requested, activeFunds, holdingsMap, instantMap) => {
+const buildRedeemPlan = (requested, activeFunds, holdingsMap, instantMap, usedTodayMap = {}) => {
   let remaining    = requested;
   let totalInstant = 0;
   let totalNormal  = 0;
@@ -724,20 +844,22 @@ const buildRedeemPlan = (requested, activeFunds, holdingsMap, instantMap) => {
     // Iterate each folio separately so multi-folio ISINs are fully redeemed
     const folios    = h.folios ?? [h];
     const minRedeem = fund.minRedemptionAmount ?? 0;
+    // Fund-level instant cap (90% / ₹50k-per-day), pre-split across folios
+    const { folioCaps, folioMins } = computeFundInstant(fund, h, instantMap ?? {}, usedTodayMap[fund.isin] ?? 0);
 
     for (const folio of folios) {
       if (remaining <= 0) break;
       if (folio.currentValue <= 0) continue;
 
-      const folioKey     = `${fund.isin}:${folio.folioNumber}`;
-      const instantLimit = instantMap?.[folioKey] ?? null;
-      const cap          = instantCap(fund, folio.currentValue, instantLimit);
+      const cap          = folioCaps[folio.folioNumber] ?? 0;
       const normalAvail  = Math.max(0, folio.currentValue - cap);
 
+      // Instant order must meet both the fund's min redemption and FP's min instant amount
+      const minInstant = Math.max(minRedeem, folioMins[folio.folioNumber] ?? 0);
       let instantTake = Math.min(remaining, Math.floor(cap));
-      if (instantTake > 0 && minRedeem > 0 && instantTake < minRedeem) {
-        const bumped = Math.min(minRedeem, Math.floor(cap));
-        instantTake  = bumped >= minRedeem ? bumped : 0;
+      if (instantTake > 0 && minInstant > 0 && instantTake < minInstant) {
+        const bumped = Math.min(minInstant, Math.floor(cap));
+        instantTake  = bumped >= minInstant ? bumped : 0;
       }
       remaining -= instantTake;
 
@@ -797,8 +919,11 @@ export const smartRedeem = async (req, res) => {
       return res.status(400).json({ success: false, message: "No holdings found in smart savings funds." });
     }
 
-    const instantMap = await fetchInstantSummaries(fpStringId, activeFunds, holdingsMap);
-    const { plan, covered } = buildRedeemPlan(requested, activeFunds, holdingsMap, instantMap);
+    const [instantMap, usedTodayMap] = await Promise.all([
+      fetchInstantSummaries(fpStringId, activeFunds, holdingsMap),
+      fetchInstantUsedToday(uniqueId, activeFunds.map((f) => f.isin)),
+    ]);
+    const { plan, covered } = buildRedeemPlan(requested, activeFunds, holdingsMap, instantMap, usedTodayMap);
 
     if (!plan.length || covered === 0) {
       return res.status(400).json({ success: false, message: "Insufficient holdings to fulfill this withdrawal." });
