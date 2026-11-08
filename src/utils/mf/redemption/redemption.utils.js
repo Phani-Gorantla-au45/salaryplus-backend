@@ -136,7 +136,7 @@ export const fetchFpRedemptionSummary = async (params) => {
       params,
       { headers: await fpHeaders() }
     );
-    console.log(`✅ [FP REDEMPTION SUMMARY] Received`);
+    console.log(`✅ [FP REDEMPTION SUMMARY] Response:`, JSON.stringify(response.data, null, 2));
     return response.data;
   } catch (err) {
     console.warn(
