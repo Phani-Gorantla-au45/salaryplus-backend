@@ -397,11 +397,12 @@ export const getV2Basket = async (req, res) => {
     const mfData     = await MfUserData.findOne({ uniqueId }, { "investmentAccount.fpInvestmentAccountId": 1, "investmentAccount.fpInvestmentAccountOldId": 1 }).lean();
     const fpAccountId = mfData?.investmentAccount?.fpInvestmentAccountOldId ?? mfData?.investmentAccount?.fpInvestmentAccountId ?? null;
 
-    const basketIsins = basket.funds.map((f) => f.isin);
-    const holdingsMap  = await fetchHoldingsMap(fpAccountId, basketIsins);
-
+    // Only active funds are part of Smart Savings for display & totals.
+    // Holdings in inactive funds remain visible/redeemable via the regular MF portfolio.
     const activeFunds = basket.funds.filter((f) => f.isActive).sort((a, b) => a.rank - b.rank);
-    const funds = basket.funds.sort((a, b) => a.rank - b.rank).map((f) => {
+    const holdingsMap  = await fetchHoldingsMap(fpAccountId, activeFunds.map((f) => f.isin));
+
+    const funds = activeFunds.map((f) => {
       const h   = holdingsMap[f.isin] ?? { currentValue: 0, folioNumber: null, units: null };
       const cap = instantCap(f, h.currentValue);
       return {
