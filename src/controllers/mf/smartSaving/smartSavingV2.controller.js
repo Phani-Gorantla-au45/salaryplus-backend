@@ -315,6 +315,7 @@ const fetchInstantSummaries = async (fpStringId, funds, holdingsMap, mobile = nu
             scheme: fund.isin,
           };
           if (mobile) params.mobile = mobile;
+          if (process.env.FP_ARN_CODE) params.arn_code = process.env.FP_ARN_CODE;
           const s = await fetchFpRedemptionSummary(params);
           map[key] = parseFpRedemptionSummary(s, fund.isin, folio.folioNumber);
         } catch {
