@@ -838,61 +838,67 @@ export const previewSmartRedeem = async (req, res) => {
  *  Shared redemption plan builder (used by both preview and execute)
  * ==================================================================== */
 const buildRedeemPlan = (requested, activeFunds, holdingsMap, instantMap, usedTodayMap = {}) => {
-  let remaining    = requested;
-  let totalInstant = 0;
-  let totalNormal  = 0;
-  const plan = [];
-
+  // Two passes so ALL instant capacity (across every fund & folio, by rank) is used
+  // before any normal redemption. Single-pass per folio wrongly took "normal" from
+  // folio #1 while folio #2 still had instant capacity left.
+  const slots = []; // one per (fund, folio), in rank order
   for (const fund of activeFunds) {
-    if (remaining <= 0) break;
     const h = holdingsMap[fund.isin];
     if (!h || h.currentValue <= 0) continue;
-
-    // Iterate each folio separately so multi-folio ISINs are fully redeemed
-    const folios    = h.folios ?? [h];
     const minRedeem = fund.minRedemptionAmount ?? 0;
-    // Fund-level instant cap (90% / ₹50k-per-day), pre-split across folios
     const { folioCaps, folioMins } = computeFundInstant(fund, h, instantMap ?? {}, usedTodayMap[fund.isin] ?? 0);
-
-    for (const folio of folios) {
-      if (remaining <= 0) break;
+    for (const folio of h.folios ?? [h]) {
       if (folio.currentValue <= 0) continue;
-
-      const cap          = folioCaps[folio.folioNumber] ?? 0;
-      const normalAvail  = Math.max(0, folio.currentValue - cap);
-
-      // Instant order must meet both the fund's min redemption and FP's min instant amount
-      const minInstant = Math.max(minRedeem, folioMins[folio.folioNumber] ?? 0);
-      let instantTake = Math.min(remaining, Math.floor(cap));
-      if (instantTake > 0 && minInstant > 0 && instantTake < minInstant) {
-        const bumped = Math.min(minInstant, Math.floor(cap));
-        instantTake  = bumped >= minInstant ? bumped : 0;
-      }
-      remaining -= instantTake;
-
-      let normalTake = Math.min(remaining, Math.floor(normalAvail));
-      if (normalTake > 0 && minRedeem > 0 && normalTake < minRedeem) {
-        const bumped = Math.min(minRedeem, Math.floor(normalAvail));
-        normalTake   = bumped >= minRedeem ? bumped : 0;
-      }
-      remaining -= normalTake;
-
-      if (instantTake > 0 || normalTake > 0) {
-        plan.push({
-          isin:          fund.isin,
-          fundName:      fund.fundName,
-          rank:          fund.rank,
-          folioNumber:   folio.folioNumber,
-          currentValue:  Math.floor(folio.currentValue),
-          instantAmount: instantTake,
-          normalAmount:  normalTake,
-          totalAmount:   instantTake + normalTake,
-        });
-        totalInstant += instantTake;
-        totalNormal  += normalTake;
-      }
+      const cap = Math.floor(folioCaps[folio.folioNumber] ?? 0);
+      slots.push({
+        fund, folio, minRedeem,
+        // Instant order must meet both the fund's min redemption and FP's min instant amount
+        minInstant:    Math.max(minRedeem, folioMins[folio.folioNumber] ?? 0),
+        instantAvail:  cap,
+        normalAvail:   Math.max(0, Math.floor(folio.currentValue - cap)),
+        instantAmount: 0,
+        normalAmount:  0,
+      });
     }
   }
+
+  const take = (avail, min, remaining) => {
+    let t = Math.min(remaining, avail);
+    if (t > 0 && min > 0 && t < min) {
+      const bumped = Math.min(min, avail);
+      t = bumped >= min ? bumped : 0;
+    }
+    return t;
+  };
+
+  let remaining = requested;
+  // Pass 1 — instant
+  for (const sl of slots) {
+    if (remaining <= 0) break;
+    sl.instantAmount = take(sl.instantAvail, sl.minInstant, remaining);
+    remaining -= sl.instantAmount;
+  }
+  // Pass 2 — normal (only for what instant couldn't cover)
+  for (const sl of slots) {
+    if (remaining <= 0) break;
+    sl.normalAmount = take(sl.normalAvail, sl.minRedeem, remaining);
+    remaining -= sl.normalAmount;
+  }
+
+  const plan = slots
+    .filter((sl) => sl.instantAmount > 0 || sl.normalAmount > 0)
+    .map((sl) => ({
+      isin:          sl.fund.isin,
+      fundName:      sl.fund.fundName,
+      rank:          sl.fund.rank,
+      folioNumber:   sl.folio.folioNumber,
+      currentValue:  Math.floor(sl.folio.currentValue),
+      instantAmount: sl.instantAmount,
+      normalAmount:  sl.normalAmount,
+      totalAmount:   sl.instantAmount + sl.normalAmount,
+    }));
+  const totalInstant = plan.reduce((s, p) => s + p.instantAmount, 0);
+  const totalNormal  = plan.reduce((s, p) => s + p.normalAmount, 0);
 
   return { plan, totalInstant, totalNormal, covered: totalInstant + totalNormal };
 };
