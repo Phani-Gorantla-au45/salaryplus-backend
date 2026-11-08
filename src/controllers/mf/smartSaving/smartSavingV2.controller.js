@@ -313,12 +313,13 @@ const fetchInstantSummaries = async (fpStringId, funds, holdingsMap, mobile = nu
             mf_investment_account: fpStringId,
             folio:  folio.folioNumber,
             scheme: fund.isin,
+            gateway: "ondc",
           };
           if (mobile) params.mobile = mobile;
-          if (process.env.FP_ARN_CODE) params.arn_code = process.env.FP_ARN_CODE;
           const s = await fetchFpRedemptionSummary(params);
           map[key] = parseFpRedemptionSummary(s, fund.isin, folio.folioNumber);
-        } catch {
+        } catch (e) {
+          console.warn(`[SS-V2] Summary fallback for ${fund.isin}:${folio.folioNumber} — ${e.message}`);
           map[key] = { max: null, min: null };
         }
       });

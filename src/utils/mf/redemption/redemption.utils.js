@@ -139,8 +139,8 @@ export const fetchFpRedemptionSummary = async (params) => {
     console.log(`✅ [FP REDEMPTION SUMMARY] Received`);
     return response.data;
   } catch (err) {
-    console.error(
-      "❌ [FP REDEMPTION SUMMARY] Fetch failed:",
+    console.warn(
+      "[FP REDEMPTION SUMMARY] Fetch failed:",
       JSON.stringify(err.response?.data || err.message, null, 2)
     );
     throw new Error(
