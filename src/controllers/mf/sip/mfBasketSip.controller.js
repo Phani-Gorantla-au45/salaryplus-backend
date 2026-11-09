@@ -79,7 +79,7 @@ export const createBasketSip = async (req, res) => {
       installment_day,
       payment_source,
       years,
-      generate_first_installment_now = true,
+      generate_first_installment_now = false,
       sip_plans,
       goal_id,
       folio_number,

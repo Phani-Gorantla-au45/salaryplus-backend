@@ -82,7 +82,7 @@ const resolveUserIp = (req) => {
 /*    installment_day?,          (required for monthly)                 */
 /*    payment_source,            (fpMandateId numeric)                  */
 /*    number_of_installments?,   (default 120)                          */
-/*    generate_first_installment_now?, (default true)                   */
+/*    generate_first_installment_now?, (default false)                  */
 /*    folio_number?                                                     */
 /*  }                                                                   */
 /* ------------------------------------------------------------------ */
@@ -96,7 +96,7 @@ export const createSip = async (req, res) => {
       installment_day,
       payment_source,
       years,
-      generate_first_installment_now = true,
+      generate_first_installment_now = false,
       folio_number,
       goal_id,
     } = req.body;
