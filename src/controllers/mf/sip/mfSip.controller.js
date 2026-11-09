@@ -523,18 +523,59 @@ export const listSips = async (req, res) => {
       isinMap = Object.fromEntries(plans.map((p) => [p.isin, { scheme_name: p.schemeName ?? null, fund_name: p.fundName ?? null }]));
     }
 
-    const enriched = sips.map((s) => ({
+    const enrichedPlans = sips.map((s) => ({
       ...s,
       scheme_name: isinMap[s.scheme]?.scheme_name ?? null,
       fund_name:   isinMap[s.scheme]?.fund_name   ?? null,
     }));
 
-    console.log(`[SIP LIST] uniqueId=${uniqueId} fpAccount=${fpAccountId} total=${enriched.length}`);
+    /* ---- Group basket SIPs ----
+     * FP stores a basket SIP as one purchase plan per fund and knows nothing about
+     * baskets. Our MfSip basket records list which FP plan ids belong together, so
+     * collapse those plans into ONE entry per basket (with the plans nested). */
+    const basketDocs = await MfSip.find(
+      { uniqueId, isBasketSip: true },
+      { basketName: 1, basketPlans: 1, frequency: 1, installmentDay: 1, paymentSource: 1, createdAt: 1 }
+    ).lean();
+    const basketByPlanId = {};
+    for (const b of basketDocs) {
+      for (const p of b.basketPlans ?? []) if (p.fpSipId) basketByPlanId[p.fpSipId] = b;
+    }
+
+    const groups = new Map(); // basketId → { doc, plans[] }
+    const standalone = [];
+    for (const plan of enrichedPlans) {
+      const b = basketByPlanId[plan.id];
+      if (!b) { standalone.push(plan); continue; }
+      const key = String(b._id);
+      if (!groups.has(key)) groups.set(key, { doc: b, plans: [] });
+      groups.get(key).plans.push(plan);
+    }
+
+    const minDate = (vals) => vals.filter(Boolean).sort()[0] ?? null;
+    const basketEntries = [...groups.values()].map(({ doc, plans }) => ({
+      id:                     String(doc._id),        // our basket SIP id
+      is_basket_sip:          true,
+      basket_name:            doc.basketName ?? "Basket SIP",
+      frequency:              plans[0]?.frequency ?? doc.frequency ?? "monthly",
+      installment_day:        plans[0]?.installment_day ?? doc.installmentDay ?? null,
+      amount:                 plans.reduce((s, p) => s + (Number(p.amount) || 0), 0),
+      state:                  plans.some((p) => p.state === "active") ? "active" : plans[0]?.state ?? "active",
+      next_installment_date:  minDate(plans.map((p) => p.next_installment_date)),
+      start_date:             minDate(plans.map((p) => p.start_date)),
+      payment_source:         plans[0]?.payment_source ?? doc.paymentSource ?? null,
+      created_at:             doc.createdAt ?? null,
+      basket_funds:           plans.map((p) => ({ isin: p.scheme, fundName: p.fund_name, schemeName: p.scheme_name })),
+      plans,                                          // full FP plans — each still manageable individually
+    }));
+
+    const data = [...basketEntries, ...standalone];
+    console.log(`[SIP LIST] uniqueId=${uniqueId} fpAccount=${fpAccountId} plans=${enrichedPlans.length} → baskets=${basketEntries.length} standalone=${standalone.length}`);
 
     return res.status(200).json({
       success: true,
-      count: enriched.length,
-      data:  enriched,
+      count: data.length,
+      data,
     });
   } catch (err) {
     console.error("❌ [SIP] List error:", err.message);
