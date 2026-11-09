@@ -1,8 +1,28 @@
 import SmartPortfolioConfig from "../../../models/mf/smartPortfolio/smartPortfolioProfile.model.js";
 import UserSmartPortfolio   from "../../../models/mf/smartPortfolio/userSmartPortfolio.model.js";
-import { computeAllocation } from "./smartPortfolioAdmin.controller.js";
+import { computeAllocation, attachSchemeMinimums, calcPortfolioMinimums } from "./smartPortfolioAdmin.controller.js";
 
 const TAG = "[SMART-PORTFOLIO]";
+
+/* --------------------------------------------------------------------
+ *  Ensure every fund carries minLumpsumAmount / minSipAmount and the
+ *  portfolio carries minLumpsumInvestment / minSipInvestment.
+ *  Minimums normally come from the admin config (resolved on save, like
+ *  curated baskets). Funds still missing them (config saved before this
+ *  feature, or old user snapshots) are resolved from FP thresholds here.
+ * -------------------------------------------------------------------- */
+const withMinimums = async (portfolio) => {
+  const funds   = (portfolio.funds ?? []).filter((f) => f.weight > 0);
+  const missing = funds.filter((f) => f.minLumpsumAmount == null && f.minSipAmount == null);
+  const resolved = missing.length ? await attachSchemeMinimums(missing) : [];
+  const byIsin   = Object.fromEntries(resolved.map((f) => [f.isin, f]));
+  const enriched = funds.map((f) =>
+    byIsin[f.isin]
+      ? { ...f, minLumpsumAmount: byIsin[f.isin].minLumpsumAmount, minSipAmount: byIsin[f.isin].minSipAmount }
+      : f
+  );
+  return { ...portfolio, funds: enriched, ...calcPortfolioMinimums(enriched) };
+};
 
 /* ====================================================================
  *  POST /api/mf/smart-portfolio/recommend
@@ -27,7 +47,7 @@ export const recommendPortfolio = async (req, res) => {
     console.log(`${TAG} recommend — age:${age} risk:${riskLevel} → equity:${allocation.equity}% debt:${allocation.debt}% gold:${allocation.gold}%`);
     return res.json({
       success: true,
-      data: { riskLevel, allocation, funds, inputs: { age: Number(age) } },
+      data: await withMinimums({ riskLevel, allocation, funds, inputs: { age: Number(age) } }),
     });
   } catch (err) {
     console.error(`${TAG} recommend:`, err.message);
@@ -56,7 +76,9 @@ export const savePortfolio = async (req, res) => {
     const cfg = await SmartPortfolioConfig.findOne({ key: "default" }).lean();
     if (!cfg) return res.status(503).json({ success: false, message: "Smart Portfolio not configured yet" });
 
-    const { allocation, funds } = computeAllocation(Number(age), riskLevel, cfg);
+    const { allocation, funds: rawFunds } = computeAllocation(Number(age), riskLevel, cfg);
+    // Lock minimums into the snapshot so /my and invest use the same numbers
+    const { funds, minLumpsumInvestment, minSipInvestment } = await withMinimums({ funds: rawFunds });
 
     const portfolio = await UserSmartPortfolio.findOneAndUpdate(
       { uniqueId },
@@ -66,6 +88,8 @@ export const savePortfolio = async (req, res) => {
         inputs:         { age: Number(age) },
         allocation,
         funds,
+        minLumpsumInvestment,
+        minSipInvestment,
         status:         "saved",
         investmentType: null,
         linkedOrderIds: [],
@@ -77,7 +101,7 @@ export const savePortfolio = async (req, res) => {
     );
 
     console.log(`${TAG} save — ${uniqueId} age:${age} risk:${riskLevel}`);
-    return res.json({ success: true, message: "Portfolio saved", data: portfolio });
+    return res.json({ success: true, message: "Portfolio saved", data: await withMinimums(portfolio.toObject()) });
   } catch (err) {
     console.error(`${TAG} save:`, err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -91,7 +115,8 @@ export const getMyPortfolio = async (req, res) => {
   try {
     const portfolio = await UserSmartPortfolio.findOne({ uniqueId: req.user.uniqueId }).lean();
     if (!portfolio) return res.status(404).json({ success: false, message: "No portfolio saved yet" });
-    return res.json({ success: true, data: portfolio });
+    // Older saved snapshots may contain 0% funds — never expose them
+    return res.json({ success: true, data: await withMinimums(portfolio) });
   } catch (err) {
     console.error(`${TAG} getMyPortfolio:`, err.message);
     return res.status(500).json({ success: false, message: err.message });

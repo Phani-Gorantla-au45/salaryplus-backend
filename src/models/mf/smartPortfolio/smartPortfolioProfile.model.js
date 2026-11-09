@@ -8,6 +8,9 @@ const fundSliceSchema = new mongoose.Schema(
     amcName:  { type: String, default: null },
     weight:   { type: Number, required: true, min: 1, max: 100 }, // % within asset class, active funds must sum to 100
     isActive: { type: Boolean, default: true },
+    // Resolved from FP scheme thresholds on admin save (same as curated baskets)
+    minLumpsumAmount: { type: Number, default: null },
+    minSipAmount:     { type: Number, default: null },
   },
   { _id: false }
 );

@@ -191,8 +191,11 @@ export const authorizeMandate = async (req, res) => {
       upiUri   = fpResult?.upi?.uri ?? null;
       console.log(`  ✅ [MANDATE AUTH UPI] paymentId=${fpResult.id} uri=${upiUri}`);
     } else {
-      // E_MANDATE (eNACH) flow — redirect user to tokenUrl
-      const mandateReturnUrl = `https://www.salaryplus.club/mandate/callback`;
+      // E_MANDATE (eNACH / net banking) flow — redirect user to tokenUrl.
+      // After bank auth, FP form-POSTs { paymentId, status, failureReason } to this URL
+      // (our auth-callback records the result). App WebView detects the salaryplus.club host.
+      const mandateReturnUrl =
+        process.env.MANDATE_POSTBACK_URL ?? "https://salaryplus.club/api/mf/mandate/auth-callback";
       fpResult = await authorizeFpMandate({
         mandate_id:           record.fpMandateId,
         payment_postback_url: mandateReturnUrl,
@@ -448,6 +451,7 @@ const mandatePublicResponse = (m) => ({
   mandateRef:        m.mandateRef,
   umrn:              m.umrn,
   authStatus:        m.authStatus,
+  authFailureReason: m.authFailureReason ?? null,
   tokenUrl:          m.tokenUrl,
   upiUri:            m.upiUri,
   fpPaymentId:       m.fpPaymentId,

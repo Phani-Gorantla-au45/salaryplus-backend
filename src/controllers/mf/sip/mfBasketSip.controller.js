@@ -1,4 +1,5 @@
 import MfSip from "../../../models/mf/sip/mfSip.model.js";
+import MfMandate from "../../../models/mf/mandate/mfMandate.model.js";
 import MfUserData from "../../../models/mf/mfUserData.model.js";
 import MfSchemePlan from "../../../models/mf/master/mfSchemePlan.model.js";
 import User from "../../../models/user/user.model.js";
@@ -121,6 +122,22 @@ export const createBasketSip = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "sip_plans must be an array of at least 2 funds",
+      });
+    }
+
+    /* ---------- MANDATE LIMIT CHECK (FP rejects: "Amount cannot be greater than mandate limit") ---------- */
+    const mandateDoc = await MfMandate.findOne(
+      { uniqueId, fpMandateId: Number(payment_source) },
+      { mandateLimit: 1 }
+    ).lean();
+    const mandateLimit = mandateDoc?.mandateLimit ?? null;
+    const maxPlanAmount = Math.max(...sip_plans.map((p) => Number(p.amount) || 0));
+    if (mandateLimit != null && maxPlanAmount > mandateLimit) {
+      return res.status(400).json({
+        success: false,
+        code: "MANDATE_LIMIT_EXCEEDED",
+        message: `SIP amount ₹${maxPlanAmount.toLocaleString("en-IN")} is more than your mandate limit of ₹${mandateLimit.toLocaleString("en-IN")}. Please set up a new mandate with a higher limit.`,
+        data: { mandateLimit, sipAmount: maxPlanAmount },
       });
     }
     for (const plan of sip_plans) {
@@ -287,6 +304,13 @@ export const createBasketSip = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ [CREATE BASKET SIP] Error:", err.message);
+    if (/mandate limit/i.test(err.message ?? "")) {
+      return res.status(400).json({
+        success: false,
+        code: "MANDATE_LIMIT_EXCEEDED",
+        message: "Your SIP amount is more than your mandate limit. Please set up a new mandate with a higher limit.",
+      });
+    }
     return res.status(500).json({ success: false, message: err.message });
   }
 };

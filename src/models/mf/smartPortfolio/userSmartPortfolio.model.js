@@ -7,6 +7,8 @@ const fundAllocationSchema = new mongoose.Schema(
     amcName:    { type: String, default: null },
     assetClass: { type: String, enum: ["equity", "debt", "gold"], required: true },
     weight:     { type: Number, required: true }, // effective % of total portfolio
+    minLumpsumAmount: { type: Number, default: null },
+    minSipAmount:     { type: Number, default: null },
     amount:     { type: Number, default: null },  // set at invest time
   },
   { _id: false }
@@ -29,6 +31,9 @@ const userSmartPortfolioSchema = new mongoose.Schema(
     },
 
     funds: { type: [fundAllocationSchema], default: [] },
+    // Smallest total so every fund gets at least its own minimum
+    minLumpsumInvestment: { type: Number, default: null },
+    minSipInvestment:     { type: Number, default: null },
 
     status:         { type: String, enum: ["saved", "invested"], default: "saved" },
     investmentType: { type: String, enum: ["lumpsum", "sip", null], default: null },

@@ -8,7 +8,7 @@ const RISK_PROFILES = ["conservative", "moderate", "aggressive"];
 /* ------------------------------------------------------------------ */
 /*  Internal — resolve scheme from cache or FP, return key fields      */
 /* ------------------------------------------------------------------ */
-const resolveSchemeForBasket = async (isin) => {
+export const resolveSchemeForBasket = async (isin) => {
   const upper = isin.toUpperCase().trim();
   let scheme = await MfSchemePlan.findOne({ isin: upper });
 

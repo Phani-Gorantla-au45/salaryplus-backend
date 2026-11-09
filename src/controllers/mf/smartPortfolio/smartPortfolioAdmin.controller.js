@@ -1,6 +1,7 @@
 import SmartPortfolioConfig from "../../../models/mf/smartPortfolio/smartPortfolioProfile.model.js";
 import UserSmartPortfolio   from "../../../models/mf/smartPortfolio/userSmartPortfolio.model.js";
 import MfUserData            from "../../../models/mf/mfUserData.model.js";
+import { resolveSchemeForBasket } from "../admin/mfBasket.controller.js";
 
 const TAG = "[SMART-PORTFOLIO ADMIN]";
 
@@ -22,6 +23,32 @@ const validateFundWeights = (funds, label) => {
   if (Math.round(sum) !== 100) {
     throw new Error(`${label} active fund weights must sum to 100, got ${sum}`);
   }
+};
+
+/* Resolve scheme minimums for each fund from FP thresholds (cached in MfSchemePlan),
+ * exactly like curated baskets do on admin save. */
+export const attachSchemeMinimums = async (funds = []) =>
+  Promise.all(
+    funds.map(async (f) => {
+      const plain = typeof f?.toObject === "function" ? f.toObject() : f;
+      try {
+        const sc = await resolveSchemeForBasket(plain.isin);
+        return { ...plain, minLumpsumAmount: sc.minLumpsumAmount ?? null, minSipAmount: sc.minSipAmount ?? null };
+      } catch (e) {
+        console.warn(`${TAG} min lookup failed for ${plain.isin}: ${e.message}`);
+        return { ...plain, minLumpsumAmount: plain.minLumpsumAmount ?? null, minSipAmount: plain.minSipAmount ?? null };
+      }
+    })
+  );
+
+/* Portfolio-level minimum: total so EVERY fund gets ≥ its own minimum.
+ *   ceil( max over funds of fundMin / (weight / 100) )   — same rule as calcBasketMinInvestment */
+export const calcPortfolioMinimums = (funds = []) => {
+  const calc = (key) => {
+    const mins = funds.filter((f) => f[key] > 0 && f.weight > 0).map((f) => f[key] / (f.weight / 100));
+    return mins.length ? Math.ceil(Math.max(...mins)) : null;
+  };
+  return { minLumpsumInvestment: calc("minLumpsumAmount"), minSipInvestment: calc("minSipAmount") };
 };
 
 const validateFormula = (formula, label) => {
@@ -62,7 +89,9 @@ export const computeAllocation = (age, riskLevel, cfg) => {
 
   const funds = [];
   const addFunds = (bucket, assetClass, bucketPct) => {
-    const active = (bucket ?? []).filter((f) => f.isActive !== false);
+    // Skip the whole asset class when it gets 0% (e.g. gold 0 for this risk level/age)
+    if (!(bucketPct > 0)) return;
+    const active = (bucket ?? []).filter((f) => f.isActive !== false && f.weight > 0);
     for (const f of active) {
       funds.push({
         isin:       f.isin,
@@ -71,6 +100,8 @@ export const computeAllocation = (age, riskLevel, cfg) => {
         assetClass,
         weight:     (bucketPct * f.weight) / 100,
         amount:     null,
+        minLumpsumAmount: f.minLumpsumAmount ?? null,
+        minSipAmount:     f.minSipAmount     ?? null,
       });
     }
   };
@@ -82,6 +113,7 @@ export const computeAllocation = (age, riskLevel, cfg) => {
   return {
     allocation: { equity: equityPct, debt: debtPct, gold: goldPct },
     funds,
+    ...calcPortfolioMinimums(funds),
   };
 };
 
@@ -115,9 +147,10 @@ export const updateConfig = async (req, res) => {
     if (gold)   validateFundWeights(gold,   "gold");
 
     const cfg = await getOrCreateConfig();
-    if (equity) { cfg.equity = equity; cfg.markModified("equity"); }
-    if (debt)   { cfg.debt   = debt;   cfg.markModified("debt");   }
-    if (gold)   { cfg.gold   = gold;   cfg.markModified("gold");   }
+    // Resolve each fund's min lumpsum / min SIP from FP thresholds and store them (like curated baskets)
+    if (equity) { cfg.equity = await attachSchemeMinimums(equity); cfg.markModified("equity"); }
+    if (debt)   { cfg.debt   = await attachSchemeMinimums(debt);   cfg.markModified("debt");   }
+    if (gold)   { cfg.gold   = await attachSchemeMinimums(gold);   cfg.markModified("gold");   }
 
     await cfg.save();
     console.log(`${TAG} updateConfig — ${[equity && "equity", debt && "debt", gold && "gold"].filter(Boolean).join(", ")}`);

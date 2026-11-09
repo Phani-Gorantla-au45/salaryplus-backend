@@ -4,6 +4,20 @@ import { getFpToken } from "../fpToken.utils.js";
 const FP_API_URL = () => process.env.FP_API_URL;
 const FP_TENANT_ID = () => process.env.FP_TENANT_ID;
 
+/**
+ * Human-readable FP error. FP returns
+ *   { error: { message: "Validation failed. 1 error(s)", errors: [{ field, message }] } }
+ * so prefer the field-level messages (e.g. "Amount cannot be greater than mandate limit").
+ */
+const fpErrMsg = (err) => {
+  const d = err?.response?.data;
+  const fieldMsgs = (d?.error?.errors ?? d?.errors ?? [])
+    .map((e) => e?.message)
+    .filter(Boolean);
+  if (fieldMsgs.length) return fieldMsgs.join(". ");
+  return d?.error?.message || d?.message || null;
+};
+
 const fpHeaders = async () => {
   const token = await getFpToken();
   return {
@@ -38,7 +52,7 @@ export const createFpSip = async (payload) => {
       JSON.stringify(err.response?.data || err.message, null, 2),
     );
     throw new Error(
-      err.response?.data?.message || "Failed to create SIP on FP",
+      fpErrMsg(err) || "Failed to create SIP on FP",
     );
   }
 };
@@ -71,7 +85,7 @@ export const createFpBatchSip = async (plans) => {
       JSON.stringify(err.response?.data || err.message, null, 2),
     );
     throw new Error(
-      err.response?.data?.message || "Failed to create batch SIP on FP",
+      fpErrMsg(err) || "Failed to create batch SIP on FP",
     );
   }
 };
@@ -97,7 +111,7 @@ export const patchFpSip = async (payload) => {
       JSON.stringify(err.response?.data || err.message, null, 2),
     );
     throw new Error(
-      err.response?.data?.message || "Failed to update SIP on FP",
+      fpErrMsg(err) || "Failed to update SIP on FP",
     );
   }
 };
@@ -128,7 +142,7 @@ export const patchFpBatchSip = async (plans) => {
       JSON.stringify(err.response?.data || err.message, null, 2),
     );
     throw new Error(
-      err.response?.data?.message || "Failed to confirm batch SIP on FP",
+      fpErrMsg(err) || "Failed to confirm batch SIP on FP",
     );
   }
 };
@@ -152,7 +166,7 @@ export const fetchFpSip = async (fpSipId) => {
       JSON.stringify(err.response?.data || err.message, null, 2),
     );
     throw new Error(
-      err.response?.data?.message || "Failed to fetch SIP from FP",
+      fpErrMsg(err) || "Failed to fetch SIP from FP",
     );
   }
 };
@@ -183,7 +197,7 @@ export const cancelFpSip = async (
       JSON.stringify(err.response?.data || err.message, null, 2),
     );
     throw new Error(
-      err.response?.data?.message || "Failed to cancel SIP on FP",
+      fpErrMsg(err) || "Failed to cancel SIP on FP",
     );
   }
 };
@@ -205,7 +219,7 @@ export const createFpSkipInstruction = async (fpSipId, payload) => {
     return response.data;
   } catch (err) {
     console.error(`[FP SKIP] Create failed:`, err.response?.data || err.message);
-    throw new Error(err.response?.data?.message || "Failed to create skip instruction on FP");
+    throw new Error(fpErrMsg(err) || "Failed to create skip instruction on FP");
   }
 };
 
@@ -223,7 +237,7 @@ export const listFpSkipInstructions = async (fpSipId, params = {}) => {
     return response.data;
   } catch (err) {
     console.error(`[FP SKIP] List failed:`, err.response?.data || err.message);
-    throw new Error(err.response?.data?.message || "Failed to list skip instructions from FP");
+    throw new Error(fpErrMsg(err) || "Failed to list skip instructions from FP");
   }
 };
 
@@ -242,7 +256,7 @@ export const cancelFpSkipInstruction = async (skipId) => {
     return response.data;
   } catch (err) {
     console.error(`[FP SKIP] Cancel failed:`, err.response?.data || err.message);
-    throw new Error(err.response?.data?.message || "Failed to cancel skip instruction on FP");
+    throw new Error(fpErrMsg(err) || "Failed to cancel skip instruction on FP");
   }
 };
 
@@ -264,7 +278,7 @@ export const listFpSips = async (params = {}) => {
       JSON.stringify(err.response?.data || err.message, null, 2),
     );
     throw new Error(
-      err.response?.data?.message || "Failed to list SIPs from FP",
+      fpErrMsg(err) || "Failed to list SIPs from FP",
     );
   }
 };
@@ -290,7 +304,7 @@ export const createFpModificationInstruction = async (payload) => {
     return response.data;
   } catch (err) {
     console.error(`[FP MODIFY] Create failed:`, err.response?.data || err.message);
-    throw new Error(err.response?.data?.message || "Failed to create modification instruction on FP");
+    throw new Error(fpErrMsg(err) || "Failed to create modification instruction on FP");
   }
 };
 
@@ -306,6 +320,6 @@ export const fetchFpModificationInstruction = async (id) => {
     return response.data;
   } catch (err) {
     console.error(`[FP MODIFY] Fetch failed:`, err.response?.data || err.message);
-    throw new Error(err.response?.data?.message || "Failed to fetch modification instruction from FP");
+    throw new Error(fpErrMsg(err) || "Failed to fetch modification instruction from FP");
   }
 };

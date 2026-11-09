@@ -13,7 +13,8 @@ import { auth } from "../../../middlewares/auth.middleware.js";
 const router = express.Router();
 
 // Postback from FP — no auth (FP POSTs form data here)
-router.post("/auth-callback", mandateAuthCallback);
+// FP sends an HTML form POST (application/x-www-form-urlencoded) — server only parses JSON globally
+router.post("/auth-callback", express.urlencoded({ extended: true }), mandateAuthCallback);
 
 // Authenticated user routes
 router.post("/",                 auth, createMandate);
