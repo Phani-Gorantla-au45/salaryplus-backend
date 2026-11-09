@@ -6,9 +6,13 @@ import KycRequest from "../../../models/mf/kycRequest.model.js";
  * ─────────────────────────────────────
  * mf_risk_profile        — complete risk assessment
  * mf_pan_check           — enter PAN, trigger KYC check
- * mf_kyc_submit          — KYC not verified, start DigiLocker submission
- * mf_kyc_esign           — KYC submitted, pending esign
- * mf_kyc_pending         — esign done, waiting for KYC approval
+ * mf_kyc_submit          — KYC not verified / in progress (FP status: none, pending, rejected, expired)
+ * mf_kyc_esign           — details done, Aadhaar eSign pending (FP status: esign_required)
+ * mf_kyc_pending         — eSign done, submitted & under review (FP status: submitted, under_review)
+ *
+ * FP kyc_request lifecycle: pending → esign_required → submitted → successful | rejected | expired
+ * KYC-stage responses also carry detail.completedSteps + detail.accountCreated, because users
+ * may open their investment account while KYC is still under review.
  * mf_account_phone       — add & verify phone number
  * mf_account_email       — add & verify email
  * mf_account_profile     — fill investor profile (name, DOB, occupation…)
@@ -32,6 +36,16 @@ const accountSubStep = (mfData) => {
   if (!mfData?.investmentAccount?.fpInvestmentAccountId) return "mf_account_create";
   return "mf_ready";
 };
+
+const completedStepsOf = (mfData) => ({
+  phone:             !!mfData?.phone?.fpPhoneNumberId,
+  email:             !!mfData?.email?.fpEmailAddressId,
+  investorProfile:   !!mfData?.investorProfile?.fpInvestorProfileId,
+  address:           !!mfData?.address?.fpAddressId,
+  bankAccount:       !!mfData?.bankAccount?.fpBankAccountId,
+  nominee:           !!mfData?.nominee?.fpRelatedPartyId,
+  investmentAccount: !!mfData?.investmentAccount?.fpInvestmentAccountId,
+});
 
 /* ------------------------------------------------------------------ */
 /*  GET /api/mf/journey-status                                          */
@@ -90,6 +104,9 @@ export const getJourneyStatus = async (req, res) => {
 
     /* ── STAGE 3: KYC SUBMISSION (only if not KRA-compliant) ───────── */
     if (!kycCompliant) {
+      const completedSteps = completedStepsOf(mfData);
+      const accountCreated = completedSteps.investmentAccount;
+
       // No KYC request yet — need to start
       if (!latestKycRequest) {
         return res.status(200).json({
@@ -101,28 +118,38 @@ export const getJourneyStatus = async (req, res) => {
             status: "not_started",
             panStatus:  kycCheck.panStatus,
             kraStatus:  kycCheck.kraStatus,
+            completedSteps,
+            accountCreated,
           },
         });
       }
 
       const kycStatus = latestKycRequest.status;
 
-      // Submitted but esign not done
-      if (["submitted", "pending"].includes(kycStatus)) {
+      // Details still being filled — continue KYC
+      if (kycStatus === "pending") {
+        return res.status(200).json({
+          success: true,
+          screen: "mf_kyc_submit",
+          canInvest: false,
+          stage: "kyc_submission",
+          detail: { status: kycStatus, fpKycRequestId: latestKycRequest.fpKycRequestId, completedSteps, accountCreated },
+        });
+      }
+
+      // All details done — only Aadhaar eSign left
+      if (kycStatus === "esign_required") {
         return res.status(200).json({
           success: true,
           screen: "mf_kyc_esign",
           canInvest: false,
           stage: "kyc_submission",
-          detail: {
-            status: kycStatus,
-            fpKycRequestId: latestKycRequest.fpKycRequestId,
-          },
+          detail: { status: kycStatus, fpKycRequestId: latestKycRequest.fpKycRequestId, completedSteps, accountCreated },
         });
       }
 
-      // Esign done, waiting for KYC approval
-      if (kycStatus === "esign_required" || kycStatus === "under_review") {
+      // eSign done → submitted to KRA, waiting for approval (usually 1–3 business days)
+      if (kycStatus === "submitted" || kycStatus === "under_review") {
         return res.status(200).json({
           success: true,
           screen: "mf_kyc_pending",
@@ -131,6 +158,9 @@ export const getJourneyStatus = async (req, res) => {
           detail: {
             status: kycStatus,
             fpKycRequestId: latestKycRequest.fpKycRequestId,
+            submittedAt: latestKycRequest.updatedAt ?? latestKycRequest.createdAt ?? null,
+            completedSteps,
+            accountCreated,
           },
         });
       }
@@ -148,6 +178,8 @@ export const getJourneyStatus = async (req, res) => {
             message: kycStatus === "rejected"
               ? "Your KYC was rejected. Please resubmit."
               : "Your KYC session expired. Please resubmit.",
+            completedSteps,
+            accountCreated,
           },
         });
       }
@@ -159,7 +191,7 @@ export const getJourneyStatus = async (req, res) => {
           screen: "mf_kyc_pending",
           canInvest: false,
           stage: "kyc_submission",
-          detail: { status: kycStatus },
+          detail: { status: kycStatus, completedSteps, accountCreated },
         });
       }
     }
@@ -173,17 +205,7 @@ export const getJourneyStatus = async (req, res) => {
         screen: nextScreen,
         canInvest: false,
         stage: "account_creation",
-        detail: {
-          completedSteps: {
-            phone:             !!mfData?.phone?.fpPhoneNumberId,
-            email:             !!mfData?.email?.fpEmailAddressId,
-            investorProfile:   !!mfData?.investorProfile?.fpInvestorProfileId,
-            address:           !!mfData?.address?.fpAddressId,
-            bankAccount:       !!mfData?.bankAccount?.fpBankAccountId,
-            nominee:           !!mfData?.nominee?.fpRelatedPartyId,
-            investmentAccount: !!mfData?.investmentAccount?.fpInvestmentAccountId,
-          },
-        },
+        detail: { completedSteps: completedStepsOf(mfData) },
       });
     }
 
