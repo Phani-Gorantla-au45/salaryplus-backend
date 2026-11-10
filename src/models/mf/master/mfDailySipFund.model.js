@@ -22,6 +22,7 @@ const mfDailySipFundSchema = new mongoose.Schema(
     fundHouseName:   { type: String, required: true, trim: true },
     fundHouseLogo:   { type: String, default: null },   // URL to logo image
     minDailySip:     { type: Number, required: true },  // minimum daily SIP in rupees
+    xirr:            { type: Number, default: null },   // admin-entered past XIRR (% p.a.) → "started 5 years ago" projection
     description:     { type: String, default: null },
 
     isActive:        { type: Boolean, default: true, index: true },

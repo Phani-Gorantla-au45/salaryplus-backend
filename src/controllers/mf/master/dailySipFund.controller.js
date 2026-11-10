@@ -14,6 +14,7 @@ const publicShape = (doc, logoMap = {}) => {
     fundHouseLogo: amcLogo,
     amcLogo,
     minDailySip:   doc.minDailySip,
+    xirr:          doc.xirr ?? null,
     description:   doc.description,
     isActive:      doc.isActive,
     updatedAt:     doc.updatedAt,
@@ -51,7 +52,7 @@ export const upsertDailySipFund = async (req, res) => {
   try {
     const {
       type, isin, fundName, fundHouseName,
-      fundHouseLogo, minDailySip, description,
+      fundHouseLogo, minDailySip, description, xirr,
     } = req.body;
 
     if (!type || !VALID_TYPES.includes(type)) {
@@ -77,6 +78,7 @@ export const upsertDailySipFund = async (req, res) => {
       fundHouseName: fundHouseName.trim(),
       fundHouseLogo: fundHouseLogo?.trim() ?? null,
       minDailySip:   Number(minDailySip),
+      xirr:          xirr === undefined || xirr === null || xirr === "" ? null : Number(xirr),
       description:   description?.trim() ?? null,
       isActive:      true,
       configuredBy:  req.admin?.email ?? req.admin?.id ?? null,
@@ -101,7 +103,7 @@ export const updateDailySipFund = async (req, res) => {
   try {
     const { id } = req.params;
     const allowed = ["isin", "fundName", "fundHouseName", "fundHouseLogo",
-                     "minDailySip", "description", "isActive"];
+                     "minDailySip", "description", "isActive", "xirr"];
 
     const updates = {};
     for (const key of allowed) {
@@ -111,6 +113,7 @@ export const updateDailySipFund = async (req, res) => {
     if (updates.fundName)      updates.fundName      = updates.fundName.trim();
     if (updates.fundHouseName) updates.fundHouseName = updates.fundHouseName.trim();
     if (updates.minDailySip)   updates.minDailySip   = Number(updates.minDailySip);
+    if (updates.xirr !== undefined) updates.xirr = updates.xirr === null || updates.xirr === "" ? null : Number(updates.xirr);
 
     const fund = await MfDailySipFund.findByIdAndUpdate(
       id,
