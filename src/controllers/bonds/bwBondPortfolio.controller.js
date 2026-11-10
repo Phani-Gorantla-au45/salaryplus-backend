@@ -110,6 +110,7 @@ export const getBwBondPortfolioSummary = async (req, res) => {
       let interestReceived = 0, principalReturned = 0, interestAhead = 0, principalAhead = 0;
       let firstTradeDate = null;
       const events = [];
+      const allEvents = []; // paid + upcoming, for the per-bond cashflow timeline
 
       for (const t of h.trades || []) {
         const tUnits = num(t.units);
@@ -125,6 +126,7 @@ export const getBwBondPortfolioSummary = async (req, res) => {
         interestReceived += interestTillToday;
         principalReturned += principalTillToday;
         for (const ev of schedule) {
+          allEvents.push({ date: ev.date, interest: ev.interestAmount, principal: ev.principalAmount, paid: ev.paid });
           if (ev.paid) continue;
           interestAhead += ev.interestAmount;
           principalAhead += ev.principalAmount;
@@ -150,6 +152,18 @@ export const getBwBondPortfolioSummary = async (req, res) => {
       const sortedEvents = [...byDate.values()].sort((a, b) => a.date - b.date);
       const next = sortedEvents[0] || null;
 
+      // Per-bond timeline: same-date payouts from different trades are summed
+      const tl = new Map();
+      for (const ev of allEvents) {
+        const k = ev.date.getTime();
+        const cur = tl.get(k) || { date: ev.date, interest: 0, principal: 0, paid: ev.paid };
+        cur.interest += ev.interest; cur.principal += ev.principal;
+        tl.set(k, cur);
+      }
+      const cashflows = [...tl.values()]
+        .sort((a, b) => a.date - b.date)
+        .map((e) => ({ date: e.date.toISOString(), interest: r2(e.interest), principal: r2(e.principal), total: r2(e.interest + e.principal), paid: e.paid }));
+
       const base = {
         isin: h.isin,
         issuerName: h.issuerName,
@@ -161,6 +175,7 @@ export const getBwBondPortfolioSummary = async (req, res) => {
         coupon: r2(coupon),
         avgYield: r2(avgYield),
         clientYields,                       // e.g. ["11.0000%"] — display as-is
+        cashflows,                          // full payout timeline: paid + upcoming
         interestReceived: r2(interestReceived),
         principalReturned: r2(principalReturned),
         hasCashflowData: !!bond,
