@@ -3,14 +3,17 @@ import mongoose from "mongoose";
 /*
  * Stores admin-configured funds for each Daily SIP category.
  * One active document per type at any time.
- * Types: smart_savings | short_term | long_term
+ * Types: smart_savings | short_term | mid_term | long_term
+ *   short_term — short-term needs (3–12 months)
+ *   mid_term   — mid-term goals (3–5 years)
+ *   long_term  — long-term goals (5+ years)
  */
 const mfDailySipFundSchema = new mongoose.Schema(
   {
     type: {
       type:     String,
       required: true,
-      enum:     ["smart_savings", "short_term", "long_term"],
+      enum:     ["smart_savings", "short_term", "mid_term", "long_term"],
       index:    true,
     },
 

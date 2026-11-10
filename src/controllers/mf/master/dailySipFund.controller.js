@@ -1,7 +1,7 @@
 import MfDailySipFund from "../../../models/mf/master/mfDailySipFund.model.js";
 import { getAmcLogoMap } from "../../../utils/mf/master/amc.utils.js";
 
-const VALID_TYPES = ["smart_savings", "short_term", "long_term"];
+const VALID_TYPES = ["smart_savings", "short_term", "mid_term", "long_term"];
 
 const publicShape = (doc, logoMap = {}) => {
   const amcLogo = logoMap[doc.fundHouseName?.toUpperCase().trim()] ?? doc.fundHouseLogo ?? null;
