@@ -5,6 +5,7 @@ import {
   savePortfolio,
   getMyPortfolio,
   markInvested,
+  listVariants,
 } from "../../../controllers/mf/smartPortfolio/smartPortfolio.controller.js";
 
 const router = express.Router();
@@ -14,6 +15,7 @@ const router = express.Router();
 // GET  /api/mf/smart-portfolio/my         ← fetch user's saved portfolio
 // POST /api/mf/smart-portfolio/invest     ← link order ids after investment
 
+router.get( "/variants",  auth, listVariants);      // standard / small availability + display copy
 router.post("/recommend", auth, recommendPortfolio);
 router.post("/save",      auth, savePortfolio);
 router.get( "/my",        auth, getMyPortfolio);

@@ -17,6 +17,8 @@ const fundAllocationSchema = new mongoose.Schema(
 const userSmartPortfolioSchema = new mongoose.Schema(
   {
     uniqueId:  { type: String, required: true, index: true },
+    // One Smart Portfolio per user; which variant it is
+    variant:   { type: String, enum: ["standard", "small"], default: "standard" },
     riskLevel: { type: String, enum: ["moderate", "high"], required: true },
 
     inputs: {

@@ -2,19 +2,22 @@ import SmartPortfolioConfig from "../../../models/mf/smartPortfolio/smartPortfol
 import UserSmartPortfolio   from "../../../models/mf/smartPortfolio/userSmartPortfolio.model.js";
 import MfUserData            from "../../../models/mf/mfUserData.model.js";
 import { resolveSchemeForBasket } from "../admin/mfBasket.controller.js";
+import { configKey, normalizeVariant, variantMeta } from "./smartPortfolioVariants.js";
 
 const TAG = "[SMART-PORTFOLIO ADMIN]";
 
-const SINGLETON_KEY = "default";
-
-const getOrCreateConfig = async () => {
+// variant: "standard" (config key "default") | "small" (config key "small")
+const getOrCreateConfig = async (variant = "standard") => {
+  const key = configKey(variant);
   const cfg = await SmartPortfolioConfig.findOneAndUpdate(
-    { key: SINGLETON_KEY },
-    { $setOnInsert: { key: SINGLETON_KEY } },
+    { key },
+    { $setOnInsert: { key } },
     { upsert: true, new: true }
   );
   return cfg;
 };
+
+const variantFrom = (req) => normalizeVariant(req.query?.variant ?? req.body?.variant);
 
 const validateFundWeights = (funds, label) => {
   const active = funds.filter((f) => f.isActive !== false);
@@ -122,8 +125,9 @@ export const computeAllocation = (age, riskLevel, cfg) => {
  * ==================================================================== */
 export const getConfig = async (req, res) => {
   try {
-    const cfg = await getOrCreateConfig();
-    return res.json({ success: true, data: cfg });
+    const variant = variantFrom(req);
+    const cfg = await getOrCreateConfig(variant);
+    return res.json({ success: true, data: { ...cfg.toObject(), ...variantMeta(variant, cfg) } });
   } catch (err) {
     console.error(`${TAG} getConfig:`, err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -132,29 +136,36 @@ export const getConfig = async (req, res) => {
 
 /* ====================================================================
  *  POST /api/mf/admin/smart-portfolio/config
- *  Update funds for one or more asset classes.
- *  Body: { equity?, debt?, gold? }  — arrays of fund objects
+ *  Update funds and/or variant settings.
+ *  Query/Body: variant = "standard" (default) | "small"
+ *  Body: { equity?, debt?, gold?, displayName?, tagline?, isEnabled?, displayMinSip? }
  * ==================================================================== */
 export const updateConfig = async (req, res) => {
   try {
-    const { equity, debt, gold } = req.body;
-    if (!equity && !debt && !gold) {
-      return res.status(400).json({ success: false, message: "Provide at least one asset class (equity, debt, gold)" });
+    const { equity, debt, gold, displayName, tagline, isEnabled, displayMinSip } = req.body;
+    const hasSettings = [displayName, tagline, isEnabled, displayMinSip].some((v) => v !== undefined);
+    if (!equity && !debt && !gold && !hasSettings) {
+      return res.status(400).json({ success: false, message: "Provide funds (equity, debt, gold) or settings to update" });
     }
+    const variant = variantFrom(req);
 
     if (equity) validateFundWeights(equity, "equity");
     if (debt)   validateFundWeights(debt,   "debt");
     if (gold)   validateFundWeights(gold,   "gold");
 
-    const cfg = await getOrCreateConfig();
+    const cfg = await getOrCreateConfig(variant);
+    if (displayName   !== undefined) cfg.displayName   = displayName?.trim() || null;
+    if (tagline       !== undefined) cfg.tagline       = tagline?.trim()     || null;
+    if (isEnabled     !== undefined) cfg.isEnabled     = Boolean(isEnabled);
+    if (displayMinSip !== undefined) cfg.displayMinSip = displayMinSip === null || displayMinSip === "" ? null : Number(displayMinSip);
     // Resolve each fund's min lumpsum / min SIP from FP thresholds and store them (like curated baskets)
     if (equity) { cfg.equity = await attachSchemeMinimums(equity); cfg.markModified("equity"); }
     if (debt)   { cfg.debt   = await attachSchemeMinimums(debt);   cfg.markModified("debt");   }
     if (gold)   { cfg.gold   = await attachSchemeMinimums(gold);   cfg.markModified("gold");   }
 
     await cfg.save();
-    console.log(`${TAG} updateConfig — ${[equity && "equity", debt && "debt", gold && "gold"].filter(Boolean).join(", ")}`);
-    return res.json({ success: true, message: "Fund config updated", data: cfg });
+    console.log(`${TAG} updateConfig [${variant}] — ${[equity && "equity", debt && "debt", gold && "gold", hasSettings && "settings"].filter(Boolean).join(", ")}`);
+    return res.json({ success: true, message: "Config updated", data: { ...cfg.toObject(), ...variantMeta(variant, cfg) } });
   } catch (err) {
     console.error(`${TAG} updateConfig:`, err.message);
     return res.status(400).json({ success: false, message: err.message });
@@ -181,7 +192,8 @@ export const updateFormula = async (req, res) => {
     if (moderate) validateFormula(moderate, "moderate");
     if (high)     validateFormula(high,     "high");
 
-    const cfg = await getOrCreateConfig();
+    const variant = variantFrom(req);
+    const cfg = await getOrCreateConfig(variant);
     if (!cfg.formula) cfg.formula = {};
 
     if (moderate) { cfg.formula.moderate = moderate; }
@@ -189,7 +201,7 @@ export const updateFormula = async (req, res) => {
     cfg.markModified("formula");
     await cfg.save();
 
-    console.log(`${TAG} updateFormula — ${[moderate && "moderate", high && "high"].filter(Boolean).join(", ")}`);
+    console.log(`${TAG} updateFormula [${variant}] — ${[moderate && "moderate", high && "high"].filter(Boolean).join(", ")}`);
     return res.json({ success: true, message: "Formula updated", data: cfg.formula });
   } catch (err) {
     console.error(`${TAG} updateFormula:`, err.message);
@@ -202,9 +214,11 @@ export const updateFormula = async (req, res) => {
  * ==================================================================== */
 export const listUserPortfolios = async (req, res) => {
   try {
-    const { status, page = 1, limit = 20 } = req.query;
+    const { status, variant, page = 1, limit = 20 } = req.query;
     const filter = {};
     if (status) filter.status = status;
+    if (variant === "small") filter.variant = "small";
+    else if (variant === "standard") filter.variant = { $ne: "small" }; // old records have no variant
 
     const skip = (Number(page) - 1) * Number(limit);
     const [portfolios, total] = await Promise.all([
@@ -244,11 +258,12 @@ export const getUserPortfolio = async (req, res) => {
 
 /* ====================================================================
  *  POST /api/mf/admin/smart-portfolio/assign
- *  Body: { uniqueId, age, riskLevel: "moderate"|"high", note? }
+ *  Body: { uniqueId, age, riskLevel: "moderate"|"high", variant?, note? }
  * ==================================================================== */
 export const assignPortfolio = async (req, res) => {
   try {
     const { uniqueId, age, riskLevel, note } = req.body;
+    const variant = variantFrom(req);
     if (!uniqueId || !age || !riskLevel) {
       return res.status(400).json({ success: false, message: "uniqueId, age, riskLevel required" });
     }
@@ -256,7 +271,7 @@ export const assignPortfolio = async (req, res) => {
       return res.status(400).json({ success: false, message: "riskLevel must be 'moderate' or 'high'" });
     }
 
-    const cfg = await SmartPortfolioConfig.findOne({ key: SINGLETON_KEY }).lean();
+    const cfg = await SmartPortfolioConfig.findOne({ key: configKey(variant) }).lean();
     if (!cfg) return res.status(503).json({ success: false, message: "Smart Portfolio not configured yet" });
 
     const { allocation, funds } = computeAllocation(Number(age), riskLevel, cfg);
@@ -265,6 +280,7 @@ export const assignPortfolio = async (req, res) => {
       { uniqueId },
       {
         uniqueId,
+        variant,
         riskLevel,
         inputs: { age: Number(age) },
         allocation,
@@ -279,7 +295,7 @@ export const assignPortfolio = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    console.log(`${TAG} assignPortfolio — ${uniqueId} age:${age} risk:${riskLevel}`);
+    console.log(`${TAG} assignPortfolio [${variant}] — ${uniqueId} age:${age} risk:${riskLevel}`);
     return res.json({ success: true, message: "Portfolio assigned", data: portfolio });
   } catch (err) {
     console.error(`${TAG} assignPortfolio:`, err.message);

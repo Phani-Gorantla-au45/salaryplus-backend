@@ -44,7 +44,14 @@ const riskLevelFormulaSchema = new mongoose.Schema(
 // Singleton config doc — always identified by key: "default"
 const smartPortfolioConfigSchema = new mongoose.Schema(
   {
+    // "default" = standard Smart Portfolio, "small" = Smart Portfolio – Small Investments
     key: { type: String, default: "default", unique: true, index: true },
+
+    // Variant presentation / availability (admin-managed). null → code defaults.
+    displayName:   { type: String,  default: null },
+    tagline:       { type: String,  default: null },
+    isEnabled:     { type: Boolean, default: null },  // small: off until set true
+    displayMinSip: { type: Number,  default: null },  // "starts from ₹X/month" copy
     // Fund picks per asset class (admin-managed)
     equity: { type: [fundSliceSchema], default: [] },
     debt:   { type: [fundSliceSchema], default: [] },

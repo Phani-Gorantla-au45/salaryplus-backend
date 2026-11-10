@@ -1,6 +1,15 @@
 import SmartPortfolioConfig from "../../../models/mf/smartPortfolio/smartPortfolioProfile.model.js";
 import UserSmartPortfolio   from "../../../models/mf/smartPortfolio/userSmartPortfolio.model.js";
 import { computeAllocation, attachSchemeMinimums, calcPortfolioMinimums } from "./smartPortfolioAdmin.controller.js";
+import { VARIANTS, configKey, isConfigured, normalizeVariant, variantMeta, variantOf } from "./smartPortfolioVariants.js";
+
+/* Load the config for a variant; null if it isn't enabled / configured for users. */
+const loadUsableConfig = async (variant) => {
+  const cfg  = await SmartPortfolioConfig.findOne({ key: configKey(variant) }).lean();
+  const meta = variantMeta(variant, cfg);
+  if (!meta.isEnabled || !isConfigured(cfg)) return { cfg: null, meta };
+  return { cfg, meta };
+};
 
 const TAG = "[SMART-PORTFOLIO]";
 
@@ -27,27 +36,28 @@ const withMinimums = async (portfolio) => {
 /* ====================================================================
  *  POST /api/mf/smart-portfolio/recommend
  *  Pure recommendation — no DB write.
- *  Body: { age, riskLevel: "moderate"|"high" }
+ *  Body: { age, riskLevel: "moderate"|"high", variant?: "standard"|"small" }
  * ==================================================================== */
 export const recommendPortfolio = async (req, res) => {
   try {
     const { age, riskLevel } = req.body;
+    const variant = normalizeVariant(req.body.variant);
     if (!age) return res.status(400).json({ success: false, message: "age is required" });
     if (!["moderate", "high"].includes(riskLevel)) {
       return res.status(400).json({ success: false, message: "riskLevel must be 'moderate' or 'high'" });
     }
 
-    const cfg = await SmartPortfolioConfig.findOne({ key: "default" }).lean();
-    if (!cfg || (!cfg.equity?.length && !cfg.debt?.length && !cfg.gold?.length)) {
-      return res.status(503).json({ success: false, message: "Smart Portfolio not configured yet. Contact admin." });
+    const { cfg, meta } = await loadUsableConfig(variant);
+    if (!cfg) {
+      return res.status(503).json({ success: false, message: `${meta.displayName} is not available right now.` });
     }
 
     const { allocation, funds } = computeAllocation(Number(age), riskLevel, cfg);
 
-    console.log(`${TAG} recommend — age:${age} risk:${riskLevel} → equity:${allocation.equity}% debt:${allocation.debt}% gold:${allocation.gold}%`);
+    console.log(`${TAG} recommend [${variant}] — age:${age} risk:${riskLevel} → equity:${allocation.equity}% debt:${allocation.debt}% gold:${allocation.gold}%`);
     return res.json({
       success: true,
-      data: await withMinimums({ riskLevel, allocation, funds, inputs: { age: Number(age) } }),
+      data: { ...(await withMinimums({ riskLevel, allocation, funds, inputs: { age: Number(age) } })), ...meta },
     });
   } catch (err) {
     console.error(`${TAG} recommend:`, err.message);
@@ -58,23 +68,37 @@ export const recommendPortfolio = async (req, res) => {
 /* ====================================================================
  *  POST /api/mf/smart-portfolio/save
  *  Save (lock) the recommended portfolio to the user's account.
- *  Body: { age, riskLevel: "moderate"|"high" }
+ *  Body: { age, riskLevel: "moderate"|"high", variant?: "standard"|"small" }
  *
  *  Re-calculates fresh from config so the locked snapshot is always
  *  consistent with what was shown to the user.
+ *  One Smart Portfolio per user: saving another variant replaces it — unless the
+ *  current one is already invested (switching would lose its tracking) → 409.
  * ==================================================================== */
 export const savePortfolio = async (req, res) => {
   try {
     const { uniqueId } = req.user;
     const { age, riskLevel } = req.body;
+    const variant = normalizeVariant(req.body.variant);
 
     if (!age) return res.status(400).json({ success: false, message: "age is required" });
     if (!["moderate", "high"].includes(riskLevel)) {
       return res.status(400).json({ success: false, message: "riskLevel must be 'moderate' or 'high'" });
     }
 
-    const cfg = await SmartPortfolioConfig.findOne({ key: "default" }).lean();
-    if (!cfg) return res.status(503).json({ success: false, message: "Smart Portfolio not configured yet" });
+    const { cfg, meta } = await loadUsableConfig(variant);
+    if (!cfg) return res.status(503).json({ success: false, message: `${meta.displayName} is not available right now.` });
+
+    const existing = await UserSmartPortfolio.findOne({ uniqueId }, { variant: 1, status: 1 }).lean();
+    if (existing && existing.status === "invested" && variantOf(existing) !== variant) {
+      const current = variantMeta(variantOf(existing), await SmartPortfolioConfig.findOne({ key: configKey(variantOf(existing)) }).lean());
+      return res.status(409).json({
+        success: false,
+        code: "SMART_PORTFOLIO_ALREADY_INVESTED",
+        message: `You've already invested in ${current.displayName}. You can keep adding to it.`,
+        data: { currentVariant: current.variant, currentDisplayName: current.displayName },
+      });
+    }
 
     const { allocation, funds: rawFunds } = computeAllocation(Number(age), riskLevel, cfg);
     // Lock minimums into the snapshot so /my and invest use the same numbers
@@ -84,6 +108,7 @@ export const savePortfolio = async (req, res) => {
       { uniqueId },
       {
         uniqueId,
+        variant,
         riskLevel,
         inputs:         { age: Number(age) },
         allocation,
@@ -100,8 +125,8 @@ export const savePortfolio = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    console.log(`${TAG} save — ${uniqueId} age:${age} risk:${riskLevel}`);
-    return res.json({ success: true, message: "Portfolio saved", data: await withMinimums(portfolio.toObject()) });
+    console.log(`${TAG} save [${variant}] — ${uniqueId} age:${age} risk:${riskLevel}`);
+    return res.json({ success: true, message: "Portfolio saved", data: { ...(await withMinimums(portfolio.toObject())), ...meta } });
   } catch (err) {
     console.error(`${TAG} save:`, err.message);
     return res.status(500).json({ success: false, message: err.message });
@@ -115,10 +140,32 @@ export const getMyPortfolio = async (req, res) => {
   try {
     const portfolio = await UserSmartPortfolio.findOne({ uniqueId: req.user.uniqueId }).lean();
     if (!portfolio) return res.status(404).json({ success: false, message: "No portfolio saved yet" });
+    const variant = variantOf(portfolio);
+    const cfg     = await SmartPortfolioConfig.findOne({ key: configKey(variant) }).lean();
     // Older saved snapshots may contain 0% funds — never expose them
-    return res.json({ success: true, data: await withMinimums(portfolio) });
+    return res.json({ success: true, data: { ...(await withMinimums(portfolio)), ...variantMeta(variant, cfg) } });
   } catch (err) {
     console.error(`${TAG} getMyPortfolio:`, err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ====================================================================
+ *  GET /api/mf/smart-portfolio/variants
+ *  Which Smart Portfolio variants the app may offer, with display copy.
+ * ==================================================================== */
+export const listVariants = async (req, res) => {
+  try {
+    const cfgs = await SmartPortfolioConfig.find({ key: { $in: VARIANTS.map(configKey) } }).lean();
+    const byKey = Object.fromEntries(cfgs.map((c) => [c.key, c]));
+    const data = VARIANTS.map((v) => {
+      const cfg = byKey[configKey(v)];
+      const meta = variantMeta(v, cfg);
+      return { ...meta, isEnabled: meta.isEnabled && isConfigured(cfg) };
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error(`${TAG} listVariants:`, err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
