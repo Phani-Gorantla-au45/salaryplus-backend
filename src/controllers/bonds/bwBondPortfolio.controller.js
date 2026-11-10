@@ -241,7 +241,7 @@ export const getBwBondPortfolioSummary = async (req, res) => {
       interestAhead: r2(sum(active, "interestAhead")),
       next12MonthsInterest: r2(next12mInterest),
       avgMonthlyIncome: r2(next12mInterest / 12),
-      dailyIncome: r2(next12mInterest / 365),
+      dailyIncome: r2(activeYieldWeighted / 100 / 365),
       nextPayout: upcomingPayouts[0] || null,
       maturedInvested: r2(sum(matured, "invested")),
       maturedReceived: r2(sum(matured, "totalReceived")),
@@ -297,14 +297,16 @@ export const getBondPayoutSchedule = async (req, res) => {
 
     // Merge cashflows from all trades into a single schedule keyed by cashflowDate
     const byDate = new Map();
-    let totalInvested = 0;
-    let totalUnits    = 0;
+    let totalInvested    = 0;
+    let totalUnits       = 0;
+    let yieldWeighted    = 0; // sum of clientYield% × invested (for daily income)
 
     for (const t of holding.trades || []) {
       const tUnits    = num(t.units);
       const tInvested = num(t.totalPurchase);
       totalInvested  += tInvested;
       totalUnits     += tUnits;
+      yieldWeighted  += num(t.clientYield) * tInvested;
 
       if (!bond) continue;
       const tradeDate = parseBondDate(t.tradeDate);
@@ -347,10 +349,8 @@ export const getBondPayoutSchedule = async (req, res) => {
     const remainingAmount = r2(schedule.filter((e) => e.status === "upcoming").reduce((s, e) => s + e.total, 0));
     const upcomingInterest = r2(schedule.filter((e) => e.status === "upcoming").reduce((s, e) => s + e.interest, 0));
 
-    // Days from today to maturity (calendar days, non-working days included)
-    const maturityDateObj = parseBondDate(holding.maturityDate);
-    const daysToMaturity  = maturityDateObj ? Math.max(1, Math.ceil((maturityDateObj - today) / 86400000)) : 365;
-    const dailyIncome     = r2(upcomingInterest / daysToMaturity);
+    // Daily income = contractual yield × invested / 365 (all calendar days)
+    const dailyIncome = r2(yieldWeighted / 100 / 365);
 
     return res.status(200).json({
       success: true,
