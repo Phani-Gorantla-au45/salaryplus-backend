@@ -288,9 +288,11 @@ export const getUserPurchaseReport = async (req, res) => {
 
     let purchases;
 
-    if (plan) {
-      // Narrow query — use GET /v2/mf_purchases directly
-      const params = { mf_investment_account: fpAccountId, plan };
+    if (plan || since) {
+      // Narrow query — only this user's account via GET /v2/mf_purchases
+      // (used for a plan, or for recent orders e.g. Home's "orders in progress" with ?since=)
+      const params = { mf_investment_account: fpAccountId };
+      if (plan) params.plan = plan;
       if (states) params.states = states;
       const fpResponse = await fetchFpPurchases(params);
       purchases = fpResponse?.data ?? [];
