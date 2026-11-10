@@ -123,36 +123,10 @@
 //   }
 // };
 import isindata from "../../models/bonds/isin.model.js";
+import { computeTradeCashflows, parseBondDate, startOfToday } from "../../utils/bonds/holdingCashflows.utils.js";
 
-/* ---------- SAFE DATE PARSER (DD-MMM-YYYY) ---------- */
-const parseDate = (value) => {
-  if (!value || typeof value !== "string") return null;
-
-  const regex = /^\d{1,2}-[A-Za-z]{3}-\d{4}$/;
-  if (!regex.test(value)) return null;
-
-  const [day, mon, year] = value.split("-");
-
-  const monthMap = {
-    Jan: 0,
-    Feb: 1,
-    Mar: 2,
-    Apr: 3,
-    May: 4,
-    Jun: 5,
-    Jul: 6,
-    Aug: 7,
-    Sep: 8,
-    Oct: 9,
-    Nov: 10,
-    Dec: 11,
-  };
-
-  const m = mon.charAt(0).toUpperCase() + mon.slice(1).toLowerCase();
-  if (!(m in monthMap)) return null;
-
-  return new Date(Number(year), monthMap[m], Number(day), 0, 0, 0, 0);
-};
+/* ---------- SAFE DATE PARSER (DD-MMM-YYYY) — shared ---------- */
+const parseDate = parseBondDate;
 
 /* ---------- BOND HOLDING PROFILE API ---------- */
 export const getBondHoldingProfile = async (req, res) => {
@@ -186,50 +160,14 @@ export const getBondHoldingProfile = async (req, res) => {
       });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    let totalInterestEarnedTillToday = 0;
-    let totalPrincipalPaidTillToday = 0;
-
-    const payoutSchedules = [];
-
-    /* ---------- CORE LOGIC ---------- */
-    for (const cf of bond.cashflows || []) {
-      const recordDateObj = parseDate(cf.recordDate);
-      const cashflowDateObj = parseDate(cf.cashflowDate);
-
-      if (!recordDateObj || !cashflowDateObj) continue;
-
-      /**
-       * ❌ Ignore cashflows where
-       * recordDate < tradeDate
-       */
-      if (recordDateObj < tradeDateObj) continue;
-
-      const interest = Number(cf.interestAmount || 0) * Number(units);
-      const principal = Number(cf.principalAmount || 0) * Number(units);
-
-      /* ---------- PAST PAYOUTS ---------- */
-      if (cashflowDateObj <= today) {
-        totalInterestEarnedTillToday += interest;
-        totalPrincipalPaidTillToday += principal;
-      }
-
-      /* ---------- PAYOUT SCHEDULE (ALL AFTER TRADE DATE) ---------- */
-      payoutSchedules.push({
-        cashflowDate: cf.cashflowDate,
-        recordDate: cf.recordDate,
-        interestAmount: interest,
-        principalAmount: principal,
-        totalAmount: interest + principal,
-      });
-    }
-
-    /* ---------- SORT PAYOUT SCHEDULE BY DATE ---------- */
-    payoutSchedules.sort((a, b) => {
-      return parseDate(a.cashflowDate) - parseDate(b.cashflowDate);
-    });
+    /* ---------- CORE LOGIC (shared with portfolio summary) ---------- */
+    const { interestTillToday, principalTillToday, schedule } =
+      computeTradeCashflows(bond, units, tradeDateObj, startOfToday());
+    const totalInterestEarnedTillToday = interestTillToday;
+    const totalPrincipalPaidTillToday  = principalTillToday;
+    const payoutSchedules = schedule.map(({ cashflowDate, recordDate, interestAmount, principalAmount, totalAmount }) => ({
+      cashflowDate, recordDate, interestAmount, principalAmount, totalAmount,
+    }));
 
     return res.status(200).json({
       statusCode: 200,
