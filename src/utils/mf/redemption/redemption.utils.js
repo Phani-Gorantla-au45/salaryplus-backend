@@ -18,7 +18,15 @@ const fpHeaders = async () => {
 /*  Creates a redemption order. Enters under_review, moves to pending  */
 /*  after async review.                                                 */
 /* ------------------------------------------------------------------ */
+/** Our AMFI distributor ARN — FP format "ARN-<number>". Override with FP_ARN_CODE. */
+const ARN_CODE = () => process.env.FP_ARN_CODE || "ARN-154957";
+
 export const createFpRedemption = async (payload) => {
+  // Some AMCs (e.g. Nippon) reject instant redemptions without the distributor ARN:
+  //   "arn_code is required for Nippon instant redemption"
+  if (payload?.redemption_mode === "instant" && !payload.arn_code) {
+    payload = { ...payload, arn_code: ARN_CODE() };
+  }
   try {
     console.log(
       "\n📤 [FP REDEMPTION] Create payload:",
