@@ -243,3 +243,115 @@ export const getBwBondPortfolioSummary = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+/* ================================================================
+ * BW USER — BOND PAYOUT SCHEDULE
+ * GET /api/bw/bonds/portfolio/:isin/schedule
+ *
+ * Returns the full payout schedule for a specific bond held by the user.
+ * Each row is marked paid (cashflowDate <= today) or upcoming.
+ * Cashflows from multiple trades of the same ISIN are merged by date.
+ * ================================================================ */
+export const getBondPayoutSchedule = async (req, res) => {
+  try {
+    const { uniqueId } = req.user;
+    const isin = req.params.isin?.trim().toUpperCase();
+
+    const user = await RegistrationUser.findOne(
+      { uniqueId },
+      { _id: 0, panNumber: 1, bondKycStatus: 1 },
+    ).lean();
+
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    if (user.bondKycStatus !== "APPROVED") {
+      return res.status(403).json({ success: false, message: "Bond KYC not approved yet" });
+    }
+    if (!user.panNumber) {
+      return res.status(400).json({ success: false, message: "PAN not found. Please complete Bond KYC." });
+    }
+
+    const holdings = await getBondDetails(user.panNumber);
+    const holding  = holdings.find((h) => String(h.isin).trim().toUpperCase() === isin);
+    if (!holding) {
+      return res.status(404).json({ success: false, message: "Bond not found in your portfolio" });
+    }
+
+    const bond = await isindata.findOne({ isin }).lean();
+    const today = startOfToday();
+
+    // Merge cashflows from all trades into a single schedule keyed by cashflowDate
+    const byDate = new Map();
+    let totalInvested = 0;
+    let totalUnits    = 0;
+
+    for (const t of holding.trades || []) {
+      const tUnits    = num(t.units);
+      const tInvested = num(t.totalPurchase);
+      totalInvested  += tInvested;
+      totalUnits     += tUnits;
+
+      if (!bond) continue;
+      const tradeDate = parseBondDate(t.tradeDate);
+      if (!tradeDate) continue;
+
+      const { schedule } = computeTradeCashflows(bond, tUnits, tradeDate, today);
+      for (const ev of schedule) {
+        const key = ev.cashflowDate;
+        const cur = byDate.get(key) || {
+          cashflowDate: ev.cashflowDate,
+          recordDate:   ev.recordDate,
+          date:         ev.date,
+          interest:     0,
+          principal:    0,
+          total:        0,
+          paid:         ev.paid,
+        };
+        cur.interest  += ev.interestAmount;
+        cur.principal += ev.principalAmount;
+        cur.total     += ev.totalAmount;
+        byDate.set(key, cur);
+      }
+    }
+
+    const schedule = [...byDate.values()]
+      .sort((a, b) => a.date - b.date)
+      .map((ev) => ({
+        cashflowDate: ev.cashflowDate,
+        recordDate:   ev.recordDate,
+        interest:     r2(ev.interest),
+        principal:    r2(ev.principal),
+        total:        r2(ev.total),
+        status:       ev.paid ? "paid" : "upcoming",
+      }));
+
+    const paidCount     = schedule.filter((s) => s.status === "paid").length;
+    const upcomingCount = schedule.filter((s) => s.status === "upcoming").length;
+    const totalInterest = r2(schedule.reduce((s, e) => s + e.interest, 0));
+    const paidAmount    = r2(schedule.filter((e) => e.status === "paid").reduce((s, e) => s + e.total, 0));
+    const remainingAmount = r2(schedule.filter((e) => e.status === "upcoming").reduce((s, e) => s + e.total, 0));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        isin:           holding.isin,
+        issuerName:     holding.issuerName,
+        maturityDate:   holding.maturityDate,
+        units:          r2(totalUnits),
+        invested:       r2(totalInvested),
+        hasCashflowData: !!bond,
+        summary: {
+          totalPayouts:   schedule.length,
+          paidCount,
+          upcomingCount,
+          totalInterest,
+          paidAmount,
+          remainingAmount,
+        },
+        schedule,
+      },
+    });
+  } catch (error) {
+    console.error("❌ [BW BOND SCHEDULE] Error:", error.message);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
