@@ -975,7 +975,10 @@ export const smartRedeem = async (req, res) => {
         try {
           fpData = await createFpRedemption(fpPayload);
         } catch (err) {
-          console.error(`[SS-V2 REDEEM] FP order failed isin=${entry.isin} mode=${mode}:`, err.message);
+          console.error(
+            `[SS-V2 REDEEM] FP order FAILED user=${uniqueId} fund="${entry.fundName}" isin=${entry.isin} folio=${entry.folioNumber} ` +
+            `mode=${mode} amount=${amount} → FP ${err.fp?.httpStatus ?? "?"}: ${err.message}`
+          );
           continue;
         }
 

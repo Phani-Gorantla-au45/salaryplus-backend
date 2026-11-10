@@ -20,35 +20,54 @@ const fpHeaders = async () => {
 /* ------------------------------------------------------------------ */
 /** Our AMFI distributor ARN — FP format "ARN-<number>". Override with FP_ARN_CODE. */
 const ARN_CODE = () => process.env.FP_ARN_CODE || "ARN-154957";
+/**
+ * Nippon instant redemptions fail with "arn_code is required for Nippon instant redemption",
+ * but FP's /v2/mf_redemptions currently rejects the field ("Unrecognized field 'arn_code'").
+ * So it is OFF by default; set FP_SEND_ARN_ON_INSTANT=true once FP confirms the right field.
+ */
+const SEND_ARN_ON_INSTANT = () => process.env.FP_SEND_ARN_ON_INSTANT === "true";
+
+/** FP returns { error: { status, code, message, errors } } — pull the human message out. */
+const fpErrorMessage = (data) =>
+  data?.error?.message ||
+  (Array.isArray(data?.error?.errors) ? data.error.errors.map((e) => e?.message).filter(Boolean).join(". ") : null) ||
+  data?.message ||
+  null;
 
 export const createFpRedemption = async (payload) => {
-  // Some AMCs (e.g. Nippon) reject instant redemptions without the distributor ARN:
-  //   "arn_code is required for Nippon instant redemption"
-  if (payload?.redemption_mode === "instant" && !payload.arn_code) {
+  if (SEND_ARN_ON_INSTANT() && payload?.redemption_mode === "instant" && !payload.arn_code) {
     payload = { ...payload, arn_code: ARN_CODE() };
   }
+  const url = `${FP_API_URL()}/v2/mf_redemptions`;
   try {
     console.log(
       "\n📤 [FP REDEMPTION] Create payload:",
       JSON.stringify(payload, null, 2)
     );
-    const response = await axios.post(
-      `${FP_API_URL()}/v2/mf_redemptions`,
-      payload,
-      { headers: await fpHeaders() }
-    );
+    const response = await axios.post(url, payload, { headers: await fpHeaders() });
     console.log(
       `✅ [FP REDEMPTION] Created — id=${response.data?.id} old_id=${response.data?.old_id} state=${response.data?.state}`
     );
     return response.data;
   } catch (err) {
+    const status  = err.response?.status ?? null;
+    const data    = err.response?.data;
+    const hdrs    = err.response?.headers || {};
+    const fpMsg   = fpErrorMessage(data);
+    // Full, shareable failure report (send this block to FP support)
     console.error(
-      "❌ [FP REDEMPTION] Create failed:",
-      JSON.stringify(err.response?.data || err.message, null, 2)
+      "❌ [FP REDEMPTION] Create failed — FP response:\n" +
+      JSON.stringify({
+        at:           new Date().toISOString(),
+        request:      { method: "POST", url, tenant: process.env.FP_TENANT_ID || null, payload },
+        response:     { httpStatus: status, body: data ?? null },
+        fpRequestId:  hdrs["x-request-id"] || hdrs["x-trace-id"] || hdrs["x-amzn-requestid"] || hdrs["x-correlation-id"] || null,
+        networkError: data ? null : err.message,
+      }, null, 2)
     );
-    throw new Error(
-      err.response?.data?.message || "Failed to create redemption on FP"
-    );
+    const e = new Error(fpMsg || err.message || "Failed to create redemption on FP");
+    e.fp = { httpStatus: status, body: data ?? null, message: fpMsg };
+    throw e;
   }
 };
 
