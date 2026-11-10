@@ -136,6 +136,8 @@ export const getBwBondPortfolioSummary = async (req, res) => {
       const isMatured = maturityDate ? maturityDate <= today : events.length === 0 && !!bond;
       const avgYield = invested > 0 ? yieldWeighted / invested : 0;
       const coupon = num(h.trades?.[0]?.coupon);
+      // Yield exactly as stored in DB (bond_trades.clientYield) — one per distinct value across trades
+      const clientYields = [...new Set((h.trades || []).map((t) => String(t.clientYield ?? "").trim()).filter(Boolean))];
 
       // Next payout for this bond (sum same-date events across trades)
       const byDate = new Map();
@@ -158,6 +160,7 @@ export const getBwBondPortfolioSummary = async (req, res) => {
         invested: r2(invested),
         coupon: r2(coupon),
         avgYield: r2(avgYield),
+        clientYields,                       // e.g. ["11.0000%"] — display as-is
         interestReceived: r2(interestReceived),
         principalReturned: r2(principalReturned),
         hasCashflowData: !!bond,
