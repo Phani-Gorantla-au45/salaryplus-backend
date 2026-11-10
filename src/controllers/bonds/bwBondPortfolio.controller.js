@@ -241,6 +241,7 @@ export const getBwBondPortfolioSummary = async (req, res) => {
       interestAhead: r2(sum(active, "interestAhead")),
       next12MonthsInterest: r2(next12mInterest),
       avgMonthlyIncome: r2(next12mInterest / 12),
+      dailyIncome: r2(next12mInterest / 365),
       nextPayout: upcomingPayouts[0] || null,
       maturedInvested: r2(sum(matured, "invested")),
       maturedReceived: r2(sum(matured, "totalReceived")),
@@ -339,11 +340,17 @@ export const getBondPayoutSchedule = async (req, res) => {
         status:       ev.paid ? "paid" : "upcoming",
       }));
 
-    const paidCount     = schedule.filter((s) => s.status === "paid").length;
-    const upcomingCount = schedule.filter((s) => s.status === "upcoming").length;
-    const totalInterest = r2(schedule.reduce((s, e) => s + e.interest, 0));
-    const paidAmount    = r2(schedule.filter((e) => e.status === "paid").reduce((s, e) => s + e.total, 0));
+    const paidCount       = schedule.filter((s) => s.status === "paid").length;
+    const upcomingCount   = schedule.filter((s) => s.status === "upcoming").length;
+    const totalInterest   = r2(schedule.reduce((s, e) => s + e.interest, 0));
+    const paidAmount      = r2(schedule.filter((e) => e.status === "paid").reduce((s, e) => s + e.total, 0));
     const remainingAmount = r2(schedule.filter((e) => e.status === "upcoming").reduce((s, e) => s + e.total, 0));
+    const upcomingInterest = r2(schedule.filter((e) => e.status === "upcoming").reduce((s, e) => s + e.interest, 0));
+
+    // Days from today to maturity (calendar days, non-working days included)
+    const maturityDateObj = parseBondDate(holding.maturityDate);
+    const daysToMaturity  = maturityDateObj ? Math.max(1, Math.ceil((maturityDateObj - today) / 86400000)) : 365;
+    const dailyIncome     = r2(upcomingInterest / daysToMaturity);
 
     return res.status(200).json({
       success: true,
@@ -361,6 +368,7 @@ export const getBondPayoutSchedule = async (req, res) => {
           totalInterest,
           paidAmount,
           remainingAmount,
+          dailyIncome,
         },
         schedule,
       },
