@@ -82,6 +82,8 @@ import mfSmartPortfolioAdminRoutes from "./mf/smartPortfolio/smartPortfolioAdmin
 import appVersionRoutes    from "./app/appVersion.routes.js";
 import goalRoutes          from "./goals/goal.routes.js";
 import customGoalRoutes    from "./goals/userCustomGoal.routes.js";
+// Family Portfolio (link + view a family member's portfolio)
+import familyRoutes from "./family/family.routes.js";
 // SafeGold
 import safegoldUserRoutes from "./safegold/user.routes.js";
 // Migration (BSE → platform bulk onboarding)
@@ -215,6 +217,9 @@ router.use("/api/app", appVersionRoutes);
 // Goal-based Financial Planning
 router.use("/api/goals", goalRoutes);
 router.use("/api/custom-goals", customGoalRoutes);
+
+// Family Portfolio — NEW, additive (does not change any existing route)
+router.use("/api/family", familyRoutes);
 
 // MF Webhooks (FP → our server)
 router.use("/api/mf/webhook/fp",        mfFpWebhookRoutes);       // public — receives FP events
