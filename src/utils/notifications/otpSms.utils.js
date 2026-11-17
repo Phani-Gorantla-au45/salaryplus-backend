@@ -3,7 +3,7 @@ import axios from "axios";
 /**
  * Single place that builds every OTP SMS sent via Fast2SMS.
  *
- * Approved DLT template — Fast2SMS message id 231993, sender SPENDI,
+ * Approved DLT template — Fast2SMS message id 232000, sender SPENDI,
  * entity SPENDIQ FINTECH PRIVATE LIMITED (1701174114721758554), Service Implicit:
  *   {#var#} is your OTP to log into Bharat Wealth. Valid for 5 mins. Do not share it with anyone.
  *   -Spendiq Fintech Pvt Ltd
