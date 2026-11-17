@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { sendFounderNote } from "../../utils/mf/webhook/notification.utils.js";
 import { sendEmailOtp } from "../../utils/notifications/email.utils.js";
+import { buildOtpSmsPayload } from "../../utils/notifications/otpSms.utils.js";
 
 /* 🔐 HASH OTP */
 const hashOTP = (otp) => crypto.createHash("sha256").update(otp).digest("hex");
@@ -15,13 +16,7 @@ const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 /* 📲 SEND OTP SERVICE */
 const sendOTP = async (phone, otp) => {
-  const payload = {
-    route: "dlt",
-    sender_id: "SPENDI",
-    message: "181034",
-    variables_values: `Your OTP is ${otp}`,
-    numbers: phone,
-  };
+  const payload = buildOtpSmsPayload(phone, otp, "login");
   console.log(`\n📤 [SEND OTP] Fast2SMS request — phone: ${phone}`);
   console.log(`📤 [SEND OTP] Payload:`, JSON.stringify(payload, null, 2));
   console.log(`📤 [SEND OTP] API URL: ${process.env.FAST2SMS_API_URL}`);

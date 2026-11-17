@@ -2,6 +2,7 @@ import SBregister from "../../models/bonds/SBregister.model.js";
 import axios from "axios";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { sendOtpSms } from "../../utils/notifications/otpSms.utils.js";
 
 /* ================= UTILITIES ================= */
 
@@ -20,21 +21,7 @@ const generateUniqueId = () => {
 
 /* 📲 Send OTP via Fast2SMS */
 const sendOTP = async (phone, otp) => {
-  await axios.post(
-    process.env.FAST2SMS_API_URL,
-    {
-      route: "dlt",
-      sender_id: "SPENDI",
-      message: "181034",
-      variables_values: `Your OTP is ${otp}`,
-      numbers: phone,
-    },
-    {
-      headers: {
-        authorization: process.env.FAST2SMS_API_KEY,
-      },
-    },
-  );
+  await sendOtpSms(phone, otp, "login");
 };
 
 /* ================= 1️⃣ SEND OTP ================= */

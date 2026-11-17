@@ -1,5 +1,6 @@
 import axios from "axios";
 import { sendEmailOtp } from "../notifications/email.utils.js";
+import { sendOtpSms } from "./../notifications/otpSms.utils.js";
 
 /**
  * Generates a cryptographically random 6-digit OTP.
@@ -23,17 +24,7 @@ export const otpExpiresAt = () => new Date(Date.now() + 5 * 60 * 1000);
  * @param {string} otp   - 6-digit OTP string
  */
 export const sendConsentOtp = async (phone, otp, email = null) => {
-  const smsPromise = axios.post(
-    process.env.FAST2SMS_API_URL,
-    {
-      route:            "dlt",
-      sender_id:        "SPENDI",
-      message:          "181034",
-      variables_values: `Your OTP is ${otp}`,
-      numbers:          phone,
-    },
-    { headers: { authorization: process.env.FAST2SMS_API_KEY } }
-  );
+  const smsPromise = sendOtpSms(phone, otp, "txn");
 
   const emailPromise = email
     ? sendEmailOtp(email, otp).catch((err) => {

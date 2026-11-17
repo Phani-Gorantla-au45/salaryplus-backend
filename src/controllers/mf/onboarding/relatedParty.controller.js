@@ -61,42 +61,50 @@ const buildFpPayload = (body) => {
     guardian_pincode, guardian_state, guardian_country,
   } = body;
 
+  // FP: nominee's own PAN/contact/address only if age > 18; guardian_* only
+  // if age < 18. Without a DOB we can't tell, so the nominee is treated as
+  // an adult (guardian details are dropped).
+  const minor = date_of_birth ? checkIsMinor(date_of_birth) : false;
+
   const payload = {};
   if (name)           payload.name           = name.trim();
   if (relationship)   payload.relationship   = relationship;
   if (date_of_birth)  payload.date_of_birth  = new Date(date_of_birth).toISOString().split("T")[0]; // FP expects YYYY-MM-DD
-  if (pan)            payload.pan            = pan.toUpperCase().trim();
-  if (aadhaar_number) payload.aadhaar_number = parseInt(aadhaar_number, 10); // FP expects integer
-  if (email_address)  payload.email_address  = email_address.trim();
-  if (phone_number)   payload.phone_number   = { isd: "+91", number: String(phone_number).trim() };
 
-  if (line1 || city || pincode) {
-    payload.address = {
-      line1:       line1   ?? null,
-      line2:       line2   ?? null,
-      city:        city    ?? null,
-      postal_code: pincode ?? null,   // FP uses postal_code
-      state:       state   ?? null,
-      country:     country ?? "IN",
-    };
-  }
+  if (!minor) {
+    if (pan)            payload.pan            = pan.toUpperCase().trim();
+    if (aadhaar_number) payload.aadhaar_number = parseInt(aadhaar_number, 10); // FP expects integer
+    if (email_address)  payload.email_address  = email_address.trim();
+    if (phone_number)   payload.phone_number   = { isd: "+91", number: String(phone_number).trim() };
 
-  // Guardian fields — only sent to FP when nominee is a minor
-  if (guardian_name)             payload.guardian_name             = guardian_name.trim();
-  if (guardian_pan)              payload.guardian_pan              = guardian_pan.toUpperCase().trim();
-  if (guardian_aadhaar_number)   payload.guardian_aadhaar_number   = parseInt(guardian_aadhaar_number, 10); // FP expects integer
-  if (guardian_email_address)    payload.guardian_email_address    = guardian_email_address.trim();
-  if (guardian_phone_number)     payload.guardian_phone_number     = { isd: "+91", number: String(guardian_phone_number).trim() };
+    // FP address hash needs line1 + postal_code + country — send only if complete
+    if (line1 && pincode) {
+      payload.address = {
+        line1:       line1,
+        line2:       line2   ?? null,
+        city:        city    ?? null,
+        postal_code: pincode,             // FP uses postal_code
+        state:       state   ?? null,
+        country:     country ?? "IN",
+      };
+    }
+  } else {
+    if (guardian_name)             payload.guardian_name             = guardian_name.trim();
+    if (guardian_pan)              payload.guardian_pan              = guardian_pan.toUpperCase().trim();
+    if (guardian_aadhaar_number)   payload.guardian_aadhaar_number   = parseInt(guardian_aadhaar_number, 10); // FP expects integer
+    if (guardian_email_address)    payload.guardian_email_address    = guardian_email_address.trim();
+    if (guardian_phone_number)     payload.guardian_phone_number     = { isd: "+91", number: String(guardian_phone_number).trim() };
 
-  if (guardian_line1 || guardian_city || guardian_pincode) {
-    payload.guardian_address = {
-      line1:       guardian_line1   ?? null,
-      line2:       guardian_line2   ?? null,
-      city:        guardian_city    ?? null,
-      postal_code: guardian_pincode ?? null,  // FP uses postal_code
-      state:       guardian_state   ?? null,
-      country:     guardian_country ?? "IN",
-    };
+    if (guardian_line1 && guardian_pincode) {
+      payload.guardian_address = {
+        line1:       guardian_line1,
+        line2:       guardian_line2   ?? null,
+        city:        guardian_city    ?? null,
+        postal_code: guardian_pincode,    // FP uses postal_code
+        state:       guardian_state   ?? null,
+        country:     guardian_country ?? "IN",
+      };
+    }
   }
 
   return payload;
@@ -169,15 +177,10 @@ export const getRelatedPartyEnums = (req, res) => {
 export const createRelatedParty = async (req, res) => {
   try {
     const { uniqueId } = req.user;
-    const {
-      name, relationship, date_of_birth,
-      pan, aadhaar_number,
-      email_address, phone_number, line1, city, pincode,
-      guardian_name, guardian_pan, guardian_aadhaar_number,
-      guardian_email_address, guardian_phone_number,
-      guardian_line1, guardian_city, guardian_pincode,
-    } = req.body;
+    const { name, relationship } = req.body;
 
+    /* FP mandates only name + relationship. Everything else is optional and
+     * forwarded when present (older app versions still send the full form). */
     if (!name || !relationship) {
       return res.status(400).json({ success: false, message: "name and relationship are required" });
     }
@@ -186,32 +189,6 @@ export const createRelatedParty = async (req, res) => {
         success: false,
         message: `relationship must be one of: ${RELATIONSHIP_VALUES.join(", ")}`,
       });
-    }
-    if (!pan && !aadhaar_number) {
-      return res.status(400).json({ success: false, message: "pan or aadhaar_number is required" });
-    }
-    if (!email_address || !phone_number) {
-      return res.status(400).json({ success: false, message: "email_address and phone_number are required" });
-    }
-    if (!line1 || !city || !pincode) {
-      return res.status(400).json({ success: false, message: "address fields line1, city and pincode are required" });
-    }
-
-    /* ---------- MINOR CHECK — guardian required if nominee < 18 ---------- */
-    const minor = date_of_birth ? checkIsMinor(date_of_birth) : false;
-    if (minor) {
-      if (!guardian_name) {
-        return res.status(400).json({ success: false, message: "guardian_name is required for a minor nominee" });
-      }
-      if (!guardian_pan && !guardian_aadhaar_number) {
-        return res.status(400).json({ success: false, message: "guardian_pan or guardian_aadhaar_number is required for a minor nominee" });
-      }
-      if (!guardian_email_address || !guardian_phone_number) {
-        return res.status(400).json({ success: false, message: "guardian_email_address and guardian_phone_number are required for a minor nominee" });
-      }
-      if (!guardian_line1 || !guardian_city || !guardian_pincode) {
-        return res.status(400).json({ success: false, message: "guardian address fields (guardian_line1, guardian_city, guardian_pincode) are required for a minor nominee" });
-      }
     }
 
     const mfData = await MfUserData.findOne({ uniqueId });
@@ -298,6 +275,17 @@ export const updateRelatedParty = async (req, res) => {
       pincode: req.body.pincode ?? existing.address?.pincode,
       state:   req.body.state   ?? existing.address?.state,
       country: req.body.country ?? existing.address?.country,
+      guardian_name:           req.body.guardian_name           ?? existing.guardianName,
+      guardian_pan:            req.body.guardian_pan            ?? existing.guardianPan,
+      guardian_aadhaar_number: req.body.guardian_aadhaar_number ?? existing.guardianAadhaarNumber,
+      guardian_email_address:  req.body.guardian_email_address  ?? existing.guardianEmailAddress,
+      guardian_phone_number:   req.body.guardian_phone_number   ?? existing.guardianPhoneNumber,
+      guardian_line1:   req.body.guardian_line1   ?? existing.guardianAddress?.line1,
+      guardian_line2:   req.body.guardian_line2   ?? existing.guardianAddress?.line2,
+      guardian_city:    req.body.guardian_city    ?? existing.guardianAddress?.city,
+      guardian_pincode: req.body.guardian_pincode ?? existing.guardianAddress?.pincode,
+      guardian_state:   req.body.guardian_state   ?? existing.guardianAddress?.state,
+      guardian_country: req.body.guardian_country ?? existing.guardianAddress?.country,
     };
 
     const fpInvestorProfileId = mfData?.investorProfile?.fpInvestorProfileId;

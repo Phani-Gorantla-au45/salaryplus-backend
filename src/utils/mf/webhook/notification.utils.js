@@ -195,7 +195,7 @@ export const sendInvestmentSuccessEmail = async ({ to, name, amount, isBasket, f
   if (!to) return;
 
   const firstName = (name || "").split(" ")[0] || "Investor";
-  const fmt       = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
+  const fmt       = (n) => Number(n) > 0 ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
 
   let contentHtml;
 
@@ -235,7 +235,7 @@ export const sendInvestmentSuccessEmail = async ({ to, name, amount, isBasket, f
         </div>
       </div>
 
-      ${allotmentNote}`;
+`;
   } else {
     contentHtml = `
       <h2 style="color:${BRAND_COLOR};font-size:20px;margin:0 0 6px">Investment Successful! 🎉</h2>
@@ -247,9 +247,7 @@ export const sendInvestmentSuccessEmail = async ({ to, name, amount, isBasket, f
           <span style="font-size:14px;color:#374151">Amount Invested</span>
           <span style="font-size:26px;font-weight:800;color:${BRAND_COLOR}">${fmt(amount)}</span>
         </div>
-      </div>
-
-      ${allotmentNote}`;
+      </div>`;
   }
 
   const html = wrapEmail(contentHtml);
