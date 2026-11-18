@@ -48,7 +48,9 @@ export const sendOtp = async (req, res) => {
       return res.status(429).json({ message: "Wait 1 min before retry" });
     }
 
-    const otp = generateOTP();
+    const TEST_NUMBERS = new Set([8801648801, 8801648802]);
+    const isTest = TEST_NUMBERS.has(Number(phone));
+    const otp = isTest ? "1234" : generateOTP();
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
     if (!user) {
@@ -63,7 +65,11 @@ export const sendOtp = async (req, res) => {
     await user.save();
     console.log(`💾 [SEND OTP] User saved to DB`);
 
-    await sendOTP(phone, otp);
+    if (isTest) {
+      console.log(`🧪 [SEND OTP] Test number ${phone} — skipping SMS, OTP is 1234`);
+    } else {
+      await sendOTP(phone, otp);
+    }
 
     // Also send to email if the user has one registered
     if (user.email) {

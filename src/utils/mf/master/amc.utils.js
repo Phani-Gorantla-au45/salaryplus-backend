@@ -14,29 +14,53 @@ const fpHeaders = async () => {
 };
 
 /**
- * Returns a map of { fundName (uppercase) → amclogo } for the given fund names.
- * Single DB query, no error thrown if logo missing.
+ * Brand key for an AMC / fund-house name, so different spellings line up:
+ *   "AXIS MUTUAL FUND"                       → "AXIS"
+ *   "AXIS ASSET MANAGEMENT COMPANY LIMITED"  → "AXIS"
+ *   "HDFC AMC LTD."                          → "HDFC"
+ *   "ICICIPRUDENTIALMUTUALFUND_MF_SIF"       → "ICICIPRUDENTIAL"
+ */
+const SUFFIX_WORDS = /\b(MUTUAL ?FUNDS?|ASSET MANAGEMENT|INVESTMENT MANAGERS?|INVESTMENT MANAGEMENT|FUND MANAGEMENT|MANAGEMENT|AMC|COMPANY|CO|LIMITED|LTD|PRIVATE|PVT|INDIA|SERVICES)\b/g;
+export const amcBrandKey = (name) =>
+  String(name ?? "")
+    .toUpperCase()
+    .replace(/_(MF|SIF)\b/g, " ")
+    .replace(/MUTUALFUNDS?|MUTUAL FUNDS?/g, " ")
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(SUFFIX_WORDS, " ")
+    .replace(/\s+/g, "");
+
+/**
+ * Returns a map of { fundName (uppercase) → amcLogo } for the given fund-house
+ * names. Matches on the brand key (see amcBrandKey); exact brand match wins,
+ * otherwise the longest brand that one name starts with (e.g. "ADITYABIRLASUNLIFE"
+ * ↔ "BIRLASUNLIFE" via contains). Single DB query, never throws for a missing logo.
+ * Keys are stored both as-is uppercased and trimmed, so callers can look up either.
  */
 export const getAmcLogoMap = async (fundNames = []) => {
   if (!fundNames.length) return {};
-  // Fetch all AMCs that have a logo (either field variant)
   const amcs = await MfAmc.find(
     { $or: [{ amcLogo: { $ne: null } }, { amclogo: { $ne: null } }] },
     { name: 1, amcLogo: 1, amclogo: 1 }
   ).lean();
 
-  // For each fund name, find the best matching AMC by checking if either string
-  // contains the other (handles "INVESCO MUTUAL FUND" vs "INVESCO ASSET MANAGEMENT...")
+  const withKeys = amcs
+    .map((amc) => ({ key: amcBrandKey(amc.name), logo: amc.amcLogo ?? amc.amclogo }))
+    .filter((a) => a.key && a.logo)
+    .sort((x, y) => y.key.length - x.key.length);   // longest (most specific) first
+
   const result = {};
   for (const fundName of fundNames) {
     if (!fundName) continue;
-    const fundUpper = fundName.toUpperCase().trim();
-    const matched = amcs.find((amc) => {
-      const amcUpper = amc.name?.toUpperCase().trim() ?? "";
-      return amcUpper === fundUpper || amcUpper.includes(fundUpper) || fundUpper.includes(amcUpper);
-    });
+    const key = amcBrandKey(fundName);
+    if (!key) continue;
+    const matched =
+      withKeys.find((a) => a.key === key) ??
+      withKeys.find((a) => key.startsWith(a.key) || a.key.startsWith(key)) ??
+      withKeys.find((a) => Math.min(a.key.length, key.length) >= 5 && (key.includes(a.key) || a.key.includes(key)));
     if (matched) {
-      result[fundUpper] = matched.amcLogo ?? matched.amclogo;
+      result[fundName.toUpperCase()] = matched.logo;
+      result[fundName.toUpperCase().trim()] = matched.logo;
     }
   }
   return result;
