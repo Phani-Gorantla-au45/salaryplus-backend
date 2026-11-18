@@ -351,13 +351,18 @@ export const confirmBasketSip = async (req, res) => {
     }
 
     /* ---------- VERIFY OTP ---------- */
-    const { valid, reason } = verifyConsentOtp(
-      otp,
-      record.otpCode,
-      record.otpExpiresAt,
-    );
-    if (!valid)
-      return res.status(400).json({ success: false, message: reason });
+    // A 202 ("plans still under FP review") already verified the OTP and
+    // cleared it, so the app's automatic retry must not be checked again —
+    // otherwise it fails with "No OTP found". Resend resets otpVerified.
+    if (!record.otpVerified) {
+      const { valid, reason } = verifyConsentOtp(
+        otp,
+        record.otpCode,
+        record.otpExpiresAt,
+      );
+      if (!valid)
+        return res.status(400).json({ success: false, message: reason });
+    }
 
     /* ---------- CHECK FP STATE FOR EACH PLAN ---------- */
     console.log(

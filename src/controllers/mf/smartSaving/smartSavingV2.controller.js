@@ -1073,7 +1073,9 @@ export const confirmSmartRedeem = async (req, res) => {
     if (!records.length) return res.status(404).json({ success: false, message: "No matching redemption orders found" });
 
     /* ---- Verify OTP (all records share the same OTP) ---- */
-    const primary = records[0];
+    // Use a record that hasn't consumed the OTP yet — if an earlier attempt confirmed
+    // some orders (clearing their otpCode) and another failed, a retry must still verify.
+    const primary = records.find((r) => !r.consentGiven) ?? records[0];
     const { valid, reason } = verifyConsentOtp(otp, primary.otpCode, primary.otpExpiresAt);
     if (!valid) return res.status(400).json({ success: false, message: reason });
 
