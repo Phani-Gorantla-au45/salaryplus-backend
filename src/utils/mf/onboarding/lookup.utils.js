@@ -29,11 +29,13 @@ const fpError = (err, fallback) =>
 /** POST — create a lookup. `body` = { source_ref_id, phone_number, consent, name? } */
 export const createFpLookup = async (type, body) => {
   try {
+    console.log(`\n📤 [FP LOOKUP] ${type} request:`, JSON.stringify(body, null, 2));
     const { data } = await axios.post(`${FP_API_URL()}${PATHS[type]}`, body, {
       headers: await fpHeaders(),
       timeout: 20000,
     });
     console.log(`✅ [FP LOOKUP] ${type} created — id=${data?.id} status=${data?.status}`);
+    console.log(`📥 [FP LOOKUP] ${type} response:`, JSON.stringify(data, null, 2));
     return data;
   } catch (err) {
     console.error(`❌ [FP LOOKUP] ${type} create failed:`, JSON.stringify(err.response?.data || err.message));
@@ -48,6 +50,7 @@ export const fetchFpLookup = async (type, id) => {
       headers: await fpHeaders(),
       timeout: 15000,
     });
+    console.log(`📥 [FP LOOKUP] ${type} fetch ${id} — status=${data?.status}:`, JSON.stringify(data, null, 2));
     return data;
   } catch (err) {
     console.error(`❌ [FP LOOKUP] ${type} fetch failed:`, JSON.stringify(err.response?.data || err.message));

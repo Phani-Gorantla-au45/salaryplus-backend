@@ -210,6 +210,10 @@ export const createLookup = async (req, res) => {
     );
 
     const out = Object.fromEntries(results);
+    console.log(
+      `🧾 [LOOKUP] uniqueId=${uniqueId} phone=${phone} — values sent to app:`,
+      JSON.stringify(out, null, 2)
+    );
     return res.status(200).json({
       success: true,
       customer: out.customer_data ?? null,
