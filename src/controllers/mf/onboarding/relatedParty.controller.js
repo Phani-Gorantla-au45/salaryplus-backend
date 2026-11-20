@@ -40,6 +40,42 @@ const checkIsMinor = (dob) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  Helper — DOB is mandatory; a minor nominee needs a guardian name.   */
+/*  Returns an error message, or null when OK.                          */
+/* ------------------------------------------------------------------ */
+const validateDobAndGuardian = ({ date_of_birth, guardian_name }) => {
+  if (!date_of_birth) return "date_of_birth is required (YYYY-MM-DD)";
+  const d = new Date(date_of_birth);
+  if (Number.isNaN(d.getTime())) return "date_of_birth must be a valid date (YYYY-MM-DD)";
+  if (d > new Date()) return "date_of_birth cannot be in the future";
+  if (checkIsMinor(date_of_birth)) {
+    const g = String(guardian_name ?? "").trim();
+    if (!g) return "Guardian name is required when the nominee is below 18 years";
+    if (!/^[A-Za-z ]+$/.test(g) || g.length > 35) {
+      return "Guardian name should contain only letters and spaces (max 35 characters)";
+    }
+  }
+  return null;
+};
+
+/* ------------------------------------------------------------------ */
+/*  Helper — DOB/guardian rule applies only to app >= 1.0.16, which     */
+/*  sends X-App-Version. Older builds (no header) keep the old rules.  */
+/* ------------------------------------------------------------------ */
+const DOB_REQUIRED_FROM = "1.0.16";
+const appVersionAtLeast = (req, min) => {
+  const v = String(req.get?.("x-app-version") ?? "").trim();
+  if (!/^\d+(\.\d+)*$/.test(v)) return false;
+  const a = v.split(".").map(Number);
+  const b = min.split(".").map(Number);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] ?? 0, y = b[i] ?? 0;
+    if (x !== y) return x > y;
+  }
+  return true;
+};
+
+/* ------------------------------------------------------------------ */
 /*  Helper — derive identity proof type from pan/aadhaar                */
 /* ------------------------------------------------------------------ */
 const identityProofType = (pan, aadhaar) =>
@@ -179,8 +215,9 @@ export const createRelatedParty = async (req, res) => {
     const { uniqueId } = req.user;
     const { name, relationship } = req.body;
 
-    /* FP mandates only name + relationship. Everything else is optional and
-     * forwarded when present (older app versions still send the full form). */
+    /* Required: name, relationship; from app 1.0.16 also date_of_birth (+ guardian_name for a minor).
+     * Everything else is optional and forwarded when present (older app
+     * versions still send the full form). */
     if (!name || !relationship) {
       return res.status(400).json({ success: false, message: "name and relationship are required" });
     }
@@ -190,6 +227,8 @@ export const createRelatedParty = async (req, res) => {
         message: `relationship must be one of: ${RELATIONSHIP_VALUES.join(", ")}`,
       });
     }
+    const dobError = appVersionAtLeast(req, DOB_REQUIRED_FROM) ? validateDobAndGuardian(req.body) : null;
+    if (dobError) return res.status(400).json({ success: false, message: dobError });
 
     const mfData = await MfUserData.findOne({ uniqueId });
 
@@ -287,6 +326,9 @@ export const updateRelatedParty = async (req, res) => {
       guardian_state:   req.body.guardian_state   ?? existing.guardianAddress?.state,
       guardian_country: req.body.guardian_country ?? existing.guardianAddress?.country,
     };
+
+    const dobError = appVersionAtLeast(req, DOB_REQUIRED_FROM) ? validateDobAndGuardian(merged) : null;
+    if (dobError) return res.status(400).json({ success: false, message: dobError });
 
     const fpInvestorProfileId = mfData?.investorProfile?.fpInvestorProfileId;
     if (!fpInvestorProfileId) {

@@ -29,6 +29,7 @@ import mfFileRoutes            from "./mf/kyc/file.routes.js";
 // MF Onboarding
 import mfRiskProfileRoutes      from "./mf/onboarding/riskProfile.routes.js";
 import mfAccountPrefillRoutes   from "./mf/onboarding/accountPrefill.routes.js";
+import mfLookupRoutes           from "./mf/onboarding/lookup.routes.js";
 import mfInvestorProfileRoutes  from "./mf/onboarding/investorProfile.routes.js";
 import mfPhoneNumberRoutes      from "./mf/onboarding/phoneNumber.routes.js";
 import mfEmailAddressRoutes     from "./mf/onboarding/emailAddress.routes.js";
@@ -131,6 +132,7 @@ router.use("/api/mf/related-party", mfRelatedPartyRoutes);
 router.use("/api/mf/bank-account", mfBankAccountRoutes);
 router.use("/api/mf/investment-account", mfInvestmentAccountRoutes);
 router.use("/api/mf/account", mfAccountPrefillRoutes);
+router.use("/api/mf/lookup", mfLookupRoutes);
 
 // MF Master Data
 router.use("/api/mf/master/amcs",           mfAmcRoutes);

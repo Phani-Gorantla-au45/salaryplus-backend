@@ -1,6 +1,7 @@
 import KycRequest from "../../../models/mf/kycRequest.model.js";
 import IdentityDocument from "../../../models/mf/identityDocument.model.js";
 import MfUserData from "../../../models/mf/mfUserData.model.js";
+import { getLookupPrefill } from "./lookup.controller.js";
 
 /*
  * Maps KYC request occupation_type values → investor profile occupation values
@@ -32,13 +33,15 @@ export const getAccountPrefill = async (req, res) => {
     const { uniqueId } = req.user;
 
     /* ---------- FETCH IN PARALLEL ---------- */
-    const [mfData, kycRequest] = await Promise.all([
+    const [mfData, kycRequest, lookup] = await Promise.all([
       MfUserData.findOne({ uniqueId }),
       // Latest successful or submitted KYC request (has the richest user data)
       KycRequest.findOne({
         uniqueId,
         status: { $in: ["successful", "submitted"] },
       }).sort({ createdAt: -1 }),
+      // FP lookup results (customer data / bank) — only fills gaps, never overrides KYC
+      getLookupPrefill(uniqueId).catch(() => ({ customer: null, bank: null })),
     ]);
 
     // Fetch Aadhaar identity document if KYC request exists
@@ -110,6 +113,36 @@ export const getAccountPrefill = async (req, res) => {
           // city/state are auto-filled by FP from postal_code — no need to send
         };
       }
+    }
+
+    /* ---------- FILL GAPS FROM FP LOOKUP (user-consented) ---------- */
+    // KYC values above always win; lookup values are used only where nothing else is known.
+    const lc = lookup.customer;
+    if (lc) {
+      if (!completed.investorProfile) {
+        const ip = (prefill.investorProfile ??= {});
+        const fill = (k, v) => { if (v && !ip[k]) ip[k] = v; };
+        fill("name", lc.name);
+        fill("pan", lc.pan);
+        fill("dob", lc.dob);
+        fill("gender", lc.gender);
+        fill("occupation", lc.occupation);
+        fill("income_slab", lc.incomeSlab);
+      }
+      if (!completed.emailAddress && !prefill.emailAddress?.email && lc.email) {
+        prefill.emailAddress = { email: lc.email };
+      }
+      if (!completed.address && !prefill.address?.line1 && lc.address) {
+        prefill.address = { line1: lc.address.line, postal_code: lc.address.pincode };
+      }
+    }
+    if (lookup.bank && !completed.bankAccount) {
+      prefill.bankAccount = {
+        account_number:              lookup.bank.accountNumber,
+        ifsc_code:                   lookup.bank.ifsc,
+        primary_account_holder_name: lookup.bank.holderName,
+        type:                        lookup.bank.type,
+      };
     }
 
     /* ---------- EXISTING DATA (for sections already done) ---------- */
@@ -197,7 +230,8 @@ export const getAccountPrefill = async (req, res) => {
       allDone,
       nextStep,
       completed,
-      prefill,    // suggested values for incomplete sections (from KYC data)
+      prefill,    // suggested values for incomplete sections (KYC data, then FP lookup)
+      lookup,     // raw FP lookup values { customer, bank } — for screens outside account setup
       existing,   // confirmed values for completed sections
       sourceHint: kycRequest
         ? "Values pre-filled from your KYC application"
