@@ -34,6 +34,24 @@ const fpErrorMessage = (data) =>
   data?.message ||
   null;
 
+/**
+ * Gateway for an instant redemption. Only these ISINs go via the RTA gateway;
+ * every other fund (Smart Savings basket or individual) goes via ONDC.
+ */
+const RTA_INSTANT_ISINS = new Set(["INF209K01RU9"]);
+export const instantRedemptionGateway = (isin) =>
+  RTA_INSTANT_ISINS.has(String(isin ?? "").toUpperCase().trim()) ? "rta" : "ondc";
+
+/**
+ * Consent payload for confirming a redemption. The RTA gateway validates the
+ * raw OTP itself (mobile + otp only); ONDC and normal redemptions take the
+ * standard email + mobile consent.
+ */
+export const redemptionConsent = ({ gateway, email, isd, phone, otp }) =>
+  gateway === "rta"
+    ? { isd_code: isd, mobile: phone, otp }
+    : { email, isd_code: isd, mobile: phone };
+
 export const createFpRedemption = async (payload) => {
   if (SEND_ARN_ON_INSTANT() && payload?.redemption_mode === "instant" && !payload.arn_code) {
     payload = { ...payload, arn_code: ARN_CODE() };

@@ -25,7 +25,7 @@ const mfRedemptionSchema = new mongoose.Schema(
     amount:                { type: Number, default: null }, // null if units-based
     units:                 { type: Number, default: null }, // null if amount-based
     redemptionMode:        { type: String, enum: ["normal", "instant"], default: "normal" },
-    gateway:               { type: String, default: null }, // "rta" for instant redemptions
+    gateway:               { type: String, default: null }, // instant only: "rta" (INF209K01RU9) or "ondc" (all other funds)
 
     // FP order state:
     //   normal:  under_review → pending → confirmed → submitted → succeeded | failed

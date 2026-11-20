@@ -6,6 +6,7 @@ import {
   patchFpRedemption,
   fetchFpRedemption,
   fetchFpRedemptionSummary,
+  instantRedemptionGateway,
 } from "../../../utils/mf/redemption/redemption.utils.js";
 import {
   generateOtp,
@@ -80,7 +81,7 @@ export const createRedemption = async (req, res) => {
     if (units)                        fpPayload.units            = Number(units);
     if (redemption_mode === "instant") {
       fpPayload.redemption_mode = "instant";
-      fpPayload.gateway         = "rta";
+      fpPayload.gateway         = instantRedemptionGateway(fpPayload.scheme); // rta only for INF209K01RU9, else ondc
     }
 
     if (fpPayload.redemption_mode === "instant") {
@@ -125,7 +126,7 @@ export const createRedemption = async (req, res) => {
           amount:                amount ? Number(amount) : null,
           units:                 units  ? Number(units)  : null,
           redemptionMode:        redemption_mode === "instant" ? "instant" : "normal",
-          gateway:               redemption_mode === "instant" ? "rta" : null,
+          gateway:               fpPayload.gateway ?? null,
           fpState:               fpData.state ?? (redemption_mode === "instant" ? "pending" : "under_review"),
           otpCode:               otp,
           otpExpiresAt:          expiry,
@@ -215,8 +216,11 @@ export const confirmRedemption = async (req, res) => {
 
     const isd = mfData?.phone?.isd || "91";
     const consent = { email, isd_code: isd, mobile: phone };
-    if (record.redemptionMode === "instant") {
-      consent.otp = otp; // RTA gateway requires the raw OTP in the consent payload
+    // RTA gateway requires the raw OTP in the consent payload; ONDC takes the standard consent.
+    // Older instant records without a gateway were created on RTA.
+    const gateway = record.gateway ?? (record.redemptionMode === "instant" ? "rta" : null);
+    if (record.redemptionMode === "instant" && gateway === "rta") {
+      consent.otp = otp;
     }
     console.log(`  [3/4] Patching consent + confirmed on FP...`);
     const fpData = await patchFpRedemption({

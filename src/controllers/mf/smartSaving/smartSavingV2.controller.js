@@ -10,6 +10,8 @@ import {
   patchFpRedemption,
   fetchFpRedemptionSummary,
   parseFpRedemptionSummary,
+  instantRedemptionGateway,
+  redemptionConsent,
 } from "../../../utils/mf/redemption/redemption.utils.js";
 import {
   generateOtp,
@@ -968,7 +970,7 @@ export const smartRedeem = async (req, res) => {
           scheme:                entry.isin,
           amount,
           user_ip:               userIp,
-          ...(mode === "instant" && { redemption_mode: "instant", gateway: "rta" }),
+          ...(mode === "instant" && { redemption_mode: "instant", gateway: instantRedemptionGateway(entry.isin) }),
         };
 
         let fpData;
@@ -995,7 +997,7 @@ export const smartRedeem = async (req, res) => {
               amount,
               units:                 null,
               redemptionMode:        mode,
-              gateway:               mode === "instant" ? "rta"     : null,
+              gateway:               mode === "instant" ? instantRedemptionGateway(entry.isin) : null,
               fpState:               fpData.state ?? (mode === "instant" ? "pending" : "under_review"),
               otpCode:               sharedOtp,
               otpExpiresAt:          sharedExpiry,
@@ -1093,10 +1095,10 @@ export const confirmSmartRedeem = async (req, res) => {
         continue;
       }
       try {
-        // FP/RTA: instant redemption consent = mobile OTP only (email auth not supported)
-        const consent = record.redemptionMode === "instant"
-          ? { isd_code: isd, mobile: phone, otp }
-          : { ...baseConsent };
+        // RTA instant: mobile + OTP only (email auth not supported). ONDC instant / normal: email + mobile.
+        // Older instant records without a gateway were created on RTA.
+        const gateway = record.gateway ?? (record.redemptionMode === "instant" ? "rta" : null);
+        const consent = redemptionConsent({ gateway, email, isd, phone, otp });
         const fpData = await patchFpRedemption({ id: record.fpRedemptionId, state: "confirmed", consent });
 
         await MfRedemption.updateOne({ _id: record._id }, {
