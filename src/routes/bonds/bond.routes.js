@@ -32,7 +32,7 @@ import {
   uploadBondExcel,
   getBondByIsin,
 } from "../../controllers/bonds/isinData.controller.js";
-import { uploadBondTradesExcel } from "../../controllers/bonds/bondTrades.controller.js";
+import { uploadBondTradesExcel, adminGetTradesByIsin } from "../../controllers/bonds/bondTrades.controller.js";
 import {
   updateBondTransactionStatus,
   adminGetAllBondTransactions,
@@ -71,6 +71,7 @@ router.post("/admin/upload-excel", upload.single("file"), adminAuth, uploadBondE
 router.get("/admin/get-by-isin/:isin", adminAuth, getBondByIsin);
 
 // Trades
+router.get("/admin/trades", adminAuth, adminGetTradesByIsin);
 router.post("/admin/upload-trades-excel", upload.single("file"), uploadBondTradesExcel);
 
 // Bond by ID — catch-all, must be last among GET /admin/* routes
