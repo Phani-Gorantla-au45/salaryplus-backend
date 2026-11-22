@@ -40,67 +40,42 @@ import {
 
 const router = express.Router();
 
-//admin  access for investers
+// Admin auth
+router.post("/admin/send-otp", adminSendOtp);
+router.post("/admin/verify-otp", adminVerifyOtp);
+
+// Investors
 router.get("/admin/inv/getallinvestor", getAllInvestors);
 router.post("/admin/add-investors", adminAuth, addInvestor);
 router.put("/admin/investors/:uniqueId", adminAuth, editInvestor);
 router.delete("/admin/investors/:uniqueId", adminAuth, deleteInvestor);
 
-//admin login rotes
-router.post("/admin/send-otp", adminSendOtp);
-router.post("/admin/verify-otp", adminVerifyOtp);
-
-/* -------- Admin Bond Listing -------- */
-router.post("/admin/BondListing", createBond);
-router.get("/admin/getallbonds", getBondListings);
-router.put("/admin/:bondLaunchId", updateBondByBondLaunchId);
-
-//transaction details
-router.get("/admin/transactions", adminAuth, adminGetAllBondTransactions);
-router.put(
-  "/admin/transaction/:transactionId/status",
-  adminAuth,
-  updateBondTransactionStatus,
-);
-
-router.get("/admin/:bondLaunchId", getBondByBondLaunchId);
-router.get("/admin/get-by-isin/:isin", getBondByIsin);
-
-router.post("/admin/upload-excel", upload.single("file"), uploadBondExcel);
-
-/* -------- Admin Bond Listing -------- */
+// Bond listings
 router.post("/admin/BondListing", adminAuth, createBond);
-router.get("/admin/getallbonds", getBondListings);
-router.put("/admin/:bondLaunchId", adminAuth, updateBondByBondLaunchId);
-router.get("/admin/:bondLaunchId", adminAuth, getBondByBondLaunchId);
-router.delete("/admin/:bondLaunchId", adminAuth, deleteBondByBondLaunchId);
+router.get("/admin/getallbonds", adminAuth, getBondListings);
 
+// Transactions
+router.get("/admin/transactions", adminAuth, adminGetAllBondTransactions);
+router.put("/admin/transaction/:transactionId/status", adminAuth, updateBondTransactionStatus);
+router.put("/transaction/:transactionId/status", updateBondTransactionStatus);
+
+// KYC (specific paths before /:bondLaunchId catch-all)
 router.post("/admin/kyc/:uniqueId", adminAuth, adminAddKyc);
 router.put("/admin/kyc/:uniqueId", adminAuth, adminEditKyc);
 router.delete("/admin/kyc/:uniqueId", adminAuth, adminDeleteKyc);
 router.get("/admin/kyc/status/:uniqueId", adminAuth, adminGetKycStatus);
 router.put("/admin/kyc/status/:uniqueId", adminAuth, updateKycStatus);
 
-//admin isin excel upload
-router.post(
-  "/admin/upload-excel",
-  upload.single("file"),
-  adminAuth,
-  uploadBondExcel,
-);
+// ISIN cashflow data (must be before /:bondLaunchId catch-all)
+router.post("/admin/upload-excel", upload.single("file"), adminAuth, uploadBondExcel);
 router.get("/admin/get-by-isin/:isin", adminAuth, getBondByIsin);
-//admin trade excel upload
 
-router.post(
-  "/admin/upload-trades-excel",
-  upload.single("file"),
-  uploadBondTradesExcel,
-);
-router.put(
-  "/transaction/:transactionId/status",
+// Trades
+router.post("/admin/upload-trades-excel", upload.single("file"), uploadBondTradesExcel);
 
-  // verifyAdmin,
-  updateBondTransactionStatus,
-);
+// Bond by ID — catch-all, must be last among GET /admin/* routes
+router.get("/admin/:bondLaunchId", adminAuth, getBondByBondLaunchId);
+router.put("/admin/:bondLaunchId", adminAuth, updateBondByBondLaunchId);
+router.delete("/admin/:bondLaunchId", adminAuth, deleteBondByBondLaunchId);
 
 export default router;
