@@ -50,9 +50,9 @@ router.post("/admin/add-investors", adminAuth, addInvestor);
 router.put("/admin/investors/:uniqueId", adminAuth, editInvestor);
 router.delete("/admin/investors/:uniqueId", adminAuth, deleteInvestor);
 
-// Bond listings
+// Bond listings (getallbonds and get-by-isin are also read by the user app — no adminAuth)
 router.post("/admin/BondListing", adminAuth, createBond);
-router.get("/admin/getallbonds", adminAuth, getBondListings);
+router.get("/admin/getallbonds", getBondListings);
 
 // Transactions
 router.get("/admin/transactions", adminAuth, adminGetAllBondTransactions);
@@ -67,8 +67,9 @@ router.get("/admin/kyc/status/:uniqueId", adminAuth, adminGetKycStatus);
 router.put("/admin/kyc/status/:uniqueId", adminAuth, updateKycStatus);
 
 // ISIN cashflow data (must be before /:bondLaunchId catch-all)
+// get-by-isin is also read by the user app — no adminAuth
 router.post("/admin/upload-excel", upload.single("file"), adminAuth, uploadBondExcel);
-router.get("/admin/get-by-isin/:isin", adminAuth, getBondByIsin);
+router.get("/admin/get-by-isin/:isin", getBondByIsin);
 
 // Trades
 router.get("/admin/trades", adminAuth, adminGetTradesByIsin);
